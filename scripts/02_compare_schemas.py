@@ -13,7 +13,6 @@ Run from ArcGIS Pro Python environment:
 """
 
 import json
-import os
 from pathlib import Path
 
 import arcpy
@@ -21,7 +20,8 @@ import arcpy
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SDE_CONNECTION  = r"C:\Users\<you>\AppData\Roaming\ESRI\ArcGISPro\ArcCatalog\prod_RW_sdeadm.sde"
+SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+
 OLD_EDGE_SOURCE = "SDEADM.TRN_street"
 NEW_EDGE_SOURCE = "SDEADM.TRNLRS_TRN_STREET_VW"
 
@@ -97,16 +97,16 @@ def map_evaluator_fields(config, old_fields, new_fields):
         for ev in attr["evaluators"]:
             if ev.get("evaluator_type") != "Field":
                 continue
-            # "data" holds the field name for Field-type evaluators (arcpy indexed property)
-            field_ref = (ev.get("data") or "").upper()
+            field_ref = (ev.get("field_name") or "").upper()
             if not field_ref:
                 continue
             record = {
                 "attribute":      attr["name"],
                 "usage_type":     attr["usage_type"],
                 "source":         ev["source"],
-                "edge_direction": ev.get("edge_direction"),  # FROM_TO | TO_FROM
-                "field_name":     ev.get("data"),
+                "element_type":   ev["element_type"],
+                "field_name":     ev.get("field_name"),
+                "expression":     ev.get("expression"),
                 "in_old_source":  field_ref in old_fields,
                 "in_new_source":  field_ref in new_fields,
                 "status":         None,
@@ -122,8 +122,8 @@ def map_evaluator_fields(config, old_fields, new_fields):
 
 
 def main():
-    old_path = os.path.join(SDE_CONNECTION, OLD_EDGE_SOURCE)
-    new_path = os.path.join(SDE_CONNECTION, NEW_EDGE_SOURCE)
+    old_path = f"{SDE_CONNECTION}\\{OLD_EDGE_SOURCE}"
+    new_path = f"{SDE_CONNECTION}\\{NEW_EDGE_SOURCE}"
 
     for path, label in [(old_path, "old"), (new_path, "new")]:
         if not arcpy.Exists(path):
