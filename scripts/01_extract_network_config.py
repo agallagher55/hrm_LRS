@@ -62,7 +62,7 @@ def describe_attributes(nd_desc):
             "usage_type":    attr.usageType,    # Cost | Descriptor | Restriction | Hierarchy
             "data_type":     attr.dataType,     # Double | Integer | Float | Boolean | String
             "units":         attr.units,        # Meters | Feet | Minutes | Hours | Unknown …
-            "default_value": attr.defaultValue,
+            "default_value": getattr(attr, "defaultValue", None),
             "use_by_default": getattr(attr, "useByDefault", None),
             "evaluators":    [],
         }
