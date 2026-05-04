@@ -68,13 +68,14 @@ def describe_sources(nd_desc):
 def describe_attributes(nd_desc):
     """Return a list of dicts for every network attribute (cost, restriction, descriptor, hierarchy)."""
     attributes = []
+
     for attr in nd_desc.attributes:
         a = {
             "name":           attr.name,
             "usage_type":     attr.usageType,     # Cost | Descriptor | Restriction | Hierarchy
             "data_type":      attr.dataType,      # Double | Integer | Float | Boolean
             "units":          attr.units,         # Meters | Feet | Minutes | Hours | Unknown …
-            "default_value":  attr.defaultValue,
+            "default_value":  getattr(attr, "defaultValue", None),
             "use_by_default": getattr(attr, "useByDefault", None),
             # Default evaluator types/data apply when no source-specific evaluator overrides
             "default_edge_evaluator_type":     getattr(attr, "defaultEdgeEvaluatorType", None),
@@ -86,6 +87,7 @@ def describe_attributes(nd_desc):
             "evaluators":  [],
             "parameters":  [],
         }
+
         # arcpy.Describe exposes evaluators as indexed dynamic properties, not a list.
         # evaluatorTypeN / sourceNameN / edgeDirectionN / dataN, gated by evaluatorCount.
         ev_count = getattr(attr, "evaluatorCount", 0)
