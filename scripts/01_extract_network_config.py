@@ -20,7 +20,7 @@ import arcpy
 # Configuration — update these paths before running
 # ---------------------------------------------------------------------------
 SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-NETWORK_DATASET = os.path.join(SDE_CONNECTION, "SDEADM.TRN_street_network")
+NETWORK_DATASET = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_JSON = REPO_ROOT / "data" / "network_config.json"
@@ -173,17 +173,17 @@ def main():
     print(f"  Sources    : {len(config['sources'])}")
     for s in config["sources"]:
         print(f"    [{s['source_type']:20s}] {s['name']}")
-    
+
     print(f"  Attributes : {len(config['attributes'])}")
-    
+
     for a in config["attributes"]:
         ev_count = len(a["evaluators"])
         print(f"    [{a['usage_type']:12s}] {a['name']} ({a['units']}) — {ev_count} evaluator(s)")
-    
+
     if config["directions"]:
         print(f"  Directions : length={config['directions']['length_attribute']}, "
               f"time={config['directions']['time_attribute']}")
-        
+
     if config["traffic"]:
         print(f"  Traffic    : {config['traffic']['type']}")
 
