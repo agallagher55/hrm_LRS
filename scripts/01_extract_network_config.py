@@ -122,6 +122,11 @@ def extract_config(network_dataset_path):
     """Describe the network dataset and return a config dict."""
     print(f"Describing: {network_dataset_path}")
     desc = arcpy.Describe(network_dataset_path)
+    if desc.dataType != "NetworkDataset":
+        sys.exit(
+            f"ERROR: '{network_dataset_path}' is a {desc.dataType!r}, not a NetworkDataset.\n"
+            "Update NETWORK_DATASET to point to the network dataset itself, not its source feature class."
+        )
 
     config = {
         "network_dataset_name": desc.name,
