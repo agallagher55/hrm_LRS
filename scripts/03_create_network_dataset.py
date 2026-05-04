@@ -24,7 +24,7 @@ import arcpy
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 
 # Feature dataset that will contain the new network dataset.
 # Network datasets must live inside a feature dataset in a geodatabase.
