@@ -37,17 +37,21 @@ TEMPLATE_XML       = REPO_ROOT / "data" / "network_template.xml"   # edited copy
 
 
 def verify_sources_exist(feature_dataset):
-    """Check that all source feature classes referenced by the template exist."""
-    # These should match what was put in the edited XML template.
-    # Update this list after editing the template.
+    """Check that all source FCs referenced by the template exist inside the feature dataset.
+
+    CreateNetworkDatasetFromTemplate requires sources to live inside the target
+    feature dataset, not just anywhere in the geodatabase.
+    """
+    # Short (unqualified) names as they appear in the XML <Name> elements.
+    # Update this list whenever the XML template source names change.
     expected_sources = [
-        "SDEADM.TRNLRS_TRN_STREET_VW",   # or the underlying FC — see NOTE in 02_compare_schemas.py
-        "SDEADM.TRN_street_junction",     # update if renamed
-        "SDEADM.TRN_traffic_turn",        # update if renamed
+        "TRNLRS_TRN_STREET_VW",      # edge source
+        "TRNLRS_street_junction",    # junction FC (copied from TRN_streets_routes)
+        "TRNLRS_traffic_turn",       # turn FC (copied from TRN_streets_routes)
     ]
     missing = []
     for src in expected_sources:
-        path = os.path.join(os.path.dirname(feature_dataset), src)
+        path = os.path.join(feature_dataset, src)
         if not arcpy.Exists(path):
             missing.append(src)
     return missing
