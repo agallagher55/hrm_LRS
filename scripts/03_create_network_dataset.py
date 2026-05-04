@@ -24,11 +24,11 @@ import arcpy
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SDE_CONNECTION     = r"C:\Users\<you>\AppData\Roaming\ESRI\ArcGISPro\ArcCatalog\prod_RW_sdeadm.sde"
+SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 
 # Feature dataset that will contain the new network dataset.
 # Network datasets must live inside a feature dataset in a geodatabase.
-FEATURE_DATASET    = os.path.join(SDE_CONNECTION, "SDEADM.TRN")   # adjust owner/name as needed
+FEATURE_DATASET    = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS")   # adjust owner/name as needed
 NEW_ND_NAME        = "TRN_lrs_street_network"                      # name of the new ND
 
 REPO_ROOT          = Path(__file__).resolve().parents[1]
@@ -40,9 +40,6 @@ def verify_sources_exist(feature_dataset):
     """Check that all source feature classes referenced by the template exist."""
     # These should match what was put in the edited XML template.
     # Update this list after editing the template.
-    # Edge and junction sources must reside inside the same feature dataset as the
-    # network dataset; paths are constructed relative to feature_dataset, not the
-    # SDE connection root.
     expected_sources = [
         "SDEADM.TRNLRS_TRN_STREET_VW",   # or the underlying FC — see NOTE in 02_compare_schemas.py
         "SDEADM.TRN_street_junction",     # update if renamed
@@ -50,7 +47,7 @@ def verify_sources_exist(feature_dataset):
     ]
     missing = []
     for src in expected_sources:
-        path = os.path.join(feature_dataset, src)
+        path = os.path.join(os.path.dirname(feature_dataset), src)
         if not arcpy.Exists(path):
             missing.append(src)
     return missing
