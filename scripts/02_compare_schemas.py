@@ -175,13 +175,6 @@ def main():
     for m in needs_action:
         print(f"    [{m['attribute']}] references '{m['field_name']}' — not in new source")
 
-    # Note about VW (view) sources
-    print(
-        "\nNOTE: TRNLRS_TRN_STREET_VW is a database view. ArcGIS Network Datasets "
-        "require a true feature class as the edge source. Confirm whether:\n"
-        "  (a) The underlying feature class (not the view) will be the ND edge source, or\n"
-        "  (b) The view is registered as a versioned, editable feature class in SDE."
-    )
 
 
 if __name__ == "__main__":

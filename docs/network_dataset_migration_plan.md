@@ -3,7 +3,25 @@
 
 ### Overview
 
-The existing `SDEADM.TRN_street_network` was built on `SDEADM.TRN_street` (the old street feature class). The goal is to create a new, equivalent network dataset whose edge source is the LRS-derived street layer (`SDEADM.TRNLRS_TRN_STREET_VW`), preserving all routing and service area behaviour.
+The existing `SDEADM.TRN_street_network` was built on `SDEADM.TRN_street` (the old street feature class). The goal is to create a new, equivalent network dataset whose edge source is `SDEADM.TRNLRS_TRN_STREET_VW` — a real SDE feature class (the `_VW` suffix is a naming convention, not a database view) that is truncated and repopulated by `LRS_updates.py` on each LRS refresh cycle.
+
+#### LRS Data Pipeline
+
+```
+LRSN_Route + 7 event tables (E_StreetDirection, E_StreetClass, E_AddressRange,
+    E_PSAB, E_StreetOwnership, E_StreetStatus, E_WinterMaintenance)
+        │
+        ▼  arcpy.locref.OverlayEvents
+TRNLRS_segmented_street_events   (intermediate dynamic segmentation feature class)
+        │
+        ▼  SQL query layer (joins E_AddressRange for ADDDATE/MODDATE)
+        │  filtered: TO_DATE IS NULL  (active streets only)
+        │
+        ▼  TruncateTable → Append
+TRNLRS_TRN_STREET_VW             (the new edge source for the network dataset)
+```
+
+The network dataset must be rebuilt (or its source refreshed) after each LRS update run.
 
 ---
 
@@ -55,19 +73,29 @@ Compares fields between `TRN_street` (old) and `TRNLRS_TRN_STREET_VW` (new). Pro
 | `data/schema_comparison.json` | Full field-level diff: shared, only-in-old, only-in-new, type/length changes |
 | `data/evaluator_field_map.json` | Per-evaluator status: OK, ACTION REQUIRED, or WARNING |
 
-**Known schema additions in new LRS source** (from visual inspection):
+**Known schema changes in `TRNLRS_TRN_STREET_VW`** (from `LRS_updates.py`):
 
-| New Field | Notes |
-|---|---|
-| `STR_CODE_L` | Left Street Code (Long) |
-| `STR_CODE_R` | Right Street Code (Long) |
-| `ASSETID` | Asset ID (Text 50) |
-| `ADDDATE` | Add Date |
-| `MODDATE` | Modified Date |
-| `ORIGIN_DATE` | Origin Date |
-| `MAINTENANCE` | Winter Maintenance (Text 8, domain `SNF_maintenance`) |
+Fields added (not in `TRN_street`):
 
-These are additive — they should not break any existing evaluators.
+| New Field | Source in pipeline | Notes |
+|---|---|---|
+| `STR_CODE_L` | `TRNLRS_segmented_street_events` | Left Street Code (Long) |
+| `STR_CODE_R` | `TRNLRS_segmented_street_events` | Right Street Code (Long) |
+| `ASSETID` | `TRNLRS_segmented_street_events` | Asset ID (Text 50) |
+| `ORIGIN_DATE` | `TRNLRS_segmented_street_events` | Origin Date |
+| `MAINTENANCE` | `E_WinterMaintenance` event | Text 8, domain `SNF_maintenance` |
+| `ADDDATE` | `E_AddressRange` join | Min(ADDDATE) per FDMID |
+| `MODDATE` | `E_AddressRange` join | Max(MODDATE) per FDMID |
+
+Fields with internal renames (output field name is unchanged, source column differs):
+
+| Output Field | Old source | New source column | Action |
+|---|---|---|---|
+| `FULL_NAME` | stored field in `TRN_street` | `ROUTENAME` from `LRSN_Route` | Verify evaluators reference `FULL_NAME` — the output name is the same |
+| `STR_REM` | stored field in `TRN_street` | `COMMENT__2` from dyn-seg | Output name unchanged — no evaluator change needed |
+| `FLAGS` | stored field in `TRN_street` | `FLAG` from dyn-seg | Output name unchanged — no evaluator change needed |
+
+All additions are additive and should not break any existing evaluators.
 
 **Review any fields listed as "only in old source"** — if they are referenced by a network evaluator, a replacement field in the new source must be identified before proceeding.
 
@@ -132,15 +160,12 @@ After building, validate the new network dataset before retiring the old one:
 
 ---
 
-### Key Risk: Edge Source is a Database View
+### Rebuild Cadence
 
-`TRNLRS_TRN_STREET_VW` has a `_VW` suffix indicating it is a database view. **ArcGIS Network Datasets require the edge source to be a true, registered feature class — not a view.**
+Because `TRNLRS_TRN_STREET_VW` is repopulated by `LRS_updates.py` (truncate/append), the network dataset edges are stale after each LRS refresh. Options:
 
-Confirm one of the following before proceeding:
-- The underlying materialized feature class (not the view) will be used as the edge source, **or**
-- The view is registered with the geodatabase as a versioned, queryable feature class (rare but possible in some SDE configurations)
-
-If using the underlying feature class, update the source name in the XML template and in `scripts/03_create_network_dataset.py` accordingly.
+- **Manual rebuild**: Run `arcpy.na.BuildNetwork()` after each `LRS_updates.py` run.
+- **Automated rebuild**: Add a `BuildNetwork` call at the end of `LRS_updates.py`'s main block, after the `append_feature` calls complete successfully.
 
 ---
 
