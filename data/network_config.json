@@ -1,0 +1,145 @@
+{
+  "network_dataset_name": "SDEADM.TRN_street_network",
+  "catalog_path": "E:\\HRM\\Scripts\\SDE\\SQL\\qa_RW_sdeadm.sde\\SDEADM.TRN_streets_routes\\SDEADM.TRN_street_network",
+  "network_type": "Geodatabase",
+  "elevation_model": "Elevation Fields",
+  "supports_turns": true,
+  "supports_directions": true,
+  "is_buildable": true,
+  "time_zone_attribute": "",
+  "time_zone_table": "",
+  "optimizations": [],
+  "sources": [
+    {
+      "name": "SDEADM.TRN_street",
+      "source_id": 2,
+      "source_type": "EdgeFeature",
+      "element_type": "Edge",
+      "from_elevation_field": "FROM_ELEV",
+      "to_elevation_field": "TO_ELEV"
+    },
+    {
+      "name": "SDEADM.TRN_street_junction",
+      "source_id": 3,
+      "source_type": "JunctionFeature",
+      "element_type": "Junction",
+      "elevation_field": ""
+    },
+    {
+      "name": "SDEADM.TRN_street_network_Junctions",
+      "source_id": 4,
+      "source_type": "SystemJunction",
+      "element_type": "Junction",
+      "elevation_field": "ZELEV"
+    },
+    {
+      "name": "SDEADM.TRN_traffic_turn",
+      "source_id": 1,
+      "source_type": "TurnFeature",
+      "element_type": "Turn"
+    }
+  ],
+  "attributes": [
+    {
+      "name": "Length",
+      "usage_type": "Cost",
+      "data_type": "Double",
+      "units": "Meters",
+      "default_value": null,
+      "use_by_default": true,
+      "default_edge_evaluator_type": "Constant",
+      "default_edge_data": 0.0,
+      "default_junction_evaluator_type": "Constant",
+      "default_junction_data": 0.0,
+      "default_turn_evaluator_type": "Constant",
+      "default_turn_data": 0.0,
+      "evaluators": [
+        {
+          "source": "SDEADM.TRN_street",
+          "edge_direction": "AlongDigitizedDirection",
+          "evaluator_type": "Field",
+          "data": "[SHAPE.STLength()]"
+        },
+        {
+          "source": "SDEADM.TRN_street",
+          "edge_direction": "AgainstDigitizedDirection",
+          "evaluator_type": "Field",
+          "data": "[SHAPE.STLength()]"
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "name": "OneWay",
+      "usage_type": "Restriction",
+      "data_type": "Boolean",
+      "units": "Unknown",
+      "default_value": null,
+      "use_by_default": true,
+      "default_edge_evaluator_type": "Constant",
+      "default_edge_data": false,
+      "default_junction_evaluator_type": "Constant",
+      "default_junction_data": false,
+      "default_turn_evaluator_type": "Constant",
+      "default_turn_data": false,
+      "evaluators": [
+        {
+          "source": "SDEADM.TRN_street",
+          "edge_direction": "AlongDigitizedDirection",
+          "evaluator_type": "Field",
+          "data": "restricted = False\r\nSelect Case UCase([STR_DIR])\r\n  Case \"N\", \"FDTO\", \"T\": restricted = True\r\nEnd Select\r\n\r\nvalue = restricted"
+        },
+        {
+          "source": "SDEADM.TRN_street",
+          "edge_direction": "AgainstDigitizedDirection",
+          "evaluator_type": "Field",
+          "data": "restricted = False\r\nSelect Case UCase([STR_DIR])\r\n  Case \"N\", \"FOTD\", \"T\": restricted = True\r\nEnd Select\r\n\r\nvalue = restricted"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "Restriction Usage",
+          "type": "Double",
+          "default_value": -1.0
+        }
+      ]
+    },
+    {
+      "name": "TrafficTurn",
+      "usage_type": "Restriction",
+      "data_type": "Boolean",
+      "units": "Unknown",
+      "default_value": null,
+      "use_by_default": true,
+      "default_edge_evaluator_type": "Constant",
+      "default_edge_data": false,
+      "default_junction_evaluator_type": "Constant",
+      "default_junction_data": false,
+      "default_turn_evaluator_type": "Constant",
+      "default_turn_data": false,
+      "evaluators": [
+        {
+          "source": "SDEADM.TRN_traffic_turn",
+          "edge_direction": "None",
+          "evaluator_type": "Constant",
+          "data": true
+        }
+      ],
+      "parameters": [
+        {
+          "name": "Restriction Usage",
+          "type": "Double",
+          "default_value": -1.0
+        }
+      ]
+    }
+  ],
+  "directions": {
+    "length_attribute": "Length",
+    "time_attribute": "",
+    "road_class_attribute": "",
+    "reporting_units": null,
+    "directions_field_mappings": []
+  },
+  "traffic": null
+}

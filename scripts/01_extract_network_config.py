@@ -20,7 +20,7 @@ import arcpy
 # Configuration — update these paths before running
 # ---------------------------------------------------------------------------
 SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-NETWORK_DATASET = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes")
+NETWORK_DATASET = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_street_network")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_JSON = REPO_ROOT / "data" / "network_config.json"
@@ -33,22 +33,34 @@ def describe_sources(nd_desc):
     sources = []
     for src in nd_desc.sources:
         s = {
-            "name":        src.name,
-            "source_type": src.sourceType,    # EdgeFeature | JunctionFeature | TurnFeature | SystemJunction
-            "element_type": src.elementType,  # Edge | Junction | Turn
+            "name":         src.name,
+            "source_id":    src.sourceID,
+            "source_type":  src.sourceType,    # EdgeFeature | JunctionFeature | Turn | SystemJunction
+            "element_type": src.elementType,   # Edge | Junction | Turn
         }
-        # Edge-specific connectivity policy
-        if hasattr(src, "fromToConnectivityPolicy"):
-            s["from_to_connectivity_policy"] = src.fromToConnectivityPolicy
-        if hasattr(src, "connectivity"):
-            # connectivity is a list of NetworkEdgeConnectivity objects
-            groups = []
-            for c in src.connectivity:
-                groups.append({
-                    "group":  c.connectivityGroup,
-                    "policy": c.edgeConnectivityPolicy,  # EndPoint | AnyVertex
-                })
-            s["connectivity_groups"] = groups
+        # Elevation fields (edge sources carry from/to; junction sources carry a single field)
+        if hasattr(src, "fromElevationFieldName"):
+            s["from_elevation_field"] = src.fromElevationFieldName
+        if hasattr(src, "toElevationFieldName"):
+            s["to_elevation_field"] = src.toElevationFieldName
+        if hasattr(src, "elevationFieldName"):
+            s["elevation_field"] = src.elevationFieldName
+        # Connectivity policies — indexed by subTypeConnCount (EndPoint | AnyVertex | Override)
+        conn_count = getattr(src, "subTypeConnCount", 0)
+        if conn_count:
+            s["connectivity_policies"] = [
+                {
+                    "subtype": getattr(src, f"connSubtype{i}", None),
+                    "policy":  getattr(src, f"connPolicy{i}", None),
+                }
+                for i in range(conn_count)
+            ]
+        # Connectivity group memberships — indexed by connGroupCount
+        group_count = getattr(src, "connGroupCount", 0)
+        if group_count:
+            s["connectivity_groups"] = [
+                getattr(src, f"connGroupIndex{i}", None) for i in range(group_count)
+            ]
         sources.append(s)
     return sources
 
@@ -56,47 +68,61 @@ def describe_sources(nd_desc):
 def describe_attributes(nd_desc):
     """Return a list of dicts for every network attribute (cost, restriction, descriptor, hierarchy)."""
     attributes = []
+
     for attr in nd_desc.attributes:
         a = {
-            "name":          attr.name,
-            "usage_type":    attr.usageType,    # Cost | Descriptor | Restriction | Hierarchy
-            "data_type":     attr.dataType,     # Double | Integer | Float | Boolean | String
-            "units":         attr.units,        # Meters | Feet | Minutes | Hours | Unknown …
-            "default_value": getattr(attr, "defaultValue", None),
+            "name":           attr.name,
+            "usage_type":     attr.usageType,     # Cost | Descriptor | Restriction | Hierarchy
+            "data_type":      attr.dataType,      # Double | Integer | Float | Boolean
+            "units":          attr.units,         # Meters | Feet | Minutes | Hours | Unknown …
+            "default_value":  getattr(attr, "defaultValue", None),
             "use_by_default": getattr(attr, "useByDefault", None),
-            "evaluators":    [],
+            # Default evaluator types/data apply when no source-specific evaluator overrides
+            "default_edge_evaluator_type":     getattr(attr, "defaultEdgeEvaluatorType", None),
+            "default_edge_data":               getattr(attr, "defaultEdgeData", None),
+            "default_junction_evaluator_type": getattr(attr, "defaultJunctionEvaluatorType", None),
+            "default_junction_data":           getattr(attr, "defaultJunctionData", None),
+            "default_turn_evaluator_type":     getattr(attr, "defaultTurnEvaluatorType", None),
+            "default_turn_data":               getattr(attr, "defaultTurnData", None),
+            "evaluators":  [],
+            "parameters":  [],
         }
-        for ev in attr.evaluators:
-            evaluator = {
-                "source":         ev.source.name,
-                "element_type":   ev.elementType,   # Edge | Junction | Turn
-                "evaluator_type": ev.evaluatorType, # Field | Constant | Script | NetworkEdge …
-            }
-            # Field evaluator → capture field name and any Python expression
-            if ev.evaluatorType == "Field":
-                evaluator["field_name"] = getattr(ev, "fieldName", None)
-                evaluator["expression"] = getattr(ev, "expression", None)
-                evaluator["pre_logic"]  = getattr(ev, "preLogicScriptCode", None)
-            elif ev.evaluatorType == "Constant":
-                evaluator["constant_value"] = getattr(ev, "constantValue", None)
-            elif ev.evaluatorType == "Script":
-                evaluator["expression"] = getattr(ev, "expression", None)
-                evaluator["pre_logic"]  = getattr(ev, "preLogicScriptCode", None)
-            a["evaluators"].append(evaluator)
+
+        # arcpy.Describe exposes evaluators as indexed dynamic properties, not a list.
+        # evaluatorTypeN / sourceNameN / edgeDirectionN / dataN, gated by evaluatorCount.
+        ev_count = getattr(attr, "evaluatorCount", 0)
+        for i in range(ev_count):
+            a["evaluators"].append({
+                "source":         getattr(attr, f"sourceName{i}", None),
+                "edge_direction": getattr(attr, f"edgeDirection{i}", None),  # FROM_TO | TO_FROM
+                "evaluator_type": getattr(attr, f"evaluatorType{i}", None),  # Field | Constant | Script | Function | None
+                # "data" carries field name for Field, constant for Constant, expression for Script
+                "data":           getattr(attr, f"data{i}", None),
+            })
+        # Attribute parameters (used by parameterized restrictions/costs) — also indexed
+        p_count = getattr(attr, "parameterCount", 0)
+        for i in range(p_count):
+            a["parameters"].append({
+                "name":          getattr(attr, f"parameterName{i}", None),
+                "type":          getattr(attr, f"parameterType{i}", None),
+                "default_value": getattr(attr, f"parameterDefaultValue{i}", None),
+            })
         attributes.append(a)
     return attributes
 
 
 def describe_directions(nd_desc):
     """Return directions configuration if present."""
-    if not hasattr(nd_desc, "directions"):
+    if not getattr(nd_desc, "supportsDirections", False):
         return None
-    d = nd_desc.directions
+    d = getattr(nd_desc, "directions", None)
+    if d is None:
+        return None
     return {
-        "length_attribute":    getattr(d, "lengthAttributeName", None),
-        "time_attribute":      getattr(d, "timeAttributeName", None),
-        "road_class_attribute": getattr(d, "roadClassAttributeName", None),
-        "reporting_units":     getattr(d, "reportingUnits", None),
+        "length_attribute":      getattr(d, "lengthAttributeName", None),
+        "time_attribute":        getattr(d, "timeAttributeName", None),
+        "road_class_attribute":  getattr(d, "roadClassAttributeName", None),
+        "reporting_units":       getattr(d, "reportingUnits", None),
         "directions_field_mappings": [
             {"field_type": fm.fieldType, "field_name": fm.fieldName}
             for fm in getattr(d, "fieldMappings", [])
@@ -106,9 +132,11 @@ def describe_directions(nd_desc):
 
 def describe_traffic(nd_desc):
     """Return traffic configuration if present."""
-    if not hasattr(nd_desc, "trafficData"):
+    if not getattr(nd_desc, "supportsHistoricalTrafficData", False):
         return None
-    t = nd_desc.trafficData
+    t = getattr(nd_desc, "trafficData", None)
+    if t is None:
+        return None
     return {
         "type":                    getattr(t, "type", None),
         "speed_profiles_table":    getattr(t, "speedProfilesTableName", None),
@@ -131,11 +159,14 @@ def extract_config(network_dataset_path):
     config = {
         "network_dataset_name": desc.name,
         "catalog_path":         desc.catalogPath,
-        "network_type":         getattr(desc, "networkType", None),  # Geodatabase | Shapefile | SDC
-        "elevation_model":      getattr(desc, "elevationModel", None),
+        "network_type":         getattr(desc, "networkType", None),      # GEODATABASE | SHAPEFILE | SDC
+        "elevation_model":      getattr(desc, "elevationModel", None),   # NONE | Z_COORDINATE | ELEVATION_FIELDS
         "supports_turns":       getattr(desc, "supportsTurns", None),
+        "supports_directions":  getattr(desc, "supportsDirections", None),
+        "is_buildable":         getattr(desc, "isBuildable", None),
         "time_zone_attribute":  getattr(desc, "timeZoneAttributeName", None),
         "time_zone_table":      getattr(desc, "timeZoneTableName", None),
+        "optimizations":        list(getattr(desc, "optimizations", None) or []),
         "sources":              describe_sources(desc),
         "attributes":           describe_attributes(desc),
         "directions":           describe_directions(desc),

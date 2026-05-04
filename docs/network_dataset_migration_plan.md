@@ -3,7 +3,18 @@
 
 ### Overview
 
-The existing `SDEADM.TRN_street_network` was built on `SDEADM.TRN_street` (the old street feature class). The goal is to create a new, equivalent network dataset whose edge source is `SDEADM.TRNLRS_TRN_STREET_VW` — a real SDE feature class (the `_VW` suffix is a naming convention, not a database view) that is truncated and repopulated by `LRS_updates.py` on each LRS refresh cycle.
+The existing `SDEADM.TRN_street_network` was built on `SDEADM.TRN_street` (the
+old street feature class). The goal is to create a new, equivalent network
+dataset whose edge source is `SDEADM.TRNLRS_TRN_STREET_VW` — a real SDE feature
+class (the `_VW` suffix is a naming convention, not a database view) that is
+truncated and repopulated by `LRS_updates.py` on each LRS refresh cycle.
+
+**Important:** `TRNLRS_TRN_STREET_VW` is registered in SDE as a standalone
+feature class, not inside any feature dataset. ArcGIS network datasets require
+all source FCs to reside inside the target feature dataset, so
+`03_create_network_dataset.py` automatically copies it into `SDEADM.TRNLRS`
+before creating the network. See [Rebuild Cadence](#rebuild-cadence) for how to
+keep that copy current after each LRS refresh.
 
 #### LRS Data Pipeline
 
@@ -18,10 +29,11 @@ TRNLRS_segmented_street_events   (intermediate dynamic segmentation feature clas
         │  filtered: TO_DATE IS NULL  (active streets only)
         │
         ▼  TruncateTable → Append
-TRNLRS_TRN_STREET_VW             (the new edge source for the network dataset)
+TRNLRS_TRN_STREET_VW             (standalone SDE FC — authoritative edge source)
+        │
+        ▼  CopyFeatures (performed by 03_create_network_dataset.py)
+SDEADM.TRNLRS\TRNLRS_TRN_STREET_VW   (copy inside feature dataset — used by ND)
 ```
-
-The network dataset must be rebuilt (or its source refreshed) after each LRS update run.
 
 ---
 
@@ -30,17 +42,30 @@ The network dataset must be rebuilt (or its source refreshed) after each LRS upd
 | Property | Value |
 |---|---|
 | Location | `SDEADM.TRN_street_network` (SDE, prod_RW_sdeadm) |
+| Feature dataset | `SDEADM.TRN_streets_routes` |
 | Edge source | `SDEADM.TRN_street` |
 | Junction sources | `SDEADM.TRN_street_junction`, `SDEADM.TRN_street_network_Junctions` (system) |
 | Turn source | `SDEADM.TRN_traffic_turn` |
 | Status | Read-only |
 | Uses | Routing, service areas |
 
+### New Network Dataset: TRN_lrs_street_network
+
+| Property | Value |
+|---|---|
+| Location | `SDEADM.TRN_lrs_street_network` (SDE, SDEADM.TRNLRS) |
+| Feature dataset | `SDEADM.TRNLRS` |
+| Edge source | `TRNLRS_TRN_STREET_VW` (copied from standalone FC into FD by script 03) |
+| Junction source | `TRNLRS_street_junction` (copied from `TRN_streets_routes`) |
+| Turn source | `TRNLRS_traffic_turn` (copied from `TRN_streets_routes`) |
+| System junction | `TRN_lrs_street_network_Junctions` (auto-created) |
+
 ---
 
 ### Phase 1 — Extract Old Configuration
 
-**Script:** `scripts/01_extract_network_config.py`
+**Script:** `scripts/01_extract_network_config.py`  
+**Status:** Complete — outputs exist in `data/`
 
 Run this script against the existing network dataset. It produces:
 
@@ -66,7 +91,9 @@ Run this script against the existing network dataset. It produces:
 
 **Script:** `scripts/02_compare_schemas.py`
 
-Compares fields between `TRN_street` (old) and `TRNLRS_TRN_STREET_VW` (new). Produces:
+Compares fields between `TRN_street` (old) and `TRNLRS_TRN_STREET_VW` (new).
+Configure `SDE_CONNECTION`, `OLD_EDGE_SOURCE`, and `NEW_EDGE_SOURCE` at the top
+of the script before running. Produces:
 
 | Output | Purpose |
 |---|---|
@@ -97,44 +124,32 @@ Fields with internal renames (output field name is unchanged, source column diff
 
 All additions are additive and should not break any existing evaluators.
 
-**Review any fields listed as "only in old source"** — if they are referenced by a network evaluator, a replacement field in the new source must be identified before proceeding.
+**Review any fields listed as "only in old source"** — if they are referenced by
+a network evaluator, a replacement field in the new source must be identified
+before proceeding.
 
 ---
 
 ### Phase 3 — Edit the XML Template
 
-Before running the creation script, the exported `data/network_template.xml` must be edited. Work from a copy.
+**Status:** Complete — `data/network_template.xml` has been updated
 
-**Required changes:**
+The following changes have been applied to `data/network_template.xml`:
 
-1. **Edge source name**: Replace all occurrences of `TRN_street` (the old edge source) with the correct new edge source name throughout the XML.
+| Element | Old value | New value |
+|---|---|---|
+| `<Name>` / `<LogicalNetworkName>` | `TRN_street_network` | `TRN_lrs_street_network` |
+| `<CatalogPath>` | `/FD=TRN_streets_routes/ND=TRN_street_network` | `/FD=TRNLRS/ND=TRN_lrs_street_network` |
+| Edge source `<Name>` | `TRN_street` | `TRNLRS_TRN_STREET_VW` |
+| Junction source `<Name>` | `TRN_street_junction` | `TRNLRS_street_junction` |
+| Turn source `<Name>` | `TRN_traffic_turn` | `TRNLRS_traffic_turn` |
+| System junction `<Name>` | `TRN_street_network_Junctions` | `TRN_lrs_street_network_Junctions` |
+| `NetworkSourceName` (evaluators) | `TRN_street` | `TRNLRS_TRN_STREET_VW` |
 
-2. **Evaluator field names**: For any evaluator flagged `ACTION REQUIRED` in `data/evaluator_field_map.json`, find the corresponding `<Evaluator>` element in the XML and update `<FieldName>` to the correct field in the new source.
-
-3. **Directions field mappings**: Confirm the street name field (`STR_NAME`) and other directions field references still match the new source.
-
-4. **Junction and turn sources**: If `TRN_street_junction` or `TRN_traffic_turn` are unchanged, no edit is needed. If they are renamed or replaced, update accordingly.
-
-**XML elements to locate:**
-
-```xml
-<!-- Edge source definition -->
-<NetworkSource xsi:type="esri:NetworkEdgeSource">
-  <Name>TRN_street</Name>   ← update this
-  ...
-</NetworkSource>
-
-<!-- Field evaluator example -->
-<Evaluator xsi:type="esri:NetworkFieldEvaluator">
-  <FieldName>STR_DIR</FieldName>   ← verify or update
-  <Expression> ... </Expression>
-</Evaluator>
-
-<!-- Directions field mapping -->
-<FieldMap>
-  <FieldName>STR_NAME</FieldName>   ← verify
-</FieldMap>
-```
+If re-extracting the template from scratch (Phase 1 re-run), these edits must be
+re-applied. The XML `<Name>` element determines the output network dataset name
+when `CreateNetworkDatasetFromTemplate` is called — it must match `NEW_ND_NAME`
+in `03_create_network_dataset.py`.
 
 ---
 
@@ -142,9 +157,30 @@ Before running the creation script, the exported `data/network_template.xml` mus
 
 **Script:** `scripts/03_create_network_dataset.py`
 
-Creates the new network dataset inside the target feature dataset using the edited XML template, then immediately builds it.
+Review and set these configuration variables at the top of the script:
 
-Update `FEATURE_DATASET` and `NEW_ND_NAME` in the script before running.
+| Variable | Purpose | Current value |
+|---|---|---|
+| `SDE_CONNECTION` | Path to `.sde` connection file | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` |
+| `FEATURE_DATASET` | Target feature dataset for the new ND | `SDEADM.TRNLRS` |
+| `NEW_ND_NAME` | Name of the network dataset to create | `TRN_lrs_street_network` |
+| `STANDALONE_EDGE_SOURCE` | SDE path to the standalone `TRNLRS_TRN_STREET_VW` FC | `SDEADM.TRNLRS_TRN_STREET_VW` |
+
+The script performs these steps in order:
+
+1. **Validates** that the template XML and target feature dataset both exist.
+2. **Copies** the standalone `TRNLRS_TRN_STREET_VW` into `SDEADM.TRNLRS` using
+   `arcpy.management.CopyFeatures` (skipped if the destination already exists).
+3. **Verifies** that all three source FCs are present inside the feature dataset:
+   `TRNLRS_TRN_STREET_VW`, `TRNLRS_street_junction`, `TRNLRS_traffic_turn`.
+4. **Creates** the network dataset from the XML template via
+   `arcpy.na.CreateNetworkDatasetFromTemplate`.
+5. **Builds** the network dataset via `arcpy.na.BuildNetwork`.
+
+> **Prerequisites before running:**
+> - `TRNLRS_TRN_STREET_VW` must exist as a standalone SDE FC (run `LRS_updates.py` first).
+> - `TRNLRS_street_junction` and `TRNLRS_traffic_turn` must already exist inside
+>   `SDEADM.TRNLRS` (copy them from `SDEADM.TRN_streets_routes`).
 
 ---
 
@@ -162,10 +198,26 @@ After building, validate the new network dataset before retiring the old one:
 
 ### Rebuild Cadence
 
-Because `TRNLRS_TRN_STREET_VW` is repopulated by `LRS_updates.py` (truncate/append), the network dataset edges are stale after each LRS refresh. Options:
+`TRNLRS_TRN_STREET_VW` is a standalone SDE feature class maintained by
+`LRS_updates.py` (truncate/append on each LRS refresh). The copy of this FC
+inside `SDEADM.TRNLRS` — which the network dataset references — goes stale after
+each refresh and must be overwritten.
 
-- **Manual rebuild**: Run `arcpy.na.BuildNetwork()` after each `LRS_updates.py` run.
-- **Automated rebuild**: Add a `BuildNetwork` call at the end of `LRS_updates.py`'s main block, after the `append_feature` calls complete successfully.
+After each LRS refresh, two steps are required:
+
+1. **Re-copy the edge source** into the feature dataset, overwriting the stale copy:
+   ```python
+   arcpy.management.CopyFeatures(
+       r"<sde>\SDEADM.TRNLRS_TRN_STREET_VW",          # standalone (authoritative)
+       r"<sde>\SDEADM.TRNLRS\TRNLRS_TRN_STREET_VW",   # FD copy (used by ND)
+   )
+   ```
+2. **Rebuild the network dataset**:
+   ```python
+   arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS\TRN_lrs_street_network")
+   ```
+
+Both steps can be appended to the end of `LRS_updates.py`'s main block to automate the refresh.
 
 ---
 
@@ -175,7 +227,7 @@ Because `TRNLRS_TRN_STREET_VW` is repopulated by `LRS_updates.py` (truncate/appe
 hrm_LRS/
 ├── data/
 │   ├── network_config.json          ← generated by 01_extract_network_config.py
-│   ├── network_template.xml         ← generated by 01_extract_network_config.py, edited manually
+│   ├── network_template.xml         ← generated by 01_extract_network_config.py, edited (see Phase 3)
 │   ├── schema_comparison.json       ← generated by 02_compare_schemas.py
 │   └── evaluator_field_map.json     ← generated by 02_compare_schemas.py
 ├── docs/

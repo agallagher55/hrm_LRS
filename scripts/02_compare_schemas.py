@@ -20,7 +20,8 @@ import arcpy
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SDE_CONNECTION  = r"C:\Users\<you>\AppData\Roaming\ESRI\ArcGISPro\ArcCatalog\prod_RW_sdeadm.sde"
+SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+
 OLD_EDGE_SOURCE = "SDEADM.TRN_street"
 NEW_EDGE_SOURCE = "SDEADM.TRNLRS_TRN_STREET_VW"
 
