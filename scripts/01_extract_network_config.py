@@ -66,7 +66,7 @@ def describe_attributes(nd_desc):
             "use_by_default": getattr(attr, "useByDefault", None),
             "evaluators":    [],
         }
-        for ev in attr.evaluators:
+        for ev in getattr(attr, "evaluators", []):
             evaluator = {
                 "source":         ev.source.name,
                 "element_type":   ev.elementType,   # Edge | Junction | Turn
