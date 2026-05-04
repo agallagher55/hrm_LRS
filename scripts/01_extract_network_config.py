@@ -126,7 +126,7 @@ def extract_config(network_dataset_path):
     config = {
         "network_dataset_name": desc.name,
         "catalog_path":         desc.catalogPath,
-        "network_type":         desc.networkType,           # Geodatabase | Shapefile | SDC
+        "network_type":         getattr(desc, "networkType", None),  # Geodatabase | Shapefile | SDC
         "elevation_model":      getattr(desc, "elevationModel", None),
         "supports_turns":       getattr(desc, "supportsTurns", None),
         "time_zone_attribute":  getattr(desc, "timeZoneAttributeName", None),
