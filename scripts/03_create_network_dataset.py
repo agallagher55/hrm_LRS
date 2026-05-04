@@ -40,6 +40,9 @@ def verify_sources_exist(feature_dataset):
     """Check that all source feature classes referenced by the template exist."""
     # These should match what was put in the edited XML template.
     # Update this list after editing the template.
+    # Edge and junction sources must reside inside the same feature dataset as the
+    # network dataset; paths are constructed relative to feature_dataset, not the
+    # SDE connection root.
     expected_sources = [
         "SDEADM.TRNLRS_TRN_STREET_VW",   # or the underlying FC — see NOTE in 02_compare_schemas.py
         "SDEADM.TRN_street_junction",     # update if renamed
@@ -47,7 +50,7 @@ def verify_sources_exist(feature_dataset):
     ]
     missing = []
     for src in expected_sources:
-        path = os.path.join(os.path.dirname(feature_dataset), src)
+        path = os.path.join(feature_dataset, src)
         if not arcpy.Exists(path):
             missing.append(src)
     return missing
