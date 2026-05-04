@@ -79,10 +79,26 @@ def main():
 
     missing = verify_sources_exist(FEATURE_DATASET)
     if missing:
+        hints = []
+        if "TRNLRS_TRN_STREET_VW" in missing:
+            hints.append(
+                "  TRNLRS_TRN_STREET_VW is the LRS edge source created by LRS_updates.py.\n"
+                "  Run LRS_updates.py first and confirm it targets the SDEADM.TRNLRS\n"
+                "  feature dataset (not a standalone SDE registration)."
+            )
+        if any(m in missing for m in ("TRNLRS_street_junction", "TRNLRS_traffic_turn")):
+            hints.append(
+                "  Junction/turn FCs must be copied from SDEADM.TRN_streets_routes\n"
+                "  into SDEADM.TRNLRS before running this script."
+            )
         sys.exit(
-            f"ERROR: The following source feature classes are missing:\n"
+            "ERROR: The following source feature classes are missing from\n"
+            f"  {FEATURE_DATASET}:\n"
             + "\n".join(f"  - {m}" for m in missing)
-            + "\nUpdate FEATURE_DATASET / source names in this script and the XML template."
+            + "\n\nPossible fixes:\n"
+            + "\n".join(hints)
+            + "\n\nIf the names are wrong, update expected_sources in verify_sources_exist()\n"
+            "and the corresponding <Name> elements in data/network_template.xml."
         )
 
     new_nd_path = os.path.join(FEATURE_DATASET, NEW_ND_NAME)
