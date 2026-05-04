@@ -45,9 +45,9 @@ def verify_sources_exist(feature_dataset):
     # Short (unqualified) names as they appear in the XML <Name> elements.
     # Update this list whenever the XML template source names change.
     expected_sources = [
-        "TRNLRS_TRN_STREET_VW",   # edge source — replaces old TRN_street
-        "TRN_street_junction",    # junction FC — update name if renamed in TRNLRS
-        "TRN_traffic_turn",       # turn FC — update name if renamed in TRNLRS
+        "TRNLRS_TRN_STREET_VW",      # edge source
+        "TRNLRS_street_junction",    # junction FC (copied from TRN_streets_routes)
+        "TRNLRS_traffic_turn",       # turn FC (copied from TRN_streets_routes)
     ]
     missing = []
     for src in expected_sources:
