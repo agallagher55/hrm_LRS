@@ -162,10 +162,26 @@ After building, validate the new network dataset before retiring the old one:
 
 ### Rebuild Cadence
 
-Because `TRNLRS_TRN_STREET_VW` is repopulated by `LRS_updates.py` (truncate/append), the network dataset edges are stale after each LRS refresh. Options:
+`TRNLRS_TRN_STREET_VW` is a standalone SDE feature class (not inside a feature
+dataset). Network datasets require all sources to live inside the target feature
+dataset, so `03_create_network_dataset.py` copies the standalone FC into
+`SDEADM.TRNLRS` at creation time. The standalone FC remains the authoritative
+source updated by `LRS_updates.py`; the copy inside the feature dataset is what
+the network dataset references.
 
-- **Manual rebuild**: Run `arcpy.na.BuildNetwork()` after each `LRS_updates.py` run.
-- **Automated rebuild**: Add a `BuildNetwork` call at the end of `LRS_updates.py`'s main block, after the `append_feature` calls complete successfully.
+After each LRS refresh (`LRS_updates.py` truncates/appends the standalone FC),
+two steps are needed to keep the network current:
+
+1. **Re-copy the edge source**: Overwrite `SDEADM.TRNLRS\TRNLRS_TRN_STREET_VW`
+   with the refreshed standalone FC:
+   ```python
+   arcpy.management.CopyFeatures(
+       r"<sde>\SDEADM.TRNLRS_TRN_STREET_VW",
+       r"<sde>\SDEADM.TRNLRS\TRNLRS_TRN_STREET_VW",
+   )
+   ```
+2. **Rebuild the network**: Run `arcpy.na.BuildNetwork()` against the network
+   dataset, or add both steps to the end of `LRS_updates.py`'s main block.
 
 ---
 
