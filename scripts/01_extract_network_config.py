@@ -20,7 +20,7 @@ import arcpy
 # Configuration — update these paths before running
 # ---------------------------------------------------------------------------
 SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-NETWORK_DATASET = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes")
+NETWORK_DATASET = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_street_network")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_JSON = REPO_ROOT / "data" / "network_config.json"
