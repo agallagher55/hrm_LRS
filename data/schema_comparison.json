@@ -1,0 +1,886 @@
+{
+  "shared_fields": [
+    {
+      "key": "ASSETID",
+      "old": {
+        "name": "ASSETID",
+        "alias": "Asset ID",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "ASSETID",
+        "alias": "Asset ID",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "DATE_ACCEPT",
+      "old": {
+        "name": "DATE_ACCEPT",
+        "alias": "DATE_ACCEPT",
+        "type": "Date",
+        "length": 8,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "DATE_ACCEPT",
+        "alias": "DATE_ACCEPT",
+        "type": "Date",
+        "length": 8,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "FCODE",
+      "old": {
+        "name": "FCODE",
+        "alias": "FCODE",
+        "type": "String",
+        "length": 12,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "FCODE",
+        "alias": "FCODE",
+        "type": "String",
+        "length": 12,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "FDMID",
+      "old": {
+        "name": "FDMID",
+        "alias": "FDMID",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "FDMID",
+        "alias": "FDMID",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "FLAGS",
+      "old": {
+        "name": "FLAGS",
+        "alias": "FLAGS",
+        "type": "String",
+        "length": 35,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "FLAGS",
+        "alias": "FLAGS",
+        "type": "String",
+        "length": 35,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "FROM_LEFT",
+      "old": {
+        "name": "FROM_LEFT",
+        "alias": "FROM_LEFT",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "FROM_LEFT",
+        "alias": "FROM_LEFT",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "FROM_RIGHT",
+      "old": {
+        "name": "FROM_RIGHT",
+        "alias": "FROM_RIGHT",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "FROM_RIGHT",
+        "alias": "FROM_RIGHT",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "FROM_STR",
+      "old": {
+        "name": "FROM_STR",
+        "alias": "FROM_STR",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "FROM_STR",
+        "alias": "FROM_STR",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "FULL_NAME",
+      "old": {
+        "name": "FULL_NAME",
+        "alias": "FULL_NAME",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "FULL_NAME",
+        "alias": "FULL_NAME",
+        "type": "String",
+        "length": 255,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "GSA_LEFT",
+      "old": {
+        "name": "GSA_LEFT",
+        "alias": "Left Community",
+        "type": "String",
+        "length": 40,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "GSA_LEFT",
+        "alias": "Left Community",
+        "type": "String",
+        "length": 40,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "GSA_RIGHT",
+      "old": {
+        "name": "GSA_RIGHT",
+        "alias": "Right Community",
+        "type": "String",
+        "length": 40,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "GSA_RIGHT",
+        "alias": "Right Community",
+        "type": "String",
+        "length": 40,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "MAINTENANCE",
+      "old": {
+        "name": "MAINTENANCE",
+        "alias": "Winter Maintenance",
+        "type": "String",
+        "length": 4,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_maintenance"
+      },
+      "new": {
+        "name": "MAINTENANCE",
+        "alias": "Winter Maintenance",
+        "type": "String",
+        "length": 8,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_maintenance"
+      }
+    },
+    {
+      "key": "MUN_CODE",
+      "old": {
+        "name": "MUN_CODE",
+        "alias": "MUN_CODE",
+        "type": "String",
+        "length": 3,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "CA_mun_code"
+      },
+      "new": {
+        "name": "MUN_CODE",
+        "alias": "MUN_CODE",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "OLD_FDMID",
+      "old": {
+        "name": "OLD_FDMID",
+        "alias": "OLD_FDMID",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "OLD_FDMID",
+        "alias": "OLD_FDMID",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "OWN",
+      "old": {
+        "name": "OWN",
+        "alias": "OWN",
+        "type": "String",
+        "length": 4,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_own"
+      },
+      "new": {
+        "name": "OWN",
+        "alias": "OWN",
+        "type": "String",
+        "length": 4,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_own"
+      }
+    },
+    {
+      "key": "PAR_LEFT",
+      "old": {
+        "name": "PAR_LEFT",
+        "alias": "Left Parity",
+        "type": "String",
+        "length": 10,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_parity"
+      },
+      "new": {
+        "name": "PAR_LEFT",
+        "alias": "Left Parity",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_parity"
+      }
+    },
+    {
+      "key": "PAR_RIGHT",
+      "old": {
+        "name": "PAR_RIGHT",
+        "alias": "Right Parity",
+        "type": "String",
+        "length": 10,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_parity"
+      },
+      "new": {
+        "name": "PAR_RIGHT",
+        "alias": "Right Parity",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_parity"
+      }
+    },
+    {
+      "key": "PSAB_CODE",
+      "old": {
+        "name": "PSAB_CODE",
+        "alias": "PSAB_CODE",
+        "type": "String",
+        "length": 12,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_psab_code"
+      },
+      "new": {
+        "name": "PSAB_CODE",
+        "alias": "PSAB_CODE",
+        "type": "String",
+        "length": 12,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "ROUTE_ID",
+      "old": {
+        "name": "ROUTE_ID",
+        "alias": "ROUTE_ID",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "ROUTE_ID",
+        "alias": "ROUTE_ID",
+        "type": "String",
+        "length": 255,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "STR_CODE_L",
+      "old": {
+        "name": "STR_CODE_L",
+        "alias": "Left Street Code",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "STR_CODE_L",
+        "alias": "Left Street Code",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "STR_CODE_R",
+      "old": {
+        "name": "STR_CODE_R",
+        "alias": "Right Street Code",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "STR_CODE_R",
+        "alias": "Right Street Code",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "STR_DIR",
+      "old": {
+        "name": "STR_DIR",
+        "alias": "STR_DIR",
+        "type": "String",
+        "length": 4,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_oneway"
+      },
+      "new": {
+        "name": "STR_DIR",
+        "alias": "STR_DIR",
+        "type": "String",
+        "length": 4,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_oneway"
+      }
+    },
+    {
+      "key": "STR_NAME",
+      "old": {
+        "name": "STR_NAME",
+        "alias": "STR_NAME",
+        "type": "String",
+        "length": 40,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "STR_NAME",
+        "alias": "STR_NAME",
+        "type": "String",
+        "length": 40,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "STR_REM",
+      "old": {
+        "name": "STR_REM",
+        "alias": "STR_REM",
+        "type": "String",
+        "length": 100,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "STR_REM",
+        "alias": "STR_REM",
+        "type": "String",
+        "length": 100,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "STR_STATUS",
+      "old": {
+        "name": "STR_STATUS",
+        "alias": "STR_STATUS",
+        "type": "String",
+        "length": 4,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_street_status"
+      },
+      "new": {
+        "name": "STR_STATUS",
+        "alias": "STR_STATUS",
+        "type": "String",
+        "length": 4,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_street_status"
+      }
+    },
+    {
+      "key": "STR_TYPE",
+      "old": {
+        "name": "STR_TYPE",
+        "alias": "STR_TYPE",
+        "type": "String",
+        "length": 6,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_str_type"
+      },
+      "new": {
+        "name": "STR_TYPE",
+        "alias": "STR_TYPE",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_str_type"
+      }
+    },
+    {
+      "key": "ST_CLASS",
+      "old": {
+        "name": "ST_CLASS",
+        "alias": "ST_CLASS",
+        "type": "String",
+        "length": 40,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_pst_class"
+      },
+      "new": {
+        "name": "ST_CLASS",
+        "alias": "ST_CLASS",
+        "type": "String",
+        "length": 40,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": "SNF_pst_class"
+      }
+    },
+    {
+      "key": "TO_LEFT",
+      "old": {
+        "name": "TO_LEFT",
+        "alias": "TO_LEFT",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "TO_LEFT",
+        "alias": "TO_LEFT",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "TO_RIGHT",
+      "old": {
+        "name": "TO_RIGHT",
+        "alias": "TO_RIGHT",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "TO_RIGHT",
+        "alias": "TO_RIGHT",
+        "type": "Integer",
+        "length": 4,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    },
+    {
+      "key": "TO_STR",
+      "old": {
+        "name": "TO_STR",
+        "alias": "TO_STR",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      },
+      "new": {
+        "name": "TO_STR",
+        "alias": "TO_STR",
+        "type": "String",
+        "length": 50,
+        "precision": 0,
+        "scale": 0,
+        "nullable": true,
+        "domain": ""
+      }
+    }
+  ],
+  "only_in_old_source": [
+    {
+      "name": "ACC",
+      "alias": "ACC",
+      "type": "String",
+      "length": 5,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": "SNF_acc"
+    },
+    {
+      "name": "DATE_ACT",
+      "alias": "DATE_ACT",
+      "type": "Date",
+      "length": 8,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": ""
+    },
+    {
+      "name": "FROM_ELEV",
+      "alias": "FROM_ELEV",
+      "type": "SmallInteger",
+      "length": 2,
+      "precision": 5,
+      "scale": 0,
+      "nullable": true,
+      "domain": "SNF_elev"
+    },
+    {
+      "name": "LANECOUNT",
+      "alias": "Lane Count",
+      "type": "SmallInteger",
+      "length": 2,
+      "precision": 5,
+      "scale": 0,
+      "nullable": true,
+      "domain": ""
+    },
+    {
+      "name": "MAINTSUMMER",
+      "alias": "Summer Maintenance",
+      "type": "String",
+      "length": 4,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": "SNF_maintenance"
+    },
+    {
+      "name": "SOURCE",
+      "alias": "SOURCE",
+      "type": "String",
+      "length": 12,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": "SNF_source"
+    },
+    {
+      "name": "SYS_DATE",
+      "alias": "SYS_DATE",
+      "type": "Date",
+      "length": 8,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": ""
+    },
+    {
+      "name": "TECH_ACT",
+      "alias": "Added by",
+      "type": "String",
+      "length": 32,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": ""
+    },
+    {
+      "name": "TECH_MOD",
+      "alias": "Modified by",
+      "type": "String",
+      "length": 32,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": ""
+    },
+    {
+      "name": "TO_ELEV",
+      "alias": "TO_ELEV",
+      "type": "SmallInteger",
+      "length": 2,
+      "precision": 5,
+      "scale": 0,
+      "nullable": true,
+      "domain": "SNF_elev"
+    }
+  ],
+  "only_in_new_source": [
+    {
+      "name": "ADDDATE",
+      "alias": "Add Date",
+      "type": "Date",
+      "length": 8,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": ""
+    },
+    {
+      "name": "MODDATE",
+      "alias": "Modified Date",
+      "type": "Date",
+      "length": 8,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": ""
+    },
+    {
+      "name": "ORIGIN_DATE",
+      "alias": "Origin Date",
+      "type": "Date",
+      "length": 8,
+      "precision": 0,
+      "scale": 0,
+      "nullable": true,
+      "domain": ""
+    }
+  ],
+  "attribute_differences": {
+    "FULL_NAME": {
+      "length": {
+        "old": 50,
+        "new": 255
+      }
+    },
+    "MAINTENANCE": {
+      "length": {
+        "old": 4,
+        "new": 8
+      }
+    },
+    "MUN_CODE": {
+      "length": {
+        "old": 3,
+        "new": 50
+      },
+      "domain": {
+        "old": "CA_mun_code",
+        "new": ""
+      }
+    },
+    "PAR_LEFT": {
+      "length": {
+        "old": 10,
+        "new": 50
+      }
+    },
+    "PAR_RIGHT": {
+      "length": {
+        "old": 10,
+        "new": 50
+      }
+    },
+    "PSAB_CODE": {
+      "domain": {
+        "old": "SNF_psab_code",
+        "new": ""
+      }
+    },
+    "ROUTE_ID": {
+      "type": {
+        "old": "Integer",
+        "new": "String"
+      },
+      "length": {
+        "old": 4,
+        "new": 255
+      }
+    },
+    "STR_TYPE": {
+      "length": {
+        "old": 6,
+        "new": 50
+      }
+    }
+  }
+}

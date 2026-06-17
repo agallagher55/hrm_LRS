@@ -89,7 +89,8 @@ Run this script against the existing network dataset. It produces:
 
 ### Phase 2 — Schema Comparison
 
-**Script:** `scripts/02_compare_schemas.py`
+**Script:** `scripts/02_compare_schemas.py`  
+**Status:** Complete — outputs in `data/`
 
 Compares fields between `TRN_street` (old) and `TRNLRS_TRN_STREET_VW` (new).
 Configure `SDE_CONNECTION`, `OLD_EDGE_SOURCE`, and `NEW_EDGE_SOURCE` at the top
@@ -98,7 +99,33 @@ of the script before running. Produces:
 | Output | Purpose |
 |---|---|
 | `data/schema_comparison.json` | Full field-level diff: shared, only-in-old, only-in-new, type/length changes |
-| `data/evaluator_field_map.json` | Per-evaluator status: OK, ACTION REQUIRED, or WARNING |
+| `data/evaluator_field_map.json` | Per-evaluator status — empty because all evaluators use VB Script expressions, not direct field evaluators |
+
+#### Evaluator review
+
+`evaluator_field_map.json` is empty. This is expected: the existing evaluators use VB
+Script expressions (`[SHAPE.STLength()]` for Length; `[STR_DIR]` inside a Select Case for
+OneWay) rather than direct field evaluators. `STR_DIR` is present and unchanged in the new
+source, so no evaluator changes are needed.
+
+#### Fields only in old source — impact assessment
+
+| Field | Impact |
+|---|---|
+| `FROM_ELEV` / `TO_ELEV` | **CRITICAL** — referenced as elevation fields in the XML template. Fixed in Phase 3. |
+| `ACC`, `DATE_ACT`, `LANECOUNT`, `MAINTSUMMER`, `SOURCE`, `SYS_DATE`, `TECH_ACT`, `TECH_MOD` | None — not referenced by any network evaluator |
+
+#### Notable attribute differences
+
+| Field | Change | Impact |
+|---|---|---|
+| `ROUTE_ID` | Integer → String(255) | None — not referenced by any evaluator |
+| `FULL_NAME` | length 50 → 255 | None — wider; directions field reference is unaffected |
+| `MAINTENANCE` | length 4 → 8 | None |
+| `MUN_CODE` | length 3 → 50, domain dropped | None |
+| `PAR_LEFT` / `PAR_RIGHT` | length 10 → 50 | None |
+| `PSAB_CODE` | domain dropped | None |
+| `STR_TYPE` | length 6 → 50 | None |
 
 **Known schema changes in `TRNLRS_TRN_STREET_VW`** (from `LRS_updates.py`):
 
@@ -145,6 +172,14 @@ The following changes have been applied to `data/network_template.xml`:
 | Turn source `<Name>` | `TRN_traffic_turn` | `TRNLRS_traffic_turn` |
 | System junction `<Name>` | `TRN_street_network_Junctions` | `TRN_lrs_street_network_Junctions` |
 | `NetworkSourceName` (evaluators) | `TRN_street` | `TRNLRS_TRN_STREET_VW` |
+| `FromElevationFieldName` / `ToElevationFieldName` | `FROM_ELEV` / `TO_ELEV` | *(empty)* |
+| `NetworkElevationModel` | `1` (Elevation Fields) | `0` (None) |
+
+The elevation field change was identified during Phase 2: `TRNLRS_TRN_STREET_VW` does not
+have `FROM_ELEV` or `TO_ELEV` fields, so the network must use endpoint-only connectivity
+(no 3D elevation modelling). The old network used elevation fields to handle grade separations
+(bridges, underpasses); verify during Phase 5 validation that connectivity at these locations
+is acceptable.
 
 If re-extracting the template from scratch (Phase 1 re-run), these edits must be
 re-applied. The XML `<Name>` element determines the output network dataset name
