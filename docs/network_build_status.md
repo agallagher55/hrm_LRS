@@ -13,31 +13,70 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | Phase | Description | Status |
 |---|---|---|
 | 1 | Extract old network configuration | ✅ Complete |
-| 2 | Schema comparison (old vs. new edge source) | ⏳ Not run |
-| 3 | Edit XML template with new names | ✅ Complete |
+| 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
+| 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ⏳ Blocked (see prerequisites) |
 | 5 | Validation | ⏳ Not started |
 
 ---
 
-## Remaining Steps
+## Schema Comparison Findings (Phase 2)
 
-### Step 1 — Run schema comparison (Phase 2)
+**Outputs:** `data/schema_comparison.json`, `data/evaluator_field_map.json`
 
-**Script:** `scripts/02_compare_schemas.py`
+### Evaluators — no changes needed
 
-- [ ] Set `SDE_CONNECTION`, `OLD_EDGE_SOURCE`, `NEW_EDGE_SOURCE` at top of script
-- [ ] Run against a QA or prod environment where both FCs exist
-- [ ] Review `data/evaluator_field_map.json` — resolve any `ACTION REQUIRED` items before
-      proceeding to Phase 4
+`evaluator_field_map.json` is empty because the existing evaluators use VB Script expressions,
+not direct field evaluators. Both are safe with the new source:
+- **Length**: `[SHAPE.STLength()]` — geometry-based, no field dependency
+- **OneWay**: VB script referencing `[STR_DIR]` — field present and unchanged in new source
 
-Expected outputs:
-- `data/schema_comparison.json`
-- `data/evaluator_field_map.json`
+### Fields missing from new source
+
+These fields exist in `TRN_street` but **not** in `TRNLRS_TRN_STREET_VW`:
+
+| Field | Type | Impact |
+|---|---|---|
+| `FROM_ELEV` | SmallInteger | **CRITICAL** — was edge elevation field in ND template (fixed, see below) |
+| `TO_ELEV` | SmallInteger | **CRITICAL** — was edge elevation field in ND template (fixed, see below) |
+| `ACC` | String(5) | None — not referenced by any evaluator |
+| `DATE_ACT` | Date | None |
+| `LANECOUNT` | SmallInteger | None |
+| `MAINTSUMMER` | String(4) | None |
+| `SOURCE` | String(12) | None |
+| `SYS_DATE` | Date | None |
+| `TECH_ACT` | String(32) | None |
+| `TECH_MOD` | String(32) | None |
+
+**XML template fix applied:** `FROM_ELEV`/`TO_ELEV` references cleared from the edge source
+element and `NetworkElevationModel` set to `0` (None). The new network will use endpoint
+connectivity only (no 3D elevation modelling).
+
+### Fields added in new source
+
+| Field | Type | Notes |
+|---|---|---|
+| `ADDDATE` | Date | Min add date from `E_AddressRange` |
+| `MODDATE` | Date | Max modified date from `E_AddressRange` |
+| `ORIGIN_DATE` | Date | Origin date from dyn-seg |
+
+### Notable attribute differences
+
+| Field | Change | Impact |
+|---|---|---|
+| `ROUTE_ID` | Integer → String(255) | None — not referenced by any evaluator |
+| `FULL_NAME` | length 50 → 255 | None — wider is fine for directions field |
+| `MAINTENANCE` | length 4 → 8 | None |
+| `MUN_CODE` | length 3 → 50, domain dropped | None |
+| `PAR_LEFT` / `PAR_RIGHT` | length 10 → 50 | None |
+| `PSAB_CODE` | domain dropped | None |
+| `STR_TYPE` | length 6 → 50 | None |
 
 ---
 
-### Step 2 — Copy junction and turn sources into `SDEADM.TRNLRS` (Phase 4 prerequisite)
+## Remaining Steps
+
+### Step 1 — Copy junction and turn sources into `SDEADM.TRNLRS` (Phase 4 prerequisite)
 
 The network dataset requires all source FCs to live inside the target feature dataset.
 Script 03 handles the edge source automatically but **not** the junction or turn sources.
@@ -62,7 +101,7 @@ arcpy.management.CopyFeatures(
 
 ---
 
-### Step 3 — Run `LRS_updates.py` to populate edge source (Phase 4 prerequisite)
+### Step 2 — Run `LRS_updates.py` to populate edge source (Phase 4 prerequisite)
 
 `TRNLRS_TRN_STREET_VW` must exist as a populated standalone SDE FC before script 03
 can copy it into the feature dataset.
@@ -72,7 +111,7 @@ can copy it into the feature dataset.
 
 ---
 
-### Step 4 — Create and build the new network dataset (Phase 4)
+### Step 3 — Create and build the new network dataset (Phase 4)
 
 **Script:** `scripts/03_create_network_dataset.py`
 
@@ -86,7 +125,7 @@ can copy it into the feature dataset.
 
 ---
 
-### Step 5 — Validate the new network dataset (Phase 5)
+### Step 4 — Validate the new network dataset (Phase 5)
 
 - [ ] Open Network Dataset Properties in ArcGIS Pro — check Sources, Travel Attributes, Directions
 - [ ] Solve a **Route** between two known endpoints; compare path and cost against `TRN_street_network`
@@ -97,7 +136,7 @@ can copy it into the feature dataset.
 
 ---
 
-### Step 6 — Automate refresh in `LRS_updates.py`
+### Step 5 — Automate refresh in `LRS_updates.py`
 
 Once validated, append these two calls to the end of `LRS_updates.py`'s main block so the
 network stays current after every LRS refresh:
