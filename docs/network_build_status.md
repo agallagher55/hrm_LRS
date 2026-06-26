@@ -15,7 +15,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | 1 | Extract old network configuration | ✅ Complete |
 | 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
-| 4 | Create & build new network dataset | ✅ Complete (Dev) |
+| 4 | Create & build new network dataset | ✅ Dev complete — QA in progress |
 | 5 | Validation | 🔄 In progress — properties check passed; solve tests pending |
 
 ## Confirmed Prerequisites
@@ -172,36 +172,34 @@ arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS\TRN_lrs_street_network")
 
 ### Edge source naming
 
-The current two-name setup (`TRNLRS_TRN_STREET_VW` standalone + `TRNLRS_TRN_STREET` FD copy)
-is a workaround for SDE's geodatabase-wide name uniqueness constraint.
+The current approach copies `TRNLRS_TRN_STREET_VW` (standalone, outside FD) into
+`TRNLRS_TRN_STREET` (inside `SDEADM.TRNLRS`) on each network refresh. This is the agreed
+working approach. The copy is necessary because SDE enforces unique FC names across the entire
+geodatabase, so the FD copy cannot share the `_VW` name.
 
-Preferred long-term fix: move `TRNLRS_TRN_STREET_VW` into `SDEADM.TRNLRS` directly as
-`TRNLRS_TRN_STREET`, and update `LRS_updates.py` to write to that path. This eliminates the
-copy step entirely — the network edge source *is* the authoritative FC. Requires coordinating
-with anyone consuming `TRNLRS_TRN_STREET_VW` by name.
+The preferred long-term fix — writing `LRS_updates.py` output directly into the FD, eliminating
+the copy step — requires an **impact assessment** to identify all scripts and services consuming
+`SDEADM.TRNLRS_TRN_STREET_VW` outside the feature dataset before any rename/move can happen.
 
-- [ ] Identify all consumers of `SDEADM.TRNLRS_TRN_STREET_VW` (map services, scripts, etc.)
-- [ ] Get sign-off to rename/move the FC
-- [ ] Update `LRS_updates.py` output path and remove the copy step from `03_create_network_dataset.py`
+- [ ] Impact assessment: audit all scripts and map services referencing `SDEADM.TRNLRS_TRN_STREET_VW`
+- [ ] Based on findings, decide whether to rename/move the FC or keep the copy approach long-term
 
 ---
 
 ### Travel time cost attribute (speed limits)
 
-Adding a `TravelTime` (Minutes) cost attribute requires `SPEED` (km/h) on the edge source.
+Not included in the initial network build — the old `TRN_street_network` never had a travel
+time attribute, so this is a net-new capability deferred to a future phase.
 
-**Data source:** `SDEADM.E_SpeedLimit` — already in the TRNLRS feature dataset, already
-overlaid separately in `LRS_updates.py` for the `TRNLRS_SpeedLimit_Neighbourhood_VW` product.
-`TRNLRS_SpeedLimit_Neighbourhood_VW` itself represents areas *under neighbourhood speed review*
-and is not the right source for routing — the raw `E_SpeedLimit.SPEED` field is.
-
-**`E_SpeedLimit_Neighbourhood`** represents zones where a speed limit change is under community
-review. It does not contain an adopted speed and should not be used as a routing speed.
+**Data source:** `SDEADM.E_SpeedLimit` (field `SPEED`, km/h) — already in the TRNLRS FD.
+**Not** `TRNLRS_SpeedLimit_Neighbourhood_VW`, which is a display/review product for areas
+under neighbourhood speed review and does not represent adopted posted speeds.
+`E_SpeedLimit_Neighbourhood` represents zones where a speed limit change is under community
+review — it has no routing speed value.
 
 **Preferred approach:** add `E_SpeedLimit` to the main `event_tables` in `DynSegFeature.__init__`
-(one line, same pattern as the existing 7 events) so `SPEED` flows into `TRNLRS_TRN_STREET_VW`.
-**Blocked pending org approval** — `TRNLRS_TRN_STREET_VW` is an org-wide product and schema
-changes require sign-off.
+(one line, same pattern as the existing 7 events) so `SPEED` is segmented into
+`TRNLRS_TRN_STREET_VW`. Requires org approval before modifying this org-wide product's schema.
 
 **Proposed default speeds** (for segments with no posted speed limit, derived from `ST_CLASS`):
 
@@ -216,8 +214,8 @@ changes require sign-off.
 
 - [ ] Get approval to add `E_SpeedLimit` to the main `OverlayEvents` call in `LRS_updates.py`
 - [ ] Confirm default speed values with traffic/operations team
-- [ ] Add `SPEED` to SQL in `_update_streets` once approved
-- [ ] Add `TravelTime` cost attribute to `network_template.xml`
+- [ ] Add `SPEED` to SQL in `_update_streets` and to the edge source
+- [ ] Add `TravelTime` cost attribute to `network_template.xml` with VB script evaluator
 - [ ] Delete and recreate `TRN_lrs_street_network` after template update
 
 ---
