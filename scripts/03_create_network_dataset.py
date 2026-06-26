@@ -50,8 +50,7 @@ STANDALONE_EDGE_SOURCE = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS_TRN_STREET_
 EDGE_SOURCE_NAME       = "TRNLRS_TRN_STREET"
 
 # Junction and turn FCs live in TRN_streets_routes (the old network FD).
-# They must be copied into FEATURE_DATASET manually before running this script
-# (script 03 does not do this automatically).
+# This script copies them into FEATURE_DATASET automatically if not already present.
 SOURCE_JUNCTION = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_street_junction")
 SOURCE_TURN     = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_traffic_turn")
 
@@ -60,61 +59,20 @@ TEMPLATE_XML = REPO_ROOT / "data" / "network_template.xml"
 # ---------------------------------------------------------------------------
 
 
-def copy_edge_source_to_fd(standalone_path, feature_dataset, fc_name):
-    """Copy the standalone edge source FC into the feature dataset.
-
-    ArcGIS network datasets require all source FCs to reside inside the target
-    feature dataset. TRNLRS_TRN_STREET_VW is maintained as a standalone SDE FC
-    by LRS_updates.py, so it must be copied here before network creation.
-    After each LRS refresh, overwrite the FD copy and rebuild the network.
-    """
+def copy_fc_to_fd(source_path, feature_dataset, fc_name, error_hint=""):
+    """Copy a feature class into the feature dataset, skipping if already present."""
     dest = os.path.join(feature_dataset, fc_name)
     if arcpy.Exists(dest):
-        print(f"Edge source already present in feature dataset: {dest}")
+        print(f"Already present in feature dataset, skipping: {fc_name}")
         return
-    if not arcpy.Exists(standalone_path):
+    if not arcpy.Exists(source_path):
         sys.exit(
-            f"ERROR: Standalone edge source not found: {standalone_path}\n"
-            "Run LRS_updates.py to populate TRNLRS_TRN_STREET_VW before proceeding."
+            f"ERROR: Source feature class not found: {source_path}"
+            + (f"\n{error_hint}" if error_hint else "")
         )
-    print(f"Copying edge source into feature dataset:\n  {standalone_path}\n  → {dest}")
-    arcpy.management.CopyFeatures(standalone_path, dest)
+    print(f"Copying into feature dataset:\n  {source_path}\n  → {dest}")
+    arcpy.management.CopyFeatures(source_path, dest)
     print("Copy complete.")
-
-
-def verify_sources_exist(feature_dataset):
-    """Check that all source FCs referenced by the template exist inside the feature dataset.
-
-    CreateNetworkDatasetFromTemplate requires sources to live inside the target
-    feature dataset, not just anywhere in the geodatabase.
-    """
-    # Short (unqualified) names as they appear in the XML <Name> elements.
-    # Update this list whenever the XML template source names change.
-    expected_sources = [
-        "TRNLRS_TRN_STREET",         # edge source (copied from standalone TRNLRS_TRN_STREET_VW)
-        "TRNLRS_street_junction",    # junction FC (copied from TRN_streets_routes)
-        "TRNLRS_traffic_turn",       # turn FC (copied from TRN_streets_routes)
-    ]
-    missing = []
-    for src in expected_sources:
-        path = os.path.join(feature_dataset, src)
-        if not arcpy.Exists(path):
-            missing.append(src)
-    return missing
-
-
-def copy_hint(feature_dataset):
-    """Return a ready-to-run copy snippet for the missing junction/turn sources."""
-    return (
-        f"\n  arcpy.management.CopyFeatures(\n"
-        f"      r\"{SOURCE_JUNCTION}\",\n"
-        f"      r\"{os.path.join(feature_dataset, 'TRNLRS_street_junction')}\",\n"
-        f"  )\n"
-        f"  arcpy.management.CopyFeatures(\n"
-        f"      r\"{SOURCE_TURN}\",\n"
-        f"      r\"{os.path.join(feature_dataset, 'TRNLRS_traffic_turn')}\",\n"
-        f"  )"
-    )
 
 
 def build_network(nd_path):
@@ -137,26 +95,12 @@ def main():
             "Update FEATURE_DATASET to the correct path."
         )
 
-    copy_edge_source_to_fd(STANDALONE_EDGE_SOURCE, FEATURE_DATASET, EDGE_SOURCE_NAME)
-
-    missing = verify_sources_exist(FEATURE_DATASET)
-    if missing:
-        hints = []
-        if any(m in missing for m in ("TRNLRS_street_junction", "TRNLRS_traffic_turn")):
-            hints.append(
-                "  Junction/turn FCs must be copied from SDEADM.TRN_streets_routes\n"
-                "  into SDEADM.TRNLRS before running this script:\n"
-                + copy_hint(FEATURE_DATASET)
-            )
-        sys.exit(
-            "ERROR: The following source feature classes are missing from\n"
-            f"  {FEATURE_DATASET}:\n"
-            + "\n".join(f"  - {m}" for m in missing)
-            + "\n\nPossible fixes:\n"
-            + "\n".join(hints)
-            + "\n\nIf the names are wrong, update expected_sources in verify_sources_exist()\n"
-            "and the corresponding <Name> elements in data/network_template.xml."
-        )
+    copy_fc_to_fd(
+        STANDALONE_EDGE_SOURCE, FEATURE_DATASET, EDGE_SOURCE_NAME,
+        error_hint="Run LRS_updates.py to populate TRNLRS_TRN_STREET_VW before proceeding.",
+    )
+    copy_fc_to_fd(SOURCE_JUNCTION, FEATURE_DATASET, "TRNLRS_street_junction")
+    copy_fc_to_fd(SOURCE_TURN, FEATURE_DATASET, "TRNLRS_traffic_turn")
 
     new_nd_path = os.path.join(FEATURE_DATASET, NEW_ND_NAME)
     if arcpy.Exists(new_nd_path):
