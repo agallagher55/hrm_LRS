@@ -15,8 +15,8 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | 1 | Extract old network configuration | ✅ Complete |
 | 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
-| 4 | Create & build new network dataset | ⏳ Blocked (see prerequisites) |
-| 5 | Validation | ⏳ Not started |
+| 4 | Create & build new network dataset | ✅ Complete (Dev) |
+| 5 | Validation | 🔄 In progress — properties check passed; solve tests pending |
 
 ## Confirmed Prerequisites
 
@@ -26,8 +26,10 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | Spatial reference — `TRNLRS` FD | ✅ Confirmed | `NAD_1983_CSRS_2010_MTM_5_Nova_Scotia` |
 | Spatial reference — `TRN_streets_routes` FD | ✅ Confirmed | Identical — no projection on copy |
 | `SDEADM.TRNLRS_TRN_STREET_VW` (standalone, outside FD) | ✅ Exists | Script 03 copies it into FD |
-| `SDEADM.TRNLRS\TRNLRS_street_junction` | ❌ Does not exist | Must be copied from `TRN_street_junction` (Step 1) |
-| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ❌ Does not exist | Must be copied from `TRN_traffic_turn` (Step 1) |
+| `SDEADM.TRNLRS\TRNLRS_street_junction` | ✅ Copied | Copied from `TRN_streets_routes\TRN_street_junction` |
+| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ✅ Copied | Copied from `TRN_streets_routes\TRN_traffic_turn` |
+| `SDEADM.TRNLRS\TRNLRS_TRN_STREET` (FD edge copy) | ✅ Copied | Script 03 copied from standalone `TRNLRS_TRN_STREET_VW` |
+| `SDEADM.TRNLRS\TRN_lrs_street_network` | ✅ Created & built | Dev environment |
 
 ---
 
@@ -85,66 +87,60 @@ element, `ZELEV` cleared from the system junction source, and `NetworkElevationM
 
 ---
 
-## Remaining Steps
+## Completed Steps
 
-### Step 1 — Copy junction and turn sources into `SDEADM.TRNLRS` (Phase 4 prerequisite)
+### Step 1 — Copy junction and turn sources into `SDEADM.TRNLRS` ✅
 
-The network dataset requires all source FCs to live inside the target feature dataset.
-Script 03 handles the edge source automatically but **not** the junction or turn sources.
-These FCs do not yet exist in `TRNLRS` and must be copied from their current location in
-`SDEADM.TRN_streets_routes`.
+Copied from `SDEADM.TRN_streets_routes` into `SDEADM.TRNLRS`:
+- `TRN_street_junction` → `TRNLRS_street_junction`
+- `TRN_traffic_turn` → `TRNLRS_traffic_turn`
 
-> **Spatial reference:** Both FDs use `NAD_1983_CSRS_2010_MTM_5_Nova_Scotia` (confirmed) —
-> no reprojection will occur on copy.
-
-- [ ] Copy `SDEADM.TRN_streets_routes\TRN_street_junction` → `SDEADM.TRNLRS\TRNLRS_street_junction`
-- [ ] Copy `SDEADM.TRN_streets_routes\TRN_traffic_turn` → `SDEADM.TRNLRS\TRNLRS_traffic_turn`
-
-```python
-import arcpy
-
-sde = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
-
-# Source FCs live in TRN_streets_routes; copies go into TRNLRS for the new ND
-arcpy.management.CopyFeatures(
-    sde + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street_junction",
-    sde + r"\SDEADM.TRNLRS\TRNLRS_street_junction",
-)
-arcpy.management.CopyFeatures(
-    sde + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn",
-    sde + r"\SDEADM.TRNLRS\TRNLRS_traffic_turn",
-)
-```
+Both FDs share `NAD_1983_CSRS_2010_MTM_5_Nova_Scotia` — no reprojection occurred.
 
 ---
 
-### Step 2 — Confirm edge source is populated (Phase 4 prerequisite)
+### Step 2 — Edge source populated ✅
 
-`SDEADM.TRNLRS_TRN_STREET_VW` exists as a standalone SDE FC outside the feature dataset
-(confirmed). Script 03 will copy it into `SDEADM.TRNLRS` automatically.
-
-- [ ] Confirm `SDEADM.TRNLRS_TRN_STREET_VW` has features (not empty or stale)
-- [ ] If stale or empty, run `LRS_updates.py` to refresh it
+`SDEADM.TRNLRS_TRN_STREET_VW` confirmed populated. Script 03 copied it into
+`SDEADM.TRNLRS\TRNLRS_TRN_STREET` (renamed to avoid SDE geodatabase-wide name uniqueness
+constraint — two FCs cannot share the same name even across feature datasets).
 
 ---
 
-### Step 3 — Create and build the new network dataset (Phase 4)
+### Step 3 — Create and build the new network dataset ✅
 
 **Script:** `scripts/03_create_network_dataset.py`
 
-- [ ] Confirm `SDE_CONNECTION` points to the target environment (currently Dev)
-- [ ] Run the script — it will:
-  1. Copy `TRNLRS_TRN_STREET_VW` into `SDEADM.TRNLRS`
-  2. Verify all three source FCs are present
-  3. Create the network dataset from `data/network_template.xml`
-  4. Build the network dataset (`arcpy.na.BuildNetwork`)
-- [ ] Check for errors in the output log
+Run successfully on Dev. Network dataset `TRN_lrs_street_network` created and built inside
+`SDEADM.TRNLRS`.
+
+**Issues encountered and resolved during build:**
+- `CopyFeatures` failed with name conflict — SDE requires unique FC names across the entire
+  geodatabase. Fixed by renaming the FD copy to `TRNLRS_TRN_STREET` and updating the XML
+  template accordingly.
+- `BuildNetwork` failed with `ERROR 030347: The system junction class does not have the
+  elevation field` — the system junction source still had `ZELEV` set despite
+  `NetworkElevationModel=0`. Fixed by clearing `ElevationFieldName` on the
+  `SystemJunctionSource` element in `network_template.xml`.
 
 ---
 
+## Remaining Steps
+
 ### Step 4 — Validate the new network dataset (Phase 5)
 
-- [ ] Open Network Dataset Properties in ArcGIS Pro — check Sources, Travel Attributes, Directions
+**Properties check ✅ (2026-06-26)**
+
+| Check | Result |
+|---|---|
+| Sources tab | Edge: `TRNLRS_TRN_STREET`; Junction: system + `TRNLRS_street_junction`; Turn: `TRNLRS_traffic_turn` |
+| Length cost evaluator | `[SHAPE.STLength()]` Field Script on Along/Against — correct |
+| OneWay restriction | Field Script (VB) on Along/Against referencing `STR_DIR` — correct |
+| TrafficTurn restriction | Prohibited; turn source assigned — correct |
+| Directions field mappings | `Base Name → STR_NAME`, `Suffix Type → STR_TYPE`, `Full Name → FULL_NAME` — correct |
+
+**Solve tests — pending**
+
 - [ ] Solve a **Route** between two known endpoints; compare path and cost against `TRN_street_network`
 - [ ] Solve a **Service Area** (e.g. 5-minute drive) from a known origin; compare coverage
 - [ ] Confirm **one-way restriction** is enforced (test a one-way street in both directions)
