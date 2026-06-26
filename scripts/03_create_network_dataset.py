@@ -103,17 +103,21 @@ def main():
     copy_fc_to_fd(SOURCE_TURN, FEATURE_DATASET, "TRNLRS_traffic_turn")
 
     new_nd_path = os.path.join(FEATURE_DATASET, NEW_ND_NAME)
-    if arcpy.Exists(new_nd_path):
-        sys.exit(
-            f"ERROR: Network dataset already exists: {new_nd_path}\n"
-            "Delete it first or choose a different name."
-        )
 
     print(f"Creating network dataset from template: {TEMPLATE_XML}")
-    arcpy.na.CreateNetworkDatasetFromTemplate(
-        network_dataset_template=str(TEMPLATE_XML),
-        output_feature_dataset=FEATURE_DATASET,
-    )
+    try:
+        arcpy.na.CreateNetworkDatasetFromTemplate(
+            network_dataset_template=str(TEMPLATE_XML),
+            output_feature_dataset=FEATURE_DATASET,
+        )
+    except arcpy.ExecuteError:
+        msgs = arcpy.GetMessages()
+        if "already exists" in msgs:
+            sys.exit(
+                f"ERROR: Network dataset already exists: {new_nd_path}\n"
+                "Delete it in ArcGIS Pro (Catalog pane → right-click → Delete) and re-run."
+            )
+        sys.exit(f"ERROR: CreateNetworkDatasetFromTemplate failed:\n{msgs}")
     print(f"Network dataset created: {new_nd_path}")
 
     build_network(new_nd_path)
