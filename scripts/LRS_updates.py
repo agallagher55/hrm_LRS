@@ -55,7 +55,7 @@ SPEED_LIMIT_NEIGHBOURHOOD_FEATURE_NAME = "TRNLRS_SpeedLimit_Neighbourhood_VW"
 # permanently, remove these constants and the sync_network_edge_source() call.
 TRNLRS_FD                   = "SDEADM.TRNLRS"
 NETWORK_FD_EDGE_COPY_NAME   = "TRNLRS_TRN_STREET"
-NETWORK_DATASET_NAME        = "TRN_lrs_street_network"
+NETWORK_DATASET_NAME        = "TRNLRS_street_network"
 
 MTM5_SPATIAL_REFERENCE = (
     'PROJCS["NAD_1983_CSRS_2010_MTM_5_Nova_Scotia",'
@@ -399,7 +399,7 @@ def sync_network_edge_source(sde_connection: str):
 
     Truncates TRNLRS_TRN_STREET (the FD copy referenced by the network dataset)
     and reloads it from TRNLRS_TRN_STREET_VW (the standalone authoritative FC
-    maintained by LRS_updates.py), then rebuilds TRN_lrs_street_network.
+    maintained by LRS_updates.py), then rebuilds TRNLRS_street_network.
 
     This keeps the network dataset current after each LRS refresh without
     requiring a separate scheduled task.  Remove this function and its call
@@ -749,7 +749,7 @@ if __name__ == "__main__":
                     append_feature(rw_tbl, ro_tbl, SDEADM_RO)
 
             ###################################################################################
-            # Sync network edge source and rebuild TRN_lrs_street_network
+            # Sync network edge source and rebuild TRNLRS_street_network
             ###################################################################################
 
             sync_network_edge_source(SDEADM_RW)

@@ -49,16 +49,16 @@ SDEADM.TRNLRS\TRNLRS_TRN_STREET_VW   (copy inside feature dataset — used by ND
 | Status | Read-only |
 | Uses | Routing, service areas |
 
-### New Network Dataset: TRN_lrs_street_network
+### New Network Dataset: TRNLRS_street_network
 
 | Property | Value |
 |---|---|
-| Location | `SDEADM.TRN_lrs_street_network` (SDE, SDEADM.TRNLRS) |
+| Location | `SDEADM.TRNLRS_street_network` (SDE, SDEADM.TRNLRS) |
 | Feature dataset | `SDEADM.TRNLRS` |
 | Edge source | `TRNLRS_TRN_STREET_VW` (copied from standalone FC into FD by script 03) |
 | Junction source | `TRNLRS_street_junction` (copied from `TRN_streets_routes`) |
 | Turn source | `TRNLRS_traffic_turn` (copied from `TRN_streets_routes`) |
-| System junction | `TRN_lrs_street_network_Junctions` (auto-created) |
+| System junction | `TRNLRS_street_network_Junctions` (auto-created) |
 
 ---
 
@@ -165,12 +165,12 @@ The following changes have been applied to `data/network_template.xml`:
 
 | Element | Old value | New value |
 |---|---|---|
-| `<Name>` / `<LogicalNetworkName>` | `TRN_street_network` | `TRN_lrs_street_network` |
-| `<CatalogPath>` | `/FD=TRN_streets_routes/ND=TRN_street_network` | `/FD=TRNLRS/ND=TRN_lrs_street_network` |
+| `<Name>` / `<LogicalNetworkName>` | `TRN_street_network` | `TRNLRS_street_network` |
+| `<CatalogPath>` | `/FD=TRN_streets_routes/ND=TRN_street_network` | `/FD=TRNLRS/ND=TRNLRS_street_network` |
 | Edge source `<Name>` | `TRN_street` | `TRNLRS_TRN_STREET_VW` |
 | Junction source `<Name>` | `TRN_street_junction` | `TRNLRS_street_junction` |
 | Turn source `<Name>` | `TRN_traffic_turn` | `TRNLRS_traffic_turn` |
-| System junction `<Name>` | `TRN_street_network_Junctions` | `TRN_lrs_street_network_Junctions` |
+| System junction `<Name>` | `TRN_street_network_Junctions` | `TRNLRS_street_network_Junctions` |
 | `NetworkSourceName` (evaluators) | `TRN_street` | `TRNLRS_TRN_STREET_VW` |
 | `FromElevationFieldName` / `ToElevationFieldName` | `FROM_ELEV` / `TO_ELEV` | *(empty)* |
 | `NetworkElevationModel` | `1` (Elevation Fields) | `0` (None) |
@@ -198,7 +198,7 @@ Review and set these configuration variables at the top of the script:
 |---|---|---|
 | `SDE_CONNECTION` | Path to `.sde` connection file | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` |
 | `FEATURE_DATASET` | Target feature dataset for the new ND | `SDEADM.TRNLRS` |
-| `NEW_ND_NAME` | Name of the network dataset to create | `TRN_lrs_street_network` |
+| `NEW_ND_NAME` | Name of the network dataset to create | `TRNLRS_street_network` |
 | `STANDALONE_EDGE_SOURCE` | SDE path to the standalone `TRNLRS_TRN_STREET_VW` FC | `SDEADM.TRNLRS_TRN_STREET_VW` |
 
 The script performs these steps in order:
@@ -249,7 +249,7 @@ After each LRS refresh, two steps are required:
    ```
 2. **Rebuild the network dataset**:
    ```python
-   arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS\TRN_lrs_street_network")
+   arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS\TRNLRS_street_network")
    ```
 
 Both steps can be appended to the end of `LRS_updates.py`'s main block to automate the refresh.

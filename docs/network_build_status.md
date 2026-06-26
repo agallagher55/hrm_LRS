@@ -1,8 +1,8 @@
 # Network Dataset Build Status & Action Plan
-## TRN_lrs_street_network
+## TRNLRS_street_network
 
 **Goal:** Replace the legacy `TRN_street_network` with a new LRS-based network dataset
-(`TRN_lrs_street_network`) whose edge source is `TRNLRS_TRN_STREET_VW`.
+(`TRNLRS_street_network`) whose edge source is `TRNLRS_TRN_STREET_VW`.
 
 For full technical details see [`network_dataset_migration_plan.md`](network_dataset_migration_plan.md).
 
@@ -29,7 +29,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | `SDEADM.TRNLRS\TRNLRS_street_junction` | ✅ Copied | Copied from `TRN_streets_routes\TRN_street_junction` |
 | `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ✅ Copied | Copied from `TRN_streets_routes\TRN_traffic_turn` |
 | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` (FD edge copy) | ✅ Copied | Script 03 copied from standalone `TRNLRS_TRN_STREET_VW` |
-| `SDEADM.TRNLRS\TRN_lrs_street_network` | ✅ Created & built | Dev environment |
+| `SDEADM.TRNLRS\TRNLRS_street_network` | ✅ Created & built | Dev environment |
 
 ---
 
@@ -111,7 +111,7 @@ constraint — two FCs cannot share the same name even across feature datasets).
 
 **Script:** `scripts/03_create_network_dataset.py`
 
-Run successfully on Dev. Network dataset `TRN_lrs_street_network` created and built inside
+Run successfully on Dev. Network dataset `TRNLRS_street_network` created and built inside
 `SDEADM.TRNLRS`.
 
 **Issues encountered and resolved during build:**
@@ -161,7 +161,7 @@ the network. It can be run standalone or called directly from `LRS_updates.py`.
 Add to the end of `LRS_updates.py`'s `__main__` block (after the `street_features` loop):
 
 ```python
-# Sync network edge source and rebuild TRN_lrs_street_network
+# Sync network edge source and rebuild TRNLRS_street_network
 from scripts.sync_and_rebuild_network import sync_and_rebuild
 sync_and_rebuild(sde_connection=SDEADM_RW)
 ```
@@ -224,7 +224,7 @@ review — it has no routing speed value.
 - [ ] Confirm default speed values with traffic/operations team
 - [ ] Add `SPEED` to SQL in `_update_streets` and to the edge source
 - [ ] Add `TravelTime` cost attribute to `network_template.xml` with VB script evaluator
-- [ ] Delete and recreate `TRN_lrs_street_network` after template update
+- [ ] Delete and recreate `TRNLRS_street_network` after template update
 
 ---
 
@@ -235,7 +235,7 @@ review — it has no routing speed value.
 | Dev SDE connection | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` |
 | QA SDE connection | `E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde` |
 | Target feature dataset | `SDEADM.TRNLRS` |
-| New network dataset name | `TRN_lrs_street_network` |
+| New network dataset name | `TRNLRS_street_network` |
 | Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` |
 | FD copy of edge source (used by ND) | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` |
 | XML template | `data/network_template.xml` |
