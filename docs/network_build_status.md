@@ -18,6 +18,17 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | 4 | Create & build new network dataset | ⏳ Blocked (see prerequisites) |
 | 5 | Validation | ⏳ Not started |
 
+## Confirmed Prerequisites
+
+| Item | Status | Notes |
+|---|---|---|
+| `SDEADM.TRNLRS` feature dataset exists | ✅ Confirmed | Target FD is ready |
+| Spatial reference — `TRNLRS` FD | ✅ Confirmed | `NAD_1983_CSRS_2010_MTM_5_Nova_Scotia` |
+| Spatial reference — `TRN_streets_routes` FD | ✅ Confirmed | Identical — no projection on copy |
+| `SDEADM.TRNLRS_TRN_STREET_VW` (standalone, outside FD) | ✅ Exists | Script 03 copies it into FD |
+| `SDEADM.TRNLRS\TRNLRS_street_junction` | ❌ Does not exist | Must be copied from `TRN_street_junction` (Step 1) |
+| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ❌ Does not exist | Must be copied from `TRN_traffic_turn` (Step 1) |
+
 ---
 
 ## Schema Comparison Findings (Phase 2)
@@ -80,15 +91,21 @@ connectivity only (no 3D elevation modelling).
 
 The network dataset requires all source FCs to live inside the target feature dataset.
 Script 03 handles the edge source automatically but **not** the junction or turn sources.
+These FCs do not yet exist in `TRNLRS` and must be copied from their current location in
+`SDEADM.TRN_streets_routes`.
 
-- [ ] Copy `SDEADM.TRN_street_junction` → `SDEADM.TRNLRS\TRNLRS_street_junction`
-- [ ] Copy `SDEADM.TRN_traffic_turn` → `SDEADM.TRNLRS\TRNLRS_traffic_turn`
+> **Spatial reference:** Both FDs use `NAD_1983_CSRS_2010_MTM_5_Nova_Scotia` (confirmed) —
+> no reprojection will occur on copy.
+
+- [ ] Copy `SDEADM.TRN_streets_routes\TRN_street_junction` → `SDEADM.TRNLRS\TRNLRS_street_junction`
+- [ ] Copy `SDEADM.TRN_streets_routes\TRN_traffic_turn` → `SDEADM.TRNLRS\TRNLRS_traffic_turn`
 
 ```python
 import arcpy
 
 sde = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 
+# Source FCs live in TRN_streets_routes; copies go into TRNLRS for the new ND
 arcpy.management.CopyFeatures(
     sde + r"\SDEADM.TRN_street_junction",
     sde + r"\SDEADM.TRNLRS\TRNLRS_street_junction",
@@ -101,12 +118,12 @@ arcpy.management.CopyFeatures(
 
 ---
 
-### Step 2 — Run `LRS_updates.py` to populate edge source (Phase 4 prerequisite)
+### Step 2 — Confirm edge source is populated (Phase 4 prerequisite)
 
-`TRNLRS_TRN_STREET_VW` must exist as a populated standalone SDE FC before script 03
-can copy it into the feature dataset.
+`SDEADM.TRNLRS_TRN_STREET_VW` exists as a standalone SDE FC outside the feature dataset
+(confirmed). Script 03 will copy it into `SDEADM.TRNLRS` automatically.
 
-- [ ] Confirm `SDEADM.TRNLRS_TRN_STREET_VW` exists and has features
+- [ ] Confirm `SDEADM.TRNLRS_TRN_STREET_VW` has features (not empty or stale)
 - [ ] If stale or empty, run `LRS_updates.py` to refresh it
 
 ---
