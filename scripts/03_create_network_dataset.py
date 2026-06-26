@@ -38,7 +38,7 @@ SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 # Feature dataset that will contain the new network dataset.
 # Network datasets must live inside a feature dataset in a geodatabase.
 FEATURE_DATASET = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS")
-NEW_ND_NAME     = "TRN_lrs_street_network"
+NEW_ND_NAME     = "TRNLRS_street_network"
 
 # TRNLRS_TRN_STREET_VW is the authoritative standalone FC (outside any feature
 # dataset), populated by LRS_updates.py.  It must be copied into FEATURE_DATASET

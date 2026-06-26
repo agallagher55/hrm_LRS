@@ -1,5 +1,5 @@
 """
-Sync the network edge source and rebuild TRN_lrs_street_network.
+Sync the network edge source and rebuild TRNLRS_street_network.
 
 TRNLRS_TRN_STREET_VW (standalone, outside SDEADM.TRNLRS) is the authoritative
 edge source maintained by LRS_updates.py.  TRNLRS_TRN_STREET (inside SDEADM.TRNLRS)
@@ -33,7 +33,7 @@ SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 STANDALONE_EDGE_SOURCE = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS_TRN_STREET_VW")
 FEATURE_DATASET        = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS")
 FD_EDGE_SOURCE         = os.path.join(FEATURE_DATASET, "TRNLRS_TRN_STREET")
-NETWORK_DATASET        = os.path.join(FEATURE_DATASET, "TRN_lrs_street_network")
+NETWORK_DATASET        = os.path.join(FEATURE_DATASET, "TRNLRS_street_network")
 # ---------------------------------------------------------------------------
 
 
@@ -53,7 +53,7 @@ def sync_and_rebuild(
     """
     standalone = standalone or os.path.join(sde_connection, "SDEADM.TRNLRS_TRN_STREET_VW")
     fd_copy    = fd_copy    or os.path.join(sde_connection, "SDEADM.TRNLRS", "TRNLRS_TRN_STREET")
-    network    = network    or os.path.join(sde_connection, "SDEADM.TRNLRS", "TRN_lrs_street_network")
+    network    = network    or os.path.join(sde_connection, "SDEADM.TRNLRS", "TRNLRS_street_network")
 
     for path, label in [(standalone, "standalone edge source"), (fd_copy, "FD edge copy"), (network, "network dataset")]:
         if not arcpy.Exists(path):
