@@ -15,7 +15,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | 1 | Extract old network configuration | ✅ Complete |
 | 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
-| 4 | Create & build new network dataset | 🔄 Dev complete — QA build in progress |
+| 4 | Create & build new network dataset | ✅ Complete — Dev and QA built (2026-06-26) |
 | 5 | Validation | 🔄 In progress — properties check passed; solve tests pending |
 
 ## Confirmed Prerequisites
@@ -29,7 +29,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | `SDEADM.TRNLRS\TRNLRS_street_junction` | ✅ Copied | Copied from `TRN_streets_routes\TRN_street_junction` |
 | `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ✅ Copied | Copied from `TRN_streets_routes\TRN_traffic_turn` |
 | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` (FD edge copy) | ✅ Copied | Script 03 copied from standalone `TRNLRS_TRN_STREET_VW` |
-| `SDEADM.TRNLRS\TRNLRS_street_network` | ✅ Created & built | Dev environment |
+| `SDEADM.TRNLRS\TRNLRS_street_network` | ✅ Created & built | Dev and QA environments |
 
 ---
 
@@ -93,7 +93,7 @@ element, `ZELEV` cleared from the system junction source, and `NetworkElevationM
 
 **Script:** `scripts/03_create_network_dataset.py`
 
-Run successfully on Dev. The script automatically copies all three source FCs into
+Run successfully on Dev and QA. The script automatically copies all three source FCs into
 `SDEADM.TRNLRS` if not already present (skips if they exist), then creates and builds
 `TRNLRS_street_network`.
 
