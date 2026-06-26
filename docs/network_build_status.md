@@ -60,8 +60,8 @@ These fields exist in `TRN_street` but **not** in `TRNLRS_TRN_STREET_VW`:
 | `TECH_MOD` | String(32) | None |
 
 **XML template fix applied:** `FROM_ELEV`/`TO_ELEV` references cleared from the edge source
-element and `NetworkElevationModel` set to `0` (None). The new network will use endpoint
-connectivity only (no 3D elevation modelling).
+element, `ZELEV` cleared from the system junction source, and `NetworkElevationModel` set to
+`0` (None). The new network will use endpoint connectivity only (no 3D elevation modelling).
 
 ### Fields added in new source
 
