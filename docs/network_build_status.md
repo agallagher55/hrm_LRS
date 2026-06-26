@@ -161,8 +161,8 @@ network stays current after every LRS refresh:
 ```python
 # Re-copy edge source and rebuild network after each LRS refresh
 arcpy.management.CopyFeatures(
-    r"<sde>\SDEADM.TRNLRS_TRN_STREET_VW",          # standalone (authoritative)
-    r"<sde>\SDEADM.TRNLRS\TRNLRS_TRN_STREET_VW",   # FD copy (used by ND)
+    r"<sde>\SDEADM.TRNLRS_TRN_STREET_VW",      # standalone (authoritative)
+    r"<sde>\SDEADM.TRNLRS\TRNLRS_TRN_STREET",  # FD copy (used by ND; named without _VW to avoid SDE name conflict)
 )
 arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS\TRN_lrs_street_network")
 ```
@@ -180,6 +180,7 @@ arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS\TRN_lrs_street_network")
 | QA SDE connection | `E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde` |
 | Target feature dataset | `SDEADM.TRNLRS` |
 | New network dataset name | `TRN_lrs_street_network` |
-| Standalone edge source | `SDEADM.TRNLRS_TRN_STREET_VW` |
+| Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` |
+| FD copy of edge source (used by ND) | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` |
 | XML template | `data/network_template.xml` |
 | Old network dataset | `SDEADM.TRN_street_network` (in `TRN_streets_routes`) |
