@@ -11,14 +11,14 @@ Prerequisites (run in order):
        - Confirm turn source name (TRN_traffic_turn → same or new)
      See docs/network_dataset_migration_plan.md for the full XML editing checklist.
 
-Note on TRNLRS_TRN_STREET_VW:
-  This FC is created by LRS_updates.py as a standalone SDE feature class (not
-  inside a feature dataset). Network datasets require all sources to live inside
-  the target feature dataset, so this script automatically copies the standalone
-  FC into SDEADM.TRNLRS before creating the network dataset.  The copy inside
-  the feature dataset is what the network dataset references; the standalone FC
-  remains the authoritative source updated by LRS_updates.py.  After each LRS
-  refresh, re-copy the standalone FC over the FD copy and rebuild the network.
+Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
+  TRNLRS_TRN_STREET_VW is created by LRS_updates.py as a standalone SDE feature
+  class (not inside a feature dataset). Network datasets require all sources to
+  live inside the target feature dataset, so this script copies the standalone FC
+  into SDEADM.TRNLRS under the name TRNLRS_TRN_STREET (without _VW) to avoid an
+  SDE name-uniqueness conflict.  The FD copy is what the network dataset references;
+  the standalone _VW FC remains the authoritative source updated by LRS_updates.py.
+  After each LRS refresh, re-copy the standalone FC over the FD copy and rebuild.
 
 Run from ArcGIS Pro Python environment:
   > python scripts/03_create_network_dataset.py
@@ -40,11 +40,14 @@ SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 FEATURE_DATASET = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS")
 NEW_ND_NAME     = "TRN_lrs_street_network"
 
-# TRNLRS_TRN_STREET_VW is registered in SDE as a standalone FC (outside any
-# feature dataset). It must be copied into FEATURE_DATASET before the network
-# dataset can be created.
+# TRNLRS_TRN_STREET_VW is the authoritative standalone FC (outside any feature
+# dataset), populated by LRS_updates.py.  It must be copied into FEATURE_DATASET
+# before the network dataset can be created.  SDE enforces unique FC names across
+# the entire geodatabase, so the copy is stored under a different name
+# (TRNLRS_TRN_STREET, without the _VW suffix) to avoid a name collision.
+# The XML template uses TRNLRS_TRN_STREET as the edge source name accordingly.
 STANDALONE_EDGE_SOURCE = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS_TRN_STREET_VW")
-EDGE_SOURCE_NAME       = "TRNLRS_TRN_STREET_VW"
+EDGE_SOURCE_NAME       = "TRNLRS_TRN_STREET"
 
 # Junction and turn FCs live in TRN_streets_routes (the old network FD).
 # They must be copied into FEATURE_DATASET manually before running this script
@@ -88,7 +91,7 @@ def verify_sources_exist(feature_dataset):
     # Short (unqualified) names as they appear in the XML <Name> elements.
     # Update this list whenever the XML template source names change.
     expected_sources = [
-        "TRNLRS_TRN_STREET_VW",      # edge source (copied from standalone FC)
+        "TRNLRS_TRN_STREET",         # edge source (copied from standalone TRNLRS_TRN_STREET_VW)
         "TRNLRS_street_junction",    # junction FC (copied from TRN_streets_routes)
         "TRNLRS_traffic_turn",       # turn FC (copied from TRN_streets_routes)
     ]
