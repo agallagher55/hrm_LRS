@@ -124,7 +124,8 @@ def main():
         output_feature_dataset=FEATURE_DATASET,
     )
     print(f"Network dataset created: {new_nd_path}")
-    grant_select(new_nd_path)
+    # ChangePrivileges does not support network datasets; grant on the feature dataset instead.
+    grant_select(FEATURE_DATASET)
 
     build_network(new_nd_path)
     print("\nDone. Validate the new network dataset by:")
