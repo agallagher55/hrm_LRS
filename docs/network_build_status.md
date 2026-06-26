@@ -107,11 +107,11 @@ sde = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 
 # Source FCs live in TRN_streets_routes; copies go into TRNLRS for the new ND
 arcpy.management.CopyFeatures(
-    sde + r"\SDEADM.TRN_street_junction",
+    sde + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street_junction",
     sde + r"\SDEADM.TRNLRS\TRNLRS_street_junction",
 )
 arcpy.management.CopyFeatures(
-    sde + r"\SDEADM.TRN_traffic_turn",
+    sde + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn",
     sde + r"\SDEADM.TRNLRS\TRNLRS_traffic_turn",
 )
 ```
