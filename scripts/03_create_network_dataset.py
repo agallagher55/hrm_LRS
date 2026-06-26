@@ -46,6 +46,12 @@ NEW_ND_NAME     = "TRN_lrs_street_network"
 STANDALONE_EDGE_SOURCE = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS_TRN_STREET_VW")
 EDGE_SOURCE_NAME       = "TRNLRS_TRN_STREET_VW"
 
+# Junction and turn FCs live in TRN_streets_routes (the old network FD).
+# They must be copied into FEATURE_DATASET manually before running this script
+# (script 03 does not do this automatically).
+SOURCE_JUNCTION = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_street_junction")
+SOURCE_TURN     = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_traffic_turn")
+
 REPO_ROOT    = Path(__file__).resolve().parents[1]
 TEMPLATE_XML = REPO_ROOT / "data" / "network_template.xml"
 # ---------------------------------------------------------------------------
@@ -94,6 +100,20 @@ def verify_sources_exist(feature_dataset):
     return missing
 
 
+def copy_hint(feature_dataset):
+    """Return a ready-to-run copy snippet for the missing junction/turn sources."""
+    return (
+        f"\n  arcpy.management.CopyFeatures(\n"
+        f"      r\"{SOURCE_JUNCTION}\",\n"
+        f"      r\"{os.path.join(feature_dataset, 'TRNLRS_street_junction')}\",\n"
+        f"  )\n"
+        f"  arcpy.management.CopyFeatures(\n"
+        f"      r\"{SOURCE_TURN}\",\n"
+        f"      r\"{os.path.join(feature_dataset, 'TRNLRS_traffic_turn')}\",\n"
+        f"  )"
+    )
+
+
 def build_network(nd_path):
     """Build the network dataset after creation."""
     print(f"Building network dataset: {nd_path}")
@@ -122,7 +142,8 @@ def main():
         if any(m in missing for m in ("TRNLRS_street_junction", "TRNLRS_traffic_turn")):
             hints.append(
                 "  Junction/turn FCs must be copied from SDEADM.TRN_streets_routes\n"
-                "  into SDEADM.TRNLRS before running this script."
+                "  into SDEADM.TRNLRS before running this script:\n"
+                + copy_hint(FEATURE_DATASET)
             )
         sys.exit(
             "ERROR: The following source feature classes are missing from\n"
