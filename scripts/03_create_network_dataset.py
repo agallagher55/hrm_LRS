@@ -56,15 +56,7 @@ SOURCE_TURN     = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDE
 
 REPO_ROOT    = Path(__file__).resolve().parents[1]
 TEMPLATE_XML = REPO_ROOT / "data" / "network_template.xml"
-# User or role to grant SELECT privilege to on all newly created SDE items.
-PUBLIC_USER = "PUBLIC"
 # ---------------------------------------------------------------------------
-
-
-def grant_select(path, user=PUBLIC_USER):
-    """Grant SELECT privilege on an SDE dataset so it is publicly viewable."""
-    print(f"Granting SELECT to {user}: {os.path.basename(path)}")
-    arcpy.management.ChangePrivileges(path, user, "GRANT")
 
 
 def copy_fc_to_fd(source_path, feature_dataset, fc_name, error_hint=""):
@@ -80,7 +72,6 @@ def copy_fc_to_fd(source_path, feature_dataset, fc_name, error_hint=""):
         )
     print(f"Copying into feature dataset:\n  {source_path}\n  → {dest}")
     arcpy.management.CopyFeatures(source_path, dest)
-    grant_select(dest)
     print("Copy complete.")
 
 
@@ -124,7 +115,6 @@ def main():
         output_feature_dataset=FEATURE_DATASET,
     )
     print(f"Network dataset created: {new_nd_path}")
-    grant_select(new_nd_path)
 
     build_network(new_nd_path)
     print("\nDone. Validate the new network dataset by:")
