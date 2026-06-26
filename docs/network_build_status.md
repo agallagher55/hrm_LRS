@@ -149,21 +149,29 @@ Run successfully on Dev. Network dataset `TRN_lrs_street_network` created and bu
 
 ---
 
-### Step 5 — Automate refresh in `LRS_updates.py`
+### Step 5 — Automate sync and rebuild in `LRS_updates.py`
 
-Once validated, append these two calls to the end of `LRS_updates.py`'s main block so the
-network stays current after every LRS refresh:
+**Script:** `scripts/04_sync_and_rebuild_network.py`
+
+`TRNLRS_TRN_STREET` (FD copy used by the network) must be kept in sync with
+`TRNLRS_TRN_STREET_VW` (standalone authoritative FC) after every LRS refresh.
+The sync script truncates the FD copy, reloads it from the standalone, and rebuilds
+the network. It can be run standalone or called directly from `LRS_updates.py`.
+
+Add to the end of `LRS_updates.py`'s `__main__` block (after the `street_features` loop):
 
 ```python
-# Re-copy edge source and rebuild network after each LRS refresh
-arcpy.management.CopyFeatures(
-    r"<sde>\SDEADM.TRNLRS_TRN_STREET_VW",      # standalone (authoritative)
-    r"<sde>\SDEADM.TRNLRS\TRNLRS_TRN_STREET",  # FD copy (used by ND; named without _VW to avoid SDE name conflict)
-)
-arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS\TRN_lrs_street_network")
+# Sync network edge source and rebuild TRN_lrs_street_network
+from scripts.sync_and_rebuild_network import sync_and_rebuild
+sync_and_rebuild(sde_connection=SDEADM_RW)
 ```
 
-- [ ] Add rebuild steps to `LRS_updates.py`
+Note: `BuildNetwork` requires the **Network Analyst** extension. If `LRS_updates.py` already
+checks out all needed extensions at startup, add `"Network"` to that block. Otherwise
+`sync_and_rebuild()` handles the checkout/checkin internally when called standalone.
+
+- [ ] Check out Network Analyst extension in `LRS_updates.py` (if not already)
+- [ ] Add `sync_and_rebuild()` call to `LRS_updates.py` after the `street_features` loop
 - [ ] Run a full LRS refresh cycle end-to-end and confirm the network rebuilds cleanly
 
 ---
