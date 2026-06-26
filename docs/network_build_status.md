@@ -15,7 +15,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | 1 | Extract old network configuration | ✅ Complete |
 | 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
-| 4 | Create & build new network dataset | ✅ Dev complete — QA in progress |
+| 4 | Create & build new network dataset | 🔄 Dev complete — QA build in progress |
 | 5 | Validation | 🔄 In progress — properties check passed; solve tests pending |
 
 ## Confirmed Prerequisites
@@ -89,32 +89,23 @@ element, `ZELEV` cleared from the system junction source, and `NetworkElevationM
 
 ## Completed Steps
 
-### Step 1 — Copy junction and turn sources into `SDEADM.TRNLRS` ✅
-
-Copied from `SDEADM.TRN_streets_routes` into `SDEADM.TRNLRS`:
-- `TRN_street_junction` → `TRNLRS_street_junction`
-- `TRN_traffic_turn` → `TRNLRS_traffic_turn`
-
-Both FDs share `NAD_1983_CSRS_2010_MTM_5_Nova_Scotia` — no reprojection occurred.
-
----
-
-### Step 2 — Edge source populated ✅
-
-`SDEADM.TRNLRS_TRN_STREET_VW` confirmed populated. Script 03 copied it into
-`SDEADM.TRNLRS\TRNLRS_TRN_STREET` (renamed to avoid SDE geodatabase-wide name uniqueness
-constraint — two FCs cannot share the same name even across feature datasets).
-
----
-
-### Step 3 — Create and build the new network dataset ✅
+### Step 1 — Create and build the new network dataset ✅
 
 **Script:** `scripts/03_create_network_dataset.py`
 
-Run successfully on Dev. Network dataset `TRNLRS_street_network` created and built inside
-`SDEADM.TRNLRS`.
+Run successfully on Dev. The script automatically copies all three source FCs into
+`SDEADM.TRNLRS` if not already present (skips if they exist), then creates and builds
+`TRNLRS_street_network`.
 
-**Issues encountered and resolved during build:**
+- `TRNLRS_TRN_STREET_VW` (standalone) → copied into FD as `TRNLRS_TRN_STREET`
+  (renamed to avoid SDE geodatabase-wide name uniqueness constraint)
+- `TRN_street_junction` → copied into FD as `TRNLRS_street_junction`
+- `TRN_traffic_turn` → copied into FD as `TRNLRS_traffic_turn`
+
+Both `TRN_streets_routes` and `TRNLRS` FDs share `NAD_1983_CSRS_2010_MTM_5_Nova_Scotia` —
+no reprojection occurs on copy.
+
+**Issues encountered and resolved during Dev build:**
 - `CopyFeatures` failed with name conflict — SDE requires unique FC names across the entire
   geodatabase. Fixed by renaming the FD copy to `TRNLRS_TRN_STREET` and updating the XML
   template accordingly.
@@ -149,29 +140,27 @@ Run successfully on Dev. Network dataset `TRNLRS_street_network` created and bui
 
 ---
 
-### Step 5 — Automate sync and rebuild in `LRS_updates.py`
+### Step 5 — Automate sync and rebuild in `LRS_updates.py` ✅
 
 **Script:** `scripts/04_sync_and_rebuild_network.py`
 
 `TRNLRS_TRN_STREET` (FD copy used by the network) must be kept in sync with
 `TRNLRS_TRN_STREET_VW` (standalone authoritative FC) after every LRS refresh.
-The sync script truncates the FD copy, reloads it from the standalone, and rebuilds
-the network. It can be run standalone or called directly from `LRS_updates.py`.
 
-Add to the end of `LRS_updates.py`'s `__main__` block (after the `street_features` loop):
+**Implemented in `scripts/LRS_updates.py`:**
+- Network Analyst extension checked out at startup (alongside LocationReferencing); raises
+  `LicenseError` if unavailable
+- `sync_network_edge_source(sde_connection)` function added — calls `append_feature()` to
+  truncate/reload `TRNLRS_TRN_STREET` from `TRNLRS_TRN_STREET_VW`, then calls `BuildNetwork`
+- Called after the `street_features` loop, inside the QC-pass `else` block
+- Both extensions checked in the `finally` block
 
-```python
-# Sync network edge source and rebuild TRNLRS_street_network
-from scripts.sync_and_rebuild_network import sync_and_rebuild
-sync_and_rebuild(sde_connection=SDEADM_RW)
-```
+`scripts/04_sync_and_rebuild_network.py` also exists as a standalone script if a one-off
+sync/rebuild is needed outside of a full LRS refresh cycle.
 
-Note: `BuildNetwork` requires the **Network Analyst** extension. If `LRS_updates.py` already
-checks out all needed extensions at startup, add `"Network"` to that block. Otherwise
-`sync_and_rebuild()` handles the checkout/checkin internally when called standalone.
-
-- [ ] Check out Network Analyst extension in `LRS_updates.py` (if not already)
-- [ ] Add `sync_and_rebuild()` call to `LRS_updates.py` after the `street_features` loop
+- [x] Check out Network Analyst extension in `LRS_updates.py`
+- [x] Add `sync_network_edge_source()` call to `LRS_updates.py` after the `street_features` loop
+- [ ] Deploy updated `LRS_updates.py` to `E:\HRM\Scripts\Python\LRS_updates.py`
 - [ ] Run a full LRS refresh cycle end-to-end and confirm the network rebuilds cleanly
 
 ---
