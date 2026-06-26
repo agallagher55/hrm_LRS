@@ -168,6 +168,60 @@ arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS\TRN_lrs_street_network")
 
 ---
 
+## Open Questions / Future Work
+
+### Edge source naming
+
+The current two-name setup (`TRNLRS_TRN_STREET_VW` standalone + `TRNLRS_TRN_STREET` FD copy)
+is a workaround for SDE's geodatabase-wide name uniqueness constraint.
+
+Preferred long-term fix: move `TRNLRS_TRN_STREET_VW` into `SDEADM.TRNLRS` directly as
+`TRNLRS_TRN_STREET`, and update `LRS_updates.py` to write to that path. This eliminates the
+copy step entirely — the network edge source *is* the authoritative FC. Requires coordinating
+with anyone consuming `TRNLRS_TRN_STREET_VW` by name.
+
+- [ ] Identify all consumers of `SDEADM.TRNLRS_TRN_STREET_VW` (map services, scripts, etc.)
+- [ ] Get sign-off to rename/move the FC
+- [ ] Update `LRS_updates.py` output path and remove the copy step from `03_create_network_dataset.py`
+
+---
+
+### Travel time cost attribute (speed limits)
+
+Adding a `TravelTime` (Minutes) cost attribute requires `SPEED` (km/h) on the edge source.
+
+**Data source:** `SDEADM.E_SpeedLimit` — already in the TRNLRS feature dataset, already
+overlaid separately in `LRS_updates.py` for the `TRNLRS_SpeedLimit_Neighbourhood_VW` product.
+`TRNLRS_SpeedLimit_Neighbourhood_VW` itself represents areas *under neighbourhood speed review*
+and is not the right source for routing — the raw `E_SpeedLimit.SPEED` field is.
+
+**`E_SpeedLimit_Neighbourhood`** represents zones where a speed limit change is under community
+review. It does not contain an adopted speed and should not be used as a routing speed.
+
+**Preferred approach:** add `E_SpeedLimit` to the main `event_tables` in `DynSegFeature.__init__`
+(one line, same pattern as the existing 7 events) so `SPEED` flows into `TRNLRS_TRN_STREET_VW`.
+**Blocked pending org approval** — `TRNLRS_TRN_STREET_VW` is an org-wide product and schema
+changes require sign-off.
+
+**Proposed default speeds** (for segments with no posted speed limit, derived from `ST_CLASS`):
+
+| ST_CLASS | Default speed (km/h) |
+|---|---|
+| `FREEWAY` | 100 |
+| `EXPRESSWAY` | 80 |
+| `ARTERIAL` | 60 |
+| `MAJOR COLLECTOR` | 50 |
+| `MINOR COLLECTOR` | 50 |
+| `LOCAL STREET` | 50 |
+
+- [ ] Get approval to add `E_SpeedLimit` to the main `OverlayEvents` call in `LRS_updates.py`
+- [ ] Confirm default speed values with traffic/operations team
+- [ ] Add `SPEED` to SQL in `_update_streets` once approved
+- [ ] Add `TravelTime` cost attribute to `network_template.xml`
+- [ ] Delete and recreate `TRN_lrs_street_network` after template update
+
+---
+
 ## Key Paths Reference
 
 | Item | Path |
