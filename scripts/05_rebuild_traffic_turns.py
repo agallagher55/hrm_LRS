@@ -277,11 +277,16 @@ def main():
     # ------------------------------------------------------------------
     print(f"Creating output turn FC: {NEW_TURN_FC}")
     out_path, out_name = NEW_TURN_FC.rsplit("\\", 1)
+    # Do NOT pass in_network_dataset here: doing so registers the new FC as a
+    # turn source in the network, which prevents deletion and conflicts with the
+    # existing TRNLRS_traffic_turn that is already registered. Use the old turn
+    # FC's spatial reference instead.
+    sr = arcpy.Describe(OLD_TURN_FC).spatialReference
     arcpy.na.CreateTurnFeatureClass(
         out_location=out_path,
         out_feature_class_name=out_name,
         maximum_edges=max(edge_slots),
-        in_network_dataset=NEW_NETWORK,
+        spatial_reference=sr,
     )
 
     # ------------------------------------------------------------------
@@ -402,11 +407,19 @@ def main():
         print()
         print("AUTO_SWAP_AND_REBUILD is True -- swapping turn FCs and rebuilding...")
 
-        print(f"  Deleting {OLD_TURN_FC_FINAL}...")
-        arcpy.management.Delete(OLD_TURN_FC_FINAL)
+        # TRNLRS_traffic_turn is registered in the network dataset and cannot be
+        # deleted. Use TruncateTable + Append to replace its rows in-place, then
+        # delete the unregistered intermediate FC.
+        swap_workspace = arcpy.Describe(OLD_TURN_FC_FINAL).path
+        with arcpy.da.Editor(swap_workspace):
+            print(f"  Truncating {OLD_TURN_FC_FINAL}...")
+            arcpy.management.TruncateTable(OLD_TURN_FC_FINAL)
 
-        print(f"  Renaming {NEW_TURN_FC} -> TRNLRS_traffic_turn...")
-        arcpy.management.Rename(NEW_TURN_FC, "TRNLRS_traffic_turn")
+            print(f"  Appending remapped turns into {OLD_TURN_FC_FINAL}...")
+            arcpy.management.Append(NEW_TURN_FC, OLD_TURN_FC_FINAL, "NO_TEST")
+
+        print(f"  Deleting intermediate FC {NEW_TURN_FC}...")
+        arcpy.management.Delete(NEW_TURN_FC)
 
         print(f"  Rebuilding {NEW_NETWORK}...")
         arcpy.na.BuildNetwork(NEW_NETWORK)
@@ -418,10 +431,11 @@ def main():
         print("Review the output FC before committing:")
         print(f"  {NEW_TURN_FC}")
         print()
-        print("To complete the swap manually:")
-        print(f"  1. arcpy.management.Delete(r'{OLD_TURN_FC_FINAL}')")
-        print(f"  2. arcpy.management.Rename(r'{NEW_TURN_FC}', 'TRNLRS_traffic_turn')")
-        print(f"  3. arcpy.na.BuildNetwork(r'{NEW_NETWORK}')")
+        print("To complete the swap manually (run inside an ArcGIS edit session):")
+        print(f"  1. arcpy.management.TruncateTable(r'{OLD_TURN_FC_FINAL}')")
+        print(f"  2. arcpy.management.Append(r'{NEW_TURN_FC}', r'{OLD_TURN_FC_FINAL}', 'NO_TEST')")
+        print(f"  3. arcpy.management.Delete(r'{NEW_TURN_FC}')")
+        print(f"  4. arcpy.na.BuildNetwork(r'{NEW_NETWORK}')")
 
 
 if __name__ == "__main__":
