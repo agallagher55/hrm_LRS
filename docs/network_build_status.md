@@ -17,6 +17,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ Complete — Dev and QA built (2026-06-26) |
 | 5 | Validation | 🔄 In progress — properties check passed; solve tests pending |
+| 5a | Traffic turn rebuild | ❌ Blocking -- all turn records fail to build; see below |
 
 ## Confirmed Prerequisites
 
@@ -27,7 +28,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | Spatial reference — `TRN_streets_routes` FD | ✅ Confirmed | Identical — no projection on copy |
 | `SDEADM.TRNLRS_TRN_STREET_VW` (standalone, outside FD) | ✅ Exists | Script 03 copies it into FD |
 | `SDEADM.TRNLRS\TRNLRS_street_junction` | ✅ Copied | Copied from `TRN_streets_routes\TRN_street_junction` |
-| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ✅ Copied | Copied from `TRN_streets_routes\TRN_traffic_turn` |
+| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ⚠️ Needs rebuild | Copied from `TRN_streets_routes\TRN_traffic_turn` but edge OID references are stale -- all turns fail to build; see `traffic_turns.md` |
 | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` (FD edge copy) | ✅ Copied | Script 03 copied from standalone `TRNLRS_TRN_STREET_VW` |
 | `SDEADM.TRNLRS\TRNLRS_street_network` | ✅ Created & built | Dev and QA environments |
 
@@ -114,9 +115,72 @@ no reprojection occurs on copy.
   `NetworkElevationModel=0`. Fixed by clearing `ElevationFieldName` on the
   `SystemJunctionSource` element in `network_template.xml`.
 
+### Step 2 — Grant PUBLIC SELECT on network system tables ✅
+
+OS authentication users could not add `TRNLRS_street_network` to ArcGIS Pro. Two separate sets of SDE system tables required grants, resolved in sequence:
+
+**Error 1:** `DBMS table not found [SDEADM.N_3_Props]`
+
+Missing SELECT grants on the network metadata tables (`N_3_*`). These are created by ArcGIS when the network dataset is registered; the registration ID is `3` for `TRNLRS_street_network`. Confirmed by querying `sys.tables` for `N_3_%` in the `SDEADM` schema -- six tables exist. Modelled on the PUBLIC grant already in place for the equivalent `N_2_*` tables backing `TRN_street_network`.
+
+```sql
+GRANT SELECT ON SDEADM.N_3_DESC           TO PUBLIC;
+GRANT SELECT ON SDEADM.N_3_EDGEWEIGHT     TO PUBLIC;
+GRANT SELECT ON SDEADM.N_3_JUNCTIONWEIGHT TO PUBLIC;
+GRANT SELECT ON SDEADM.N_3_PROPS          TO PUBLIC;
+GRANT SELECT ON SDEADM.N_3_TOPOLOGY       TO PUBLIC;
+GRANT SELECT ON SDEADM.N_3_TURNWEIGHT     TO PUBLIC;
+```
+
+**Error 2:** `DBMS table not found [SDEADM.ND_37029_DirtyObjects]`
+
+After the `N_3_*` grants, a second error surfaced for the dirty area tracking tables (`ND_37029_*`). These are separate from the `N_3_*` metadata tables and also require PUBLIC SELECT. The registration ID `37029` is specific to this network dataset instance.
+
+```sql
+GRANT SELECT ON SDEADM.ND_37029_DIRTYAREAS   TO PUBLIC;
+GRANT SELECT ON SDEADM.ND_37029_DIRTYOBJECTS  TO PUBLIC;
+```
+
+After both sets of grants, `TRNLRS_street_network` loads successfully under OS auth connections. ✅
+
+**If rebuilding the network dataset from scratch**, both sets of grants will need to be re-applied -- the registration IDs (`3` and `37029`) may change if the network is deleted and recreated. Confirm the new IDs by querying:
+
+```sql
+SELECT name FROM sys.tables
+WHERE schema_id = SCHEMA_ID('SDEADM')
+AND (name LIKE 'N_%' OR name LIKE 'ND_%')
+ORDER BY name;
+```
+
+Then cross-reference against `SDEADM.GDB_ITEMS` to confirm which IDs belong to `TRNLRS_street_network`:
+
+```sql
+SELECT name, physicalname FROM SDEADM.GDB_ITEMS
+WHERE name LIKE '%TRNLRS%';
+```
+
+**Note:** also verify that the edge source feature classes inside `SDEADM.TRNLRS` (`TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRNLRS_traffic_turn`) have appropriate grants so that OS auth users can run solves, not just open the network dataset.
+
 ---
 
 ## Remaining Steps
+
+### Step 3 — Rebuild traffic turn feature class ❌ Blocking
+
+`TRNLRS_traffic_turn` was copied from `TRN_streets_routes\TRN_traffic_turn` but its edge
+references (stored as ObjectIDs of features in the old `TRN_street` edge source) are no
+longer valid against `TRNLRS_TRN_STREET`. Every turn record fails at build time with
+`Cannot find edge element corresponding to turn identifier 1`, meaning turn restrictions
+are not enforced in the current build.
+
+See [`traffic_turns.md`](traffic_turns.md) for full diagnosis and the remapping script.
+
+- [ ] Run `scripts/05_rebuild_traffic_turns.py` to spatially remap turns to new edge OIDs
+- [ ] Verify written/skipped counts from script output
+- [ ] Rebuild network after turn FC is replaced
+- [ ] Confirm turn restriction logic in a solve test
+
+---
 
 ### Step 4 — Validate the new network dataset (Phase 5)
 
@@ -135,7 +199,7 @@ no reprojection occurs on copy.
 - [ ] Solve a **Route** between two known endpoints; compare path and cost against `TRN_street_network`
 - [ ] Solve a **Service Area** (e.g. 5-minute drive) from a known origin; compare coverage
 - [ ] Confirm **one-way restriction** is enforced (test a one-way street in both directions)
-- [ ] Confirm **turn restriction** logic works
+- [ ] Confirm **turn restriction** logic works -- blocked until `TRNLRS_traffic_turn` is rebuilt (see `traffic_turns.md`)
 - [ ] Check address range fields (`FROM_LEFT`, `TO_LEFT`, `FROM_RIGHT`, `TO_RIGHT`) for geocoding
 
 ---
