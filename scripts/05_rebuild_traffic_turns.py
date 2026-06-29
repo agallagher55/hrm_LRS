@@ -241,15 +241,19 @@ def main():
     # ------------------------------------------------------------------
     # 4. Inspect old turn FC schema
     # ------------------------------------------------------------------
-    turn_field_names = [f.name for f in arcpy.ListFields(OLD_TURN_FC)]
+    # Build a case-insensitive map (UPPER -> actual name) so field detection
+    # works regardless of whether ArcGIS returns EDGE1FID or Edge1FID.
+    _fld_map = {f.name.upper(): f.name for f in arcpy.ListFields(OLD_TURN_FC)}
+    turn_field_names = list(_fld_map.values())
 
-    edge_slots = [i for i in range(1, 6) if f"Edge{i}FID" in turn_field_names]
+    edge_slots = [i for i in range(1, 6) if f"EDGE{i}FID" in _fld_map]
     if not edge_slots:
         print("ERROR: No Edge{N}FID fields found in old turn FC.")
+        print(f"  Available fields: {turn_field_names}")
         sys.exit(1)
     print(f"  Edge slots detected: {edge_slots}")
 
-    has_node = "NODE_" in turn_field_names
+    has_node = "NODE_" in _fld_map
 
     # ------------------------------------------------------------------
     # 5. Get FCID of new edge source from network dataset
@@ -284,11 +288,16 @@ def main():
     # 7. Build cursor field lists
     # ------------------------------------------------------------------
     # Read fields: SHAPE@, [NODE_,] Edge1FCID, Edge1FID, Edge1Pos, ...
+    # Use actual field names from _fld_map so casing matches what ArcGIS expects.
     read_fields = ["SHAPE@"]
     if has_node:
-        read_fields.append("NODE_")
+        read_fields.append(_fld_map["NODE_"])
     for i in edge_slots:
-        read_fields += [f"Edge{i}FCID", f"Edge{i}FID", f"Edge{i}Pos"]
+        read_fields += [
+            _fld_map.get(f"EDGE{i}FCID", f"Edge{i}FCID"),
+            _fld_map.get(f"EDGE{i}FID",  f"Edge{i}FID"),
+            _fld_map.get(f"EDGE{i}POS",  f"Edge{i}Pos"),
+        ]
 
     # Insert fields match read fields
     insert_fields = ["SHAPE@"]
