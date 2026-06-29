@@ -324,8 +324,9 @@ def main():
     no_match = []  # OIDs of turns that could not be remapped
 
     # SDE versioned feature classes require an edit session for inserts.
-    # Use the feature dataset that contains NEW_TURN_FC as the workspace.
-    edit_workspace = arcpy.Describe(NEW_TURN_FC).path
+    # Editor needs the GDB/SDE connection file, not the feature dataset inside it.
+    feat_ds_path   = arcpy.Describe(NEW_TURN_FC).path
+    edit_workspace = arcpy.Describe(feat_ds_path).path
 
     with arcpy.da.Editor(edit_workspace), \
          arcpy.da.SearchCursor(OLD_TURN_FC, read_fields) as read_cur, \
@@ -410,7 +411,7 @@ def main():
         # TRNLRS_traffic_turn is registered in the network dataset and cannot be
         # deleted. Use TruncateTable + Append to replace its rows in-place, then
         # delete the unregistered intermediate FC.
-        swap_workspace = arcpy.Describe(OLD_TURN_FC_FINAL).path
+        swap_workspace = arcpy.Describe(arcpy.Describe(OLD_TURN_FC_FINAL).path).path
         with arcpy.da.Editor(swap_workspace):
             print(f"  Truncating {OLD_TURN_FC_FINAL}...")
             arcpy.management.TruncateTable(OLD_TURN_FC_FINAL)
