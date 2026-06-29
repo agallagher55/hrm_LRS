@@ -318,7 +318,12 @@ def main():
     skipped  = 0
     no_match = []  # OIDs of turns that could not be remapped
 
-    with arcpy.da.SearchCursor(OLD_TURN_FC, read_fields) as read_cur, \
+    # SDE versioned feature classes require an edit session for inserts.
+    # Use the feature dataset that contains NEW_TURN_FC as the workspace.
+    edit_workspace = arcpy.Describe(NEW_TURN_FC).path
+
+    with arcpy.da.Editor(edit_workspace), \
+         arcpy.da.SearchCursor(OLD_TURN_FC, read_fields) as read_cur, \
          arcpy.da.InsertCursor(NEW_TURN_FC, insert_fields) as ins_cur:
 
         for row in read_cur:
