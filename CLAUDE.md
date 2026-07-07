@@ -11,15 +11,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## arcpy Gotchas
 
 ### `arcpy.na.CreateTurnFeatureClass`
-Correct keyword arguments are `out_location` and `out_name` (not `out_path`/`out_name` or `out_location`/`out_feature_class` — both raise `TypeError: unexpected keyword argument`):
+Correct keyword arguments are `out_location` and `out_name` (not `out_path`/`out_name` or `out_location`/`out_feature_class` — both raise `TypeError: unexpected keyword argument`). Name the local variable holding the feature class name `out_feature_class_name` (not `out_name`) so it isn't confused with the `out_name` keyword itself:
 
 ```python
+out_path, out_feature_class_name = NEW_TURN_FC.rsplit("\\", 1)
 arcpy.na.CreateTurnFeatureClass(
     out_location=out_path,
-    out_name=out_name,
+    out_name=out_feature_class_name,
     maximum_edges=max(edge_slots),
     in_network_dataset=NEW_NETWORK,
 )
+```
+
+### Editing turn feature classes registered to a network dataset
+A turn feature class created with `in_network_dataset` set is a controller-dataset member of the network, so `arcpy.da.InsertCursor`/`UpdateCursor` writes to it must run inside an `arcpy.da.Editor` edit session, or ArcGIS raises `RuntimeError: Objects in this class cannot be updated outside an edit session`:
+
+```python
+edit = arcpy.da.Editor(SDE)
+edit.startEditing(False, True)
+edit.startOperation()
+try:
+    with arcpy.da.InsertCursor(NEW_TURN_FC, insert_fields) as ins_cur:
+        ins_cur.insertRow(new_row)
+except Exception:
+    edit.abortOperation()
+    edit.stopEditing(False)
+    raise
+else:
+    edit.stopOperation()
+    edit.stopEditing(True)
 ```
 
 ## Project Purpose

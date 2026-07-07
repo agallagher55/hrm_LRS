@@ -279,10 +279,10 @@ def main():
     # 6. Create new turn feature class
     # ------------------------------------------------------------------
     print(f"Creating output turn FC: {NEW_TURN_FC}")
-    out_path, out_name = NEW_TURN_FC.rsplit("\\", 1)
+    out_path, out_feature_class_name = NEW_TURN_FC.rsplit("\\", 1)
     arcpy.na.CreateTurnFeatureClass(
         out_location=out_path,
-        out_name=out_name,
+        out_name=out_feature_class_name,
         maximum_edges=max(edge_slots),
         in_network_dataset=NEW_NETWORK,
     )
@@ -321,53 +321,68 @@ def main():
     skipped  = 0
     no_match = []  # OIDs of turns that could not be remapped
 
-    with arcpy.da.SearchCursor(OLD_TURN_FC, read_fields) as read_cur, \
-         arcpy.da.InsertCursor(NEW_TURN_FC, insert_fields) as ins_cur:
+    # NEW_TURN_FC is a controller-dataset member of NEW_NETWORK, so writes to
+    # it must happen inside an edit session or arcpy raises RuntimeError:
+    # "Objects in this class cannot be updated outside an edit session".
+    edit = arcpy.da.Editor(SDE)
+    edit.startEditing(False, True)
+    edit.startOperation()
 
-        for row in read_cur:
-            row       = list(row)
-            shape     = row[0]
-            node_val  = row[1] if has_node else None
-            old_oid_f = read_cur.fields.index("OID@") if "OID@" in read_cur.fields else None
+    try:
+        with arcpy.da.SearchCursor(OLD_TURN_FC, read_fields) as read_cur, \
+             arcpy.da.InsertCursor(NEW_TURN_FC, insert_fields) as ins_cur:
 
-            new_row = [shape]
-            valid   = True
+            for row in read_cur:
+                row       = list(row)
+                shape     = row[0]
+                node_val  = row[1] if has_node else None
+                old_oid_f = read_cur.fields.index("OID@") if "OID@" in read_cur.fields else None
 
-            for idx, i in enumerate(edge_slots):
-                base      = edge_data_offset + idx * 3
-                old_fid   = row[base + 1]
-                old_pos   = row[base + 2]
+                new_row = [shape]
+                valid   = True
 
-                # No more edges in this turn record
-                if old_fid is None or old_fid == 0:
-                    new_row += [None, None, None]
-                    continue
+                for idx, i in enumerate(edge_slots):
+                    base      = edge_data_offset + idx * 3
+                    old_fid   = row[base + 1]
+                    old_pos   = row[base + 2]
 
-                new_fid = find_new_oid(
-                    old_fid, old_pos, old_geoms, new_endpoint_index, SNAP_TOLERANCE
-                )
-
-                if new_fid is None:
-                    if i == 1:
-                        # First edge is required; cannot write this turn
-                        valid = False
-                        break
-                    else:
-                        # Subsequent edge unresolved -- write None and continue
+                    # No more edges in this turn record
+                    if old_fid is None or old_fid == 0:
                         new_row += [None, None, None]
                         continue
 
-                new_row += [new_edge_fcid, new_fid, old_pos]
+                    new_fid = find_new_oid(
+                        old_fid, old_pos, old_geoms, new_endpoint_index, SNAP_TOLERANCE
+                    )
 
-            if not valid:
-                skipped += 1
-                continue
+                    if new_fid is None:
+                        if i == 1:
+                            # First edge is required; cannot write this turn
+                            valid = False
+                            break
+                        else:
+                            # Subsequent edge unresolved -- write None and continue
+                            new_row += [None, None, None]
+                            continue
 
-            if has_node:
-                new_row.append(node_val)
+                    new_row += [new_edge_fcid, new_fid, old_pos]
 
-            ins_cur.insertRow(new_row)
-            written += 1
+                if not valid:
+                    skipped += 1
+                    continue
+
+                if has_node:
+                    new_row.append(node_val)
+
+                ins_cur.insertRow(new_row)
+                written += 1
+    except Exception:
+        edit.abortOperation()
+        edit.stopEditing(False)
+        raise
+    else:
+        edit.stopOperation()
+        edit.stopEditing(True)
 
     # ------------------------------------------------------------------
     # 9. Summary
