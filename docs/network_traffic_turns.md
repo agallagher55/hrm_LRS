@@ -511,7 +511,7 @@ if new_edge_fcid is None:
 print(f"New edge FCID: {new_edge_fcid}")
 
 arcpy.na.CreateTurnFeatureClass(
-    out_path=sde + r"\SDEADM.TRNLRS",
+    out_location=sde + r"\SDEADM.TRNLRS",
     out_name="TRNLRS_traffic_turn_new",
     maximum_edges=max(edge_slots),
     in_network_dataset=new_network
@@ -774,7 +774,7 @@ print(f"New edge FCID: {new_edge_fcid}")
  
 # 6. Create new turn FC
 arcpy.na.CreateTurnFeatureClass(
-    out_path=sde + r"\SDEADM.TRNLRS",
+    out_location=sde + r"\SDEADM.TRNLRS",
     out_name="TRNLRS_traffic_turn_new",
     maximum_edges=max(edge_slots),
     in_network_dataset=new_network
