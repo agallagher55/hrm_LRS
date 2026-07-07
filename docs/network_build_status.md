@@ -17,7 +17,8 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ Complete — Dev and QA built (2026-06-26) |
 | 5 | Validation | 🔄 In progress — properties check passed; solve tests pending |
-| 5a | Traffic turn rebuild | ❌ Blocking -- all turn records fail to build; see below |
+| 5a | Traffic turn rebuild | ✅ Complete -- remapped FC published as `TRN_traffic_turn`; see naming note below |
+| 5b | Turn source naming / template + script sync | ⚠️ Needs follow-up -- `network_template.xml` and scripts referenced `TRNLRS_traffic_turn`, corrected to `TRN_traffic_turn` |
 
 ## Confirmed Prerequisites
 
@@ -28,7 +29,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | Spatial reference — `TRN_streets_routes` FD | ✅ Confirmed | Identical — no projection on copy |
 | `SDEADM.TRNLRS_TRN_STREET_VW` (standalone, outside FD) | ✅ Exists | Script 03 copies it into FD |
 | `SDEADM.TRNLRS\TRNLRS_street_junction` | ✅ Copied | Copied from `TRN_streets_routes\TRN_street_junction` |
-| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ⚠️ Needs rebuild | Copied from `TRN_streets_routes\TRN_traffic_turn` but edge OID references are stale -- all turns fail to build; see `traffic_turns.md` |
+| `SDEADM.TRNLRS\TRN_traffic_turn` | ✅ Rebuilt | Copied from `TRN_streets_routes\TRN_traffic_turn`, OID-remapped via script 05, and published under its original base name (`TRN_traffic_turn`, not `TRNLRS_traffic_turn`) -- see `traffic_turns.md` and the naming note below |
 | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` (FD edge copy) | ✅ Copied | Script 03 copied from standalone `TRNLRS_TRN_STREET_VW` |
 | `SDEADM.TRNLRS\TRNLRS_street_network` | ✅ Created & built | Dev and QA environments |
 
@@ -101,7 +102,10 @@ Run successfully on Dev and QA. The script automatically copies all three source
 - `TRNLRS_TRN_STREET_VW` (standalone) → copied into FD as `TRNLRS_TRN_STREET`
   (renamed to avoid SDE geodatabase-wide name uniqueness constraint)
 - `TRN_street_junction` → copied into FD as `TRNLRS_street_junction`
-- `TRN_traffic_turn` → copied into FD as `TRNLRS_traffic_turn`
+- `TRN_traffic_turn` → copied into FD, OID-remapped (script 05), and published
+  under its original base name `TRN_traffic_turn` (unlike the other two sources,
+  it was **not** renamed with the `TRNLRS_` prefix). See "Turn source naming"
+  under Open Questions / Future Work.
 
 Both `TRN_streets_routes` and `TRNLRS` FDs share `NAD_1983_CSRS_2010_MTM_5_Nova_Scotia` —
 no reprojection occurs on copy.
@@ -159,25 +163,39 @@ SELECT name, physicalname FROM SDEADM.GDB_ITEMS
 WHERE name LIKE '%TRNLRS%';
 ```
 
-**Note:** also verify that the edge source feature classes inside `SDEADM.TRNLRS` (`TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRNLRS_traffic_turn`) have appropriate grants so that OS auth users can run solves, not just open the network dataset.
+**Note:** also verify that the edge source feature classes inside `SDEADM.TRNLRS` (`TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRN_traffic_turn`) have appropriate grants so that OS auth users can run solves, not just open the network dataset.
 
 ---
 
 ## Remaining Steps
 
-### Step 3 — Rebuild traffic turn feature class ❌ Blocking
+### Step 3 — Rebuild traffic turn feature class ✅ Complete
 
-`TRNLRS_traffic_turn` was copied from `TRN_streets_routes\TRN_traffic_turn` but its edge
-references (stored as ObjectIDs of features in the old `TRN_street` edge source) are no
-longer valid against `TRNLRS_TRN_STREET`. Every turn record fails at build time with
-`Cannot find edge element corresponding to turn identifier 1`, meaning turn restrictions
-are not enforced in the current build.
+`TRN_traffic_turn` (the pre-migration FC in `TRN_streets_routes`) was copied into
+`SDEADM.TRNLRS`, and its edge references (stored as ObjectIDs of features in the old
+`TRN_street` edge source) were spatially remapped against `TRNLRS_TRN_STREET` using
+`scripts/05_rebuild_traffic_turns.py`.
 
-See [`traffic_turns.md`](traffic_turns.md) for full diagnosis and the remapping script.
+**Naming impact:** the script's swap step (and `network_template.xml`) assumed the
+remapped output would be renamed to `TRNLRS_traffic_turn` to match the `TRNLRS_`
+prefix used by the other two sources. In practice the remapped FC was published under
+its original base name, `TRN_traffic_turn`, and left inside `SDEADM.TRNLRS` under that
+name rather than being renamed. This has been corrected in:
 
-- [ ] Run `scripts/05_rebuild_traffic_turns.py` to spatially remap turns to new edge OIDs
-- [ ] Verify written/skipped counts from script output
-- [ ] Rebuild network after turn FC is replaced
+- `data/network_template.xml` -- turn source `<Name>` and the `TrafficTurn`
+  `NetworkSourceName` now read `TRN_traffic_turn`
+- `scripts/03_create_network_dataset.py` -- `TURN_FC_NAME` now targets `TRN_traffic_turn`
+- `scripts/05_rebuild_traffic_turns.py` -- `OLD_TURN_FC_FINAL` and the swap/rename
+  steps now target `TRN_traffic_turn`
+
+See [`traffic_turns.md`](traffic_turns.md) for the original diagnosis and remapping script.
+
+- [x] Run `scripts/05_rebuild_traffic_turns.py` to spatially remap turns to new edge OIDs
+- [x] Verify written/skipped counts from script output
+- [x] Rebuild network after turn FC is replaced
+- [ ] Re-run `BuildNetwork` against the corrected template/scripts and confirm the
+      `TrafficTurn` source resolves to `TRN_traffic_turn` (no dangling reference to the
+      never-created `TRNLRS_traffic_turn`)
 - [ ] Confirm turn restriction logic in a solve test
 
 ---
@@ -188,18 +206,24 @@ See [`traffic_turns.md`](traffic_turns.md) for full diagnosis and the remapping 
 
 | Check | Result |
 |---|---|
-| Sources tab | Edge: `TRNLRS_TRN_STREET`; Junction: system + `TRNLRS_street_junction`; Turn: `TRNLRS_traffic_turn` |
+| Sources tab | Edge: `TRNLRS_TRN_STREET`; Junction: system + `TRNLRS_street_junction`; Turn: `TRN_traffic_turn` |
 | Length cost evaluator | `[SHAPE.STLength()]` Field Script on Along/Against — correct |
 | OneWay restriction | Field Script (VB) on Along/Against referencing `STR_DIR` — correct |
 | TrafficTurn restriction | Prohibited; turn source assigned — correct |
 | Directions field mappings | `Base Name → STR_NAME`, `Suffix Type → STR_TYPE`, `Full Name → FULL_NAME` — correct |
+
+*Note: at the time of this check (2026-06-26) the turn source name was still recorded as
+`TRNLRS_traffic_turn`, matching the template. That name was never actually created --
+the remapped turn FC published later under Step 3 came out as `TRN_traffic_turn`. The
+template and dependent scripts have since been corrected to match; a re-check of this
+properties tab against the corrected template is one of the outstanding Step 3 items above.*
 
 **Solve tests — pending**
 
 - [ ] Solve a **Route** between two known endpoints; compare path and cost against `TRN_street_network`
 - [ ] Solve a **Service Area** (e.g. 5-minute drive) from a known origin; compare coverage
 - [ ] Confirm **one-way restriction** is enforced (test a one-way street in both directions)
-- [ ] Confirm **turn restriction** logic works -- blocked until `TRNLRS_traffic_turn` is rebuilt (see `traffic_turns.md`)
+- [ ] Confirm **turn restriction** logic works against `TRN_traffic_turn` (rebuilt; template/scripts corrected -- see Step 3)
 - [ ] Check address range fields (`FROM_LEFT`, `TO_LEFT`, `FROM_RIGHT`, `TO_RIGHT`) for geocoding
 
 ---
@@ -230,6 +254,69 @@ sync/rebuild is needed outside of a full LRS refresh cycle.
 ---
 
 ## Open Questions / Future Work
+
+### Turn source naming (`TRN_traffic_turn` vs. `TRNLRS_traffic_turn`)
+
+The junction and edge sources were both copied into `SDEADM.TRNLRS` with a `TRNLRS_`
+prefix (`TRNLRS_street_junction`, `TRNLRS_TRN_STREET`). The turn source was intended
+to follow the same convention (`TRNLRS_traffic_turn`) per the original XML template and
+`scripts/05_rebuild_traffic_turns.py`'s swap step. The FC that actually exists in
+`SDEADM.TRNLRS` after the successful OID remap is named `TRN_traffic_turn` -- the
+`TRNLRS_` rename step was never applied (or was reverted) when the remapped FC was
+published.
+
+This has been corrected in the repo to stop the drift between what's documented/scripted
+and what's live:
+
+- `data/network_template.xml` -- `TurnFeatureSource.Name` and the `TrafficTurn`
+  `NetworkAssignment.NetworkSourceName` now read `TRN_traffic_turn`
+- `scripts/03_create_network_dataset.py` -- copies into `TURN_FC_NAME = "TRN_traffic_turn"`
+  instead of `"TRNLRS_traffic_turn"`
+- `scripts/05_rebuild_traffic_turns.py` -- `OLD_TURN_FC_FINAL` and the swap/rename steps
+  target `TRN_traffic_turn`
+
+**Still open:**
+- [ ] Decide whether to actually rename `TRN_traffic_turn` → `TRNLRS_traffic_turn` for
+      naming consistency with the other two sources, or standardize on keeping the
+      un-prefixed name. Either choice needs the corresponding side (FC name or
+      template/scripts) updated to match -- right now the scripts/template were changed
+      to match the live FC, not the other way around.
+- [ ] If `CreateNetworkDatasetFromTemplate` or `BuildNetwork` is re-run before this is
+      resolved, confirm the template's turn source name still matches what's live in
+      `SDEADM.TRNLRS`, or the turn source will fail to resolve.
+
+### Prod cutover — SDE connection gap
+
+`TRNLRS_TRN_STREET` has now been created against a **prod** SDE connection. Scripts
+01/03/04/05 (see [Key Paths Reference](#key-paths-reference)) only define `SDE_CONNECTION`
+/ `SDE` constants pointing at `dev_RW_sdeadm.sde` or `qa_RW_sdeadm.sde` -- none of them
+have a prod path wired in. (`LRS_updates.py` is the exception: it already reads
+`SDEADM_RW`/`SDEADM_RO` from `config.ini`, which is presumably the real prod config, and
+a commented-out reference to `prod_RW_sdeadm_branch.sde` in that script confirms the
+naming convention for a prod `.sde` connection file.)
+
+Impact of running scripts 01/03/04/05 as-is:
+- Re-running `03_create_network_dataset.py` against prod requires manually swapping
+  `SDE_CONNECTION` to the prod `.sde` file first -- there's no built-in guard against
+  accidentally running it against dev/QA when prod was the intent, or vice versa.
+- Because `TRNLRS_TRN_STREET` already exists in prod, `copy_fc_to_fd()`'s
+  `arcpy.Exists(dest)` check will skip the copy step (safe), but
+  `CreateNetworkDatasetFromTemplate` / `BuildNetwork` will still run against whatever
+  `SDE_CONNECTION` is currently set to -- so the config must be verified, not just the
+  edge source.
+- `04_sync_and_rebuild_network.py` and `05_rebuild_traffic_turns.py` have the same gap --
+  no prod path is wired in, so a prod sync/rebuild or turn-remap run requires manually
+  editing the hardcoded connection string each time.
+
+**Still open:**
+- [ ] Add an explicit prod `.sde` connection constant (or a `--env` flag / ConfigParser
+      section like `LRS_updates.py` uses) to scripts 01, 03, 04, and 05 so prod runs don't
+      rely on manually editing a hardcoded dev/QA path
+- [ ] Confirm which SDE connection file was actually used to create `TRNLRS_TRN_STREET`
+      in prod, and reconcile it against the paths documented in Key Paths Reference
+- [ ] Re-verify the PUBLIC SELECT grants (`N_3_*`, `ND_37029_*`, and the three source
+      FCs) against prod's registration IDs -- these are almost certainly different from
+      the Dev/QA IDs recorded above
 
 ### Edge source naming
 
@@ -287,9 +374,11 @@ review — it has no routing speed value.
 |---|---|
 | Dev SDE connection | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` |
 | QA SDE connection | `E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde` |
+| Prod SDE connection | Not yet wired into scripts 01/03/04/05 -- see "Prod cutover" above. Naming convention (from a commented-out reference in `LRS_updates.py`) is `prod_RW_sdeadm.sde` |
 | Target feature dataset | `SDEADM.TRNLRS` |
 | New network dataset name | `TRNLRS_street_network` |
 | Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` |
 | FD copy of edge source (used by ND) | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` |
+| Turn source (used by ND) | `SDEADM.TRNLRS\TRN_traffic_turn` (not `TRNLRS_traffic_turn` -- see "Turn source naming" above) |
 | XML template | `data/network_template.xml` |
 | Old network dataset | `SDEADM.TRN_street_network` (in `TRN_streets_routes`) |

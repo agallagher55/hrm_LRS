@@ -8,7 +8,7 @@ Prerequisites (run in order):
        - Replace all references to SDEADM.TRN_street with the new edge source name
        - Update any evaluator fieldName values flagged as ACTION REQUIRED
        - Confirm junction source name (TRN_street_junction → new junction FC if renamed)
-       - Confirm turn source name (TRN_traffic_turn → same or new)
+       - Confirm turn source name (TRN_traffic_turn — kept unchanged; see note below)
      See docs/network_dataset_migration_plan.md for the full XML editing checklist.
 
 Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
@@ -54,6 +54,13 @@ EDGE_SOURCE_NAME       = "TRNLRS_TRN_STREET"
 # This script copies them into FEATURE_DATASET automatically if not already present.
 SOURCE_JUNCTION = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_street_junction")
 SOURCE_TURN     = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_traffic_turn")
+
+# Unlike the junction FC, the turn FC keeps its original base name once copied into
+# SDEADM.TRNLRS -- it was NOT renamed with the TRNLRS_ prefix like the other two
+# sources. The successfully OID-remapped turn FC (see scripts/05_rebuild_traffic_turns.py)
+# was published as TRN_traffic_turn and left under that name inside the TRNLRS feature
+# dataset. Keep TURN_FC_NAME in sync with whatever actually exists in the target FD.
+TURN_FC_NAME    = "TRN_traffic_turn"
 
 REPO_ROOT    = Path(__file__).resolve().parents[1]
 TEMPLATE_XML = REPO_ROOT / "data" / "network_template.xml"
@@ -101,7 +108,7 @@ def main():
         error_hint="Run LRS_updates.py to populate TRNLRS_TRN_STREET_VW before proceeding.",
     )
     copy_fc_to_fd(SOURCE_JUNCTION, FEATURE_DATASET, "TRNLRS_street_junction")
-    copy_fc_to_fd(SOURCE_TURN, FEATURE_DATASET, "TRNLRS_traffic_turn")
+    copy_fc_to_fd(SOURCE_TURN, FEATURE_DATASET, TURN_FC_NAME)
 
     new_nd_path = os.path.join(FEATURE_DATASET, NEW_ND_NAME)
 

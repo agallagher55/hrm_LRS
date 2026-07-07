@@ -61,7 +61,7 @@ the copy cannot share the standalone FC's name. See Phase 4 for details.
 | Feature dataset | `SDEADM.TRNLRS` |
 | Edge source | `TRNLRS_TRN_STREET` (copied from standalone `TRNLRS_TRN_STREET_VW` into FD by script 03) |
 | Junction source | `TRNLRS_street_junction` (copied from `TRN_streets_routes`) |
-| Turn source | `TRNLRS_traffic_turn` (copied from `TRN_streets_routes`; requires OID remapping -- see Phase 4b) |
+| Turn source | `TRN_traffic_turn` (copied from `TRN_streets_routes`, OID-remapped -- see Phase 4b. Published under its original base name rather than the `TRNLRS_` prefix used by the other two sources; see the naming note in `network_build_status.md`) |
 | System junction | `TRNLRS_street_network_Junctions` (auto-created) |
 
 ---
@@ -169,7 +169,7 @@ The following changes have been applied to `data/network_template.xml`:
 | `<CatalogPath>` | `/FD=TRN_streets_routes/ND=TRN_street_network` | `/FD=TRNLRS/ND=TRNLRS_street_network` |
 | Edge source `<Name>` | `TRN_street` | `TRNLRS_TRN_STREET` |
 | Junction source `<Name>` | `TRN_street_junction` | `TRNLRS_street_junction` |
-| Turn source `<Name>` | `TRN_traffic_turn` | `TRNLRS_traffic_turn` |
+| Turn source `<Name>` | `TRN_traffic_turn` | `TRN_traffic_turn` (unchanged -- see naming note in Phase 4b) |
 | System junction `<Name>` | `TRN_street_network_Junctions` | `TRNLRS_street_network_Junctions` |
 | `NetworkSourceName` (evaluators) | `TRN_street` | `TRNLRS_TRN_STREET` |
 | `FromElevationFieldName` / `ToElevationFieldName` | `FROM_ELEV` / `TO_ELEV` | *(empty)* |
@@ -195,16 +195,20 @@ re-applied. The XML `<Name>` element determines the output network dataset name 
 ### Phase 4 — Create and Build the New Network Dataset
 
 **Script:** `scripts/03_create_network_dataset.py`
-**Status:** Complete -- built on Dev and QA (2026-06-26)
+**Status:** Complete -- built on Dev and QA (2026-06-26). `TRNLRS_TRN_STREET` has since
+been created against a **prod** connection as well, but the script itself has no prod
+`SDE_CONNECTION` wired in -- see the "Prod cutover" note in `network_build_status.md`
+before re-running this script against prod.
 
 Review and set these configuration variables at the top of the script:
 
 | Variable | Purpose | Current value |
 |---|---|---|
-| `SDE_CONNECTION` | Path to `.sde` connection file | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` |
+| `SDE_CONNECTION` | Path to `.sde` connection file | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` / `qa_RW_sdeadm.sde` (no prod path defined yet) |
 | `FEATURE_DATASET` | Target feature dataset for the new ND | `SDEADM.TRNLRS` |
 | `NEW_ND_NAME` | Name of the network dataset to create | `TRNLRS_street_network` |
 | `STANDALONE_EDGE_SOURCE` | SDE path to the standalone `TRNLRS_TRN_STREET_VW` FC | `SDEADM.TRNLRS_TRN_STREET_VW` |
+| `TURN_FC_NAME` | Base name the turn FC is copied/verified under inside the FD | `TRN_traffic_turn` (corrected -- previously assumed `TRNLRS_traffic_turn`) |
 
 The script performs these steps in order:
 
@@ -212,16 +216,16 @@ The script performs these steps in order:
 2. **Copies** the standalone `TRNLRS_TRN_STREET_VW` into `SDEADM.TRNLRS` as `TRNLRS_TRN_STREET`
    using `arcpy.management.CopyFeatures` (skipped if the destination already exists).
 3. **Verifies** that all three source FCs are present inside the feature dataset:
-   `TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRNLRS_traffic_turn`.
+   `TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRN_traffic_turn`.
 4. **Creates** the network dataset from the XML template via
    `arcpy.na.CreateNetworkDatasetFromTemplate`.
 5. **Builds** the network dataset via `arcpy.na.BuildNetwork`.
 
 > **Prerequisites before running:**
 > - `TRNLRS_TRN_STREET_VW` must exist as a standalone SDE FC (run `LRS_updates.py` first).
-> - `TRNLRS_street_junction` and `TRNLRS_traffic_turn` must already exist inside
+> - `TRNLRS_street_junction` and `TRN_traffic_turn` must already exist inside
 >   `SDEADM.TRNLRS` (copy them from `SDEADM.TRN_streets_routes`).
-> - `TRNLRS_traffic_turn` must have been remapped to new edge OIDs (see Phase 4b below)
+> - `TRN_traffic_turn` must have been remapped to new edge OIDs (see Phase 4b below)
 >   before the build will produce a working turn restriction layer.
 
 #### Issues encountered during build (Dev, 2026-06-26)
@@ -284,14 +288,15 @@ WHERE name LIKE '%TRNLRS%';
 ### Phase 4b — Rebuild Traffic Turn Feature Class
 
 **Script:** `scripts/05_rebuild_traffic_turns.py`
-**Status:** Required -- turn restrictions not functional until this is complete
+**Status:** Complete -- see naming note below for a follow-up correction
 
 See [`traffic_turns.md`](traffic_turns.md) for full diagnosis and script.
 
 **Problem:** turn feature classes store edge references as `Edge{N}FID` fields containing
-the ObjectID of a feature in the registered edge source. `TRNLRS_traffic_turn` was copied
-from `TRN_traffic_turn`, which referenced OIDs in `TRN_street`. Those OIDs have no meaning
-in `TRNLRS_TRN_STREET`, so every turn record fails at build time:
+the ObjectID of a feature in the registered edge source. The turn FC copied into
+`SDEADM.TRNLRS` was copied from `TRN_traffic_turn`, which referenced OIDs in `TRN_street`.
+Those OIDs have no meaning in `TRNLRS_TRN_STREET`, so every turn record failed at build
+time:
 
 ```
 Cannot find edge element corresponding to turn identifier 1.
@@ -301,6 +306,14 @@ Cannot find edge element corresponding to turn identifier 1.
 turn junction points (edge endpoints) against the spatial index of `TRNLRS_TRN_STREET`.
 The script creates a new turn FC (`TRNLRS_traffic_turn_new`), populates it with remapped
 records, then the old FC is deleted and the new one renamed.
+
+**Naming impact:** the script's swap step and `network_template.xml` assumed the final
+turn source would be named `TRNLRS_traffic_turn` (matching the `TRNLRS_` prefix used by
+the other two sources). The FC that was actually published after the remap is named
+`TRN_traffic_turn` -- the rename-to-`TRNLRS_traffic_turn` step was not applied. This repo
+has been updated so the template and both scripts reference `TRN_traffic_turn` to match
+what's actually live; see the naming note in `network_build_status.md` for the open
+question of whether to standardize on that name or rename the live FC instead.
 
 **Standalone junction warnings** (hundreds of `Standalone user-defined junction is detected`
 entries for `TRNLRS_street_junction` in the build errors file) are a separate, non-critical
@@ -313,7 +326,7 @@ no longer coincident with an edge. These are ignored during solves and do not af
 2. Review the `written`/`skipped` counts. A small number of skipped turns is acceptable
    (segments removed during resegmentation). A high skipped count (>5% of total) suggests
    the snap tolerance needs adjustment.
-3. Delete `TRNLRS_traffic_turn` and rename `TRNLRS_traffic_turn_new` to `TRNLRS_traffic_turn`
+3. Delete the current turn FC and rename `TRNLRS_traffic_turn_new` to `TRN_traffic_turn`
 4. Rebuild the network
 5. Confirm the build errors file no longer contains turn errors
 6. Run a turn restriction solve test
@@ -329,11 +342,14 @@ rebuild pending
 
 | Check | Result |
 |---|---|
-| Sources tab | Edge: `TRNLRS_TRN_STREET`; Junction: system + `TRNLRS_street_junction`; Turn: `TRNLRS_traffic_turn` |
+| Sources tab | Edge: `TRNLRS_TRN_STREET`; Junction: system + `TRNLRS_street_junction`; Turn: `TRN_traffic_turn` |
 | Length cost evaluator | `[SHAPE.STLength()]` Field Script on Along/Against -- correct |
 | OneWay restriction | Field Script (VB) on Along/Against referencing `STR_DIR` -- correct |
 | TrafficTurn restriction | Prohibited; turn source assigned -- correct |
 | Directions field mappings | `Base Name → STR_NAME`, `Suffix Type → STR_TYPE`, `Full Name → FULL_NAME` -- correct |
+
+*(Recorded at the 2026-06-26 check as `TRNLRS_traffic_turn`; corrected here to the actual
+live name, `TRN_traffic_turn` -- see the Phase 4b naming note above.)*
 
 #### Service area solve (2026-06-29) ✅
 
@@ -404,7 +420,7 @@ called after the `street_features` loop inside the QC-pass `else` block. A stand
 script `scripts/04_sync_and_rebuild_network.py` also exists for one-off rebuilds outside
 a full LRS refresh cycle.
 
-**Note:** the traffic turn FC (`TRNLRS_traffic_turn`) does not need to be rebuilt on each
+**Note:** the traffic turn FC (`TRN_traffic_turn`) does not need to be rebuilt on each
 LRS refresh -- turn restrictions are maintained separately from the street LRS pipeline and
 only need to be rebuilt if the turn source itself is updated.
 
