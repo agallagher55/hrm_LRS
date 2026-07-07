@@ -8,6 +8,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Environment
 - ArcGIS Pro 3.3.5
 
+## arcpy Gotchas
+
+### `arcpy.na.CreateTurnFeatureClass`
+Correct keyword arguments are `out_location` and `out_name` (not `out_path`/`out_name` or `out_location`/`out_feature_class` — both raise `TypeError: unexpected keyword argument`):
+
+```python
+arcpy.na.CreateTurnFeatureClass(
+    out_location=out_path,
+    out_name=out_name,
+    maximum_edges=max(edge_slots),
+    in_network_dataset=NEW_NETWORK,
+)
+```
+
 ## Project Purpose
 
 This repository holds all data, scripts, and documentation for the **Halifax Regional Municipality (HRM) Linear Referencing System (LRS)** — a system for locating assets and events along road/route networks using route identifiers and measure values (e.g., kilometre points) rather than X/Y coordinates.
