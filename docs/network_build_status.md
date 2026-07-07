@@ -244,24 +244,34 @@ constants pointing at `dev_RW_sdeadm.sde` or `qa_RW_sdeadm.sde` -- none of them 
 prod path wired in. (`LRS_updates.py` is the exception: it already reads
 `SDEADM_RW`/`SDEADM_RO` from `config.ini`, which is presumably the real prod config.)
 
-Scripts 03, 04, and 05 now have a commented-out prod `SDE_CONNECTION` / `SDE` line
-alongside the active Dev/QA one, using the confirmed path above -- uncomment it to
-point a given run at prod instead of manually retyping the path.
+This has since been resolved differently for each script, based on where each
+one's data actually needs to live:
 
-Impact of running scripts 01/03/04/05 against prod:
-- Because `TRNLRS_TRN_STREET` already exists in prod, `copy_fc_to_fd()`'s
-  `arcpy.Exists(dest)` check will skip the copy step (safe), but
-  `CreateNetworkDatasetFromTemplate` / `BuildNetwork` will still run against whatever
-  `SDE_CONNECTION` is currently set to -- so the active connection line must be
-  double-checked before every run, not just the edge source's existence.
+- **`scripts/03_create_network_dataset.py`** always reads `TRNLRS_TRN_STREET_VW`
+  from a dedicated `PROD_SDE_CONNECTION` (using the confirmed path above),
+  since that FC only exists in prod. `SDE_CONNECTION_UPDATE` (Dev/QA/prod, still
+  a manually-edited constant) controls where the FD copy, junction/turn sources,
+  and new network dataset get created.
+- **`scripts/04_sync_and_rebuild_network.py`** is now prod-only -- there's no
+  Dev/QA target at all. Dev/QA builds are one-off snapshots created by script 03;
+  only prod's copy of `TRNLRS_TRN_STREET` needs continuous re-syncing after every
+  LRS refresh, since that's the copy live routing actually uses. See the script's
+  docstring for the reasoning.
+- **`scripts/05_rebuild_traffic_turns.py`** still has a manually-edited `SDE`
+  constant (Dev/QA/prod) with no dedicated prod constant yet -- see the open item
+  below.
 
 **Still open:**
+- [ ] Add a dedicated `PROD_SDE_CONNECTION` to `scripts/05_rebuild_traffic_turns.py`
+      (currently just a single manually-edited `SDE` constant) for consistency
+      with scripts 03/04
 - [ ] Add the same prod connection constant/comment to `01_extract_network_config.py`
       if it will ever need to run against prod (currently unused there -- that script
       targets the legacy `TRN_street_network`, not the TRNLRS one)
-- [ ] Consider replacing the "comment out the line you don't want" pattern with an
-      explicit `--env` flag or a `ConfigParser` section (as `LRS_updates.py` already
-      uses) so prod runs don't depend on remembering to toggle a comment
+- [ ] Consider replacing the "manually edit the active connection constant" pattern
+      in script 03 with an explicit `--env` flag or a `ConfigParser` section (as
+      `LRS_updates.py` already uses) so prod-vs-Dev/QA runs don't depend on
+      remembering to edit the right line
 - [ ] Re-verify the PUBLIC SELECT grants (`N_3_*`, `ND_37029_*`, and the three source
       FCs) against prod's registration IDs -- these are almost certainly different from
       the Dev/QA IDs recorded above
@@ -322,7 +332,7 @@ review — it has no routing speed value.
 |---|---|
 | Dev SDE connection | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` |
 | QA SDE connection | `E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde` |
-| Prod SDE connection | `E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde` -- commented-out option in scripts 03/04/05, see "Prod cutover" above |
+| Prod SDE connection | `E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde` -- always used as `PROD_SDE_CONNECTION` in scripts 03/04 (04 uses it exclusively); still a manually-edited `SDE` constant in script 05, see "Prod cutover" above |
 | Target feature dataset | `SDEADM.TRNLRS` |
 | New network dataset name | `TRNLRS_street_network` |
 | Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` |

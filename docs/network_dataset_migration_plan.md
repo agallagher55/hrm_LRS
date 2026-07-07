@@ -410,6 +410,14 @@ called after the `street_features` loop inside the QC-pass `else` block. A stand
 script `scripts/04_sync_and_rebuild_network.py` also exists for one-off rebuilds outside
 a full LRS refresh cycle.
 
+This cadence only applies to **prod**: `TRNLRS_TRN_STREET_VW` only exists there, and
+prod's copy of `TRNLRS_TRN_STREET` / `TRNLRS_street_network` is what live routing
+actually uses, so it's the only copy that needs continuous re-syncing.
+`scripts/04_sync_and_rebuild_network.py` is prod-only accordingly -- Dev and QA builds
+of `TRNLRS_street_network` are one-off snapshots created by `scripts/03_create_network_dataset.py`
+(which loads a fresh copy of `TRNLRS_TRN_STREET_VW` from prod at creation time) and are
+not kept in sync afterward.
+
 **Note:** the traffic turn FC (`TRNLRS_traffic_turn`) does not need to be rebuilt on each
 LRS refresh -- turn restrictions are maintained separately from the street LRS pipeline and
 only need to be rebuilt if the turn source itself is updated.

@@ -13,12 +13,15 @@ Prerequisites (run in order):
 
 Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
   TRNLRS_TRN_STREET_VW is created by LRS_updates.py as a standalone SDE feature
-  class (not inside a feature dataset). Network datasets require all sources to
-  live inside the target feature dataset, so this script copies the standalone FC
-  into SDEADM.TRNLRS under the name TRNLRS_TRN_STREET (without _VW) to avoid an
-  SDE name-uniqueness conflict.  The FD copy is what the network dataset references;
-  the standalone _VW FC remains the authoritative source updated by LRS_updates.py.
-  After each LRS refresh, re-copy the standalone FC over the FD copy and rebuild.
+  class (not inside a feature dataset), and it only exists in prod. Network
+  datasets require all sources to live inside the target feature dataset, so
+  this script always reads the standalone FC from PROD_SDE_CONNECTION and
+  copies it into SDEADM.TRNLRS (in whichever environment SDE_CONNECTION_UPDATE
+  points at) under the name TRNLRS_TRN_STREET (without _VW) to avoid an SDE
+  name-uniqueness conflict.  The FD copy is what the network dataset references;
+  the standalone _VW FC in prod remains the authoritative source updated by
+  LRS_updates.py. After each LRS refresh, re-copy the standalone FC over the FD
+  copy and rebuild (see scripts/04_sync_and_rebuild_network.py).
 
 Run from ArcGIS Pro Python environment:
   > python scripts/03_create_network_dataset.py
@@ -33,30 +36,37 @@ import arcpy
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
-SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-# Prod: TRNLRS_TRN_STREET has already been created against this connection.
-# Uncomment to point this script at prod instead of QA.
-# SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
+# Environment that will receive the new network dataset (and the FD copies of
+# the edge/junction/turn sources it needs).
+SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
+SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+
+# Prod is always the read source for the edge FC: TRNLRS_TRN_STREET_VW (the
+# authoritative standalone FC refreshed by LRS_updates.py) only exists in prod,
+# so this script pulls from here regardless of which environment
+# SDE_CONNECTION_UPDATE points at above.
+PROD_SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
 
 # Feature dataset that will contain the new network dataset.
 # Network datasets must live inside a feature dataset in a geodatabase.
-FEATURE_DATASET = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS")
+FEATURE_DATASET = os.path.join(SDE_CONNECTION_UPDATE, "SDEADM.TRNLRS")
 NEW_ND_NAME     = "TRNLRS_street_network"
 
 # TRNLRS_TRN_STREET_VW is the authoritative standalone FC (outside any feature
-# dataset), populated by LRS_updates.py.  It must be copied into FEATURE_DATASET
-# before the network dataset can be created.  SDE enforces unique FC names across
-# the entire geodatabase, so the copy is stored under a different name
-# (TRNLRS_TRN_STREET, without the _VW suffix) to avoid a name collision.
-# The XML template uses TRNLRS_TRN_STREET as the edge source name accordingly.
-STANDALONE_EDGE_SOURCE = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS_TRN_STREET_VW")
+# dataset), populated by LRS_updates.py, and it only exists in prod.  It must
+# be copied into FEATURE_DATASET before the network dataset can be created.
+# SDE enforces unique FC names across the entire geodatabase, so the copy is
+# stored under a different name (TRNLRS_TRN_STREET, without the _VW suffix)
+# to avoid a name collision.  The XML template uses TRNLRS_TRN_STREET as the
+# edge source name accordingly.
+STANDALONE_EDGE_SOURCE = os.path.join(PROD_SDE_CONNECTION, "SDEADM.TRNLRS_TRN_STREET_VW")
 EDGE_SOURCE_NAME       = "TRNLRS_TRN_STREET"
 
-# Junction and turn FCs live in TRN_streets_routes (the old network FD).
-# This script copies them into FEATURE_DATASET automatically if not already present.
-SOURCE_JUNCTION = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_street_junction")
-SOURCE_TURN     = os.path.join(SDE_CONNECTION, "SDEADM.TRN_streets_routes", "SDEADM.TRN_traffic_turn")
+# Junction and turn FCs live in TRN_streets_routes (the old network FD), in the
+# same environment as SDE_CONNECTION_UPDATE. This script copies them into
+# FEATURE_DATASET automatically if not already present.
+SOURCE_JUNCTION = os.path.join(SDE_CONNECTION_UPDATE, "SDEADM.TRN_streets_routes", "SDEADM.TRN_street_junction")
+SOURCE_TURN     = os.path.join(SDE_CONNECTION_UPDATE, "SDEADM.TRN_streets_routes", "SDEADM.TRN_traffic_turn")
 
 REPO_ROOT    = Path(__file__).resolve().parents[1]
 TEMPLATE_XML = REPO_ROOT / "data" / "network_template.xml"
