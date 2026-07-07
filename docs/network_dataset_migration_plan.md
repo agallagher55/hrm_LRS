@@ -61,7 +61,7 @@ the copy cannot share the standalone FC's name. See Phase 4 for details.
 | Feature dataset | `SDEADM.TRNLRS` |
 | Edge source | `TRNLRS_TRN_STREET` (copied from standalone `TRNLRS_TRN_STREET_VW` into FD by script 03) |
 | Junction source | `TRNLRS_street_junction` (copied from `TRN_streets_routes`) |
-| Turn source | `TRNLRS_traffic_turn` (copied from `TRN_streets_routes`; requires OID remapping -- see Phase 4b) |
+| Turn source | `TRNLRS_traffic_turn` (copied from `TRN_streets_routes`, OID-remapped and renamed -- see Phase 4b) |
 | System junction | `TRNLRS_street_network_Junctions` (auto-created) |
 
 ---
@@ -195,13 +195,16 @@ re-applied. The XML `<Name>` element determines the output network dataset name 
 ### Phase 4 — Create and Build the New Network Dataset
 
 **Script:** `scripts/03_create_network_dataset.py`
-**Status:** Complete -- built on Dev and QA (2026-06-26)
+**Status:** Complete -- built on Dev and QA (2026-06-26). `TRNLRS_TRN_STREET` has since
+been created against **prod** (`E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde`) as well.
+The script now has a commented-out prod `SDE_CONNECTION` line alongside the active
+Dev/QA one -- see the "Prod cutover" note in `network_build_status.md`.
 
 Review and set these configuration variables at the top of the script:
 
 | Variable | Purpose | Current value |
 |---|---|---|
-| `SDE_CONNECTION` | Path to `.sde` connection file | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` |
+| `SDE_CONNECTION` | Path to `.sde` connection file | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` / `qa_RW_sdeadm.sde` active; `Prod\prod_RW_sdeadm.sde` available as a commented-out line |
 | `FEATURE_DATASET` | Target feature dataset for the new ND | `SDEADM.TRNLRS` |
 | `NEW_ND_NAME` | Name of the network dataset to create | `TRNLRS_street_network` |
 | `STANDALONE_EDGE_SOURCE` | SDE path to the standalone `TRNLRS_TRN_STREET_VW` FC | `SDEADM.TRNLRS_TRN_STREET_VW` |
@@ -284,14 +287,15 @@ WHERE name LIKE '%TRNLRS%';
 ### Phase 4b — Rebuild Traffic Turn Feature Class
 
 **Script:** `scripts/05_rebuild_traffic_turns.py`
-**Status:** Required -- turn restrictions not functional until this is complete
+**Status:** Complete
 
 See [`traffic_turns.md`](traffic_turns.md) for full diagnosis and script.
 
 **Problem:** turn feature classes store edge references as `Edge{N}FID` fields containing
-the ObjectID of a feature in the registered edge source. `TRNLRS_traffic_turn` was copied
-from `TRN_traffic_turn`, which referenced OIDs in `TRN_street`. Those OIDs have no meaning
-in `TRNLRS_TRN_STREET`, so every turn record fails at build time:
+the ObjectID of a feature in the registered edge source. The turn FC copied into
+`SDEADM.TRNLRS` was copied from `TRN_traffic_turn`, which referenced OIDs in `TRN_street`.
+Those OIDs have no meaning in `TRNLRS_TRN_STREET`, so every turn record failed at build
+time:
 
 ```
 Cannot find edge element corresponding to turn identifier 1.
@@ -300,7 +304,9 @@ Cannot find edge element corresponding to turn identifier 1.
 **Solution:** spatially remap turn edge references from old OIDs to new OIDs by matching
 turn junction points (edge endpoints) against the spatial index of `TRNLRS_TRN_STREET`.
 The script creates a new turn FC (`TRNLRS_traffic_turn_new`), populates it with remapped
-records, then the old FC is deleted and the new one renamed.
+records, then the old FC is deleted and the new one renamed to `TRNLRS_traffic_turn` --
+matching the `TRNLRS_` prefix used by the other two sources, and what
+`network_template.xml` already expects.
 
 **Standalone junction warnings** (hundreds of `Standalone user-defined junction is detected`
 entries for `TRNLRS_street_junction` in the build errors file) are a separate, non-critical

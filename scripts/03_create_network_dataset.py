@@ -8,7 +8,7 @@ Prerequisites (run in order):
        - Replace all references to SDEADM.TRN_street with the new edge source name
        - Update any evaluator fieldName values flagged as ACTION REQUIRED
        - Confirm junction source name (TRN_street_junction → new junction FC if renamed)
-       - Confirm turn source name (TRN_traffic_turn → same or new)
+       - Confirm turn source name (TRN_traffic_turn → TRNLRS_traffic_turn)
      See docs/network_dataset_migration_plan.md for the full XML editing checklist.
 
 Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
@@ -35,6 +35,9 @@ import arcpy
 # ---------------------------------------------------------------------------
 SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+# Prod: TRNLRS_TRN_STREET has already been created against this connection.
+# Uncomment to point this script at prod instead of QA.
+# SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
 
 # Feature dataset that will contain the new network dataset.
 # Network datasets must live inside a feature dataset in a geodatabase.

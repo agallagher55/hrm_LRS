@@ -39,6 +39,9 @@ import sys
 # ------------------------------------------------------------------------------
 
 SDE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+# Prod: TRNLRS_TRN_STREET has already been created against this connection.
+# Uncomment to point this script at prod instead of QA.
+# SDE = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
 
 OLD_TURN_FC  = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn"
 OLD_EDGE_FC  = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street"
