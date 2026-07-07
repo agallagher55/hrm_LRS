@@ -1,22 +1,15 @@
 """
 05_rebuild_traffic_turns.py
 
-Rebuilds the TRNLRS turn source by spatially remapping edge references from the old
+Rebuilds TRNLRS_traffic_turn by spatially remapping edge references from the old
 TRN_street_network edge source (TRN_street) to the new edge source (TRNLRS_TRN_STREET).
 
 Background
 ----------
 Turn feature classes store edge references as Edge{N}FID fields containing the ObjectID
-of a feature in the registered edge source FC. The turn FC inside SDEADM.TRNLRS was
-initially created by copying TRN_traffic_turn, which referenced OIDs in TRN_street. Those
-OIDs have no meaning in TRNLRS_TRN_STREET, so every turn record fails at BuildNetwork time.
-
-Note on naming: the remapped output below is created as TRNLRS_traffic_turn_new and, per
-the swap steps at the bottom of this script, was intended to be renamed to
-TRNLRS_traffic_turn. In practice the successfully remapped FC was published under its
-original base name, TRN_traffic_turn, and left inside SDEADM.TRNLRS rather than being
-renamed with the TRNLRS_ prefix. OLD_TURN_FC_FINAL below reflects that actual name --
-confirm the live name in SDEADM.TRNLRS before running this script again.
+of a feature in the registered edge source FC. TRNLRS_traffic_turn was initially created
+by copying TRN_traffic_turn, which referenced OIDs in TRN_street. Those OIDs have no
+meaning in TRNLRS_TRN_STREET, so every turn record fails at BuildNetwork time.
 
 This script resolves the mismatch by matching turn junction points (edge endpoints,
 determined by Edge{N}Pos) to spatially coincident endpoints in TRNLRS_TRN_STREET,
@@ -32,8 +25,8 @@ Usage
 
 Output
 ------
-Creates TRNLRS_traffic_turn_new inside SDEADM.TRNLRS. The current live turn FC
-(TRN_traffic_turn) is not touched until the optional swap step at the end.
+Creates TRNLRS_traffic_turn_new inside SDEADM.TRNLRS. The old TRNLRS_traffic_turn
+is not touched until the optional swap step at the end.
 
 See docs/traffic_turns.md for full diagnosis and post-run steps.
 """
@@ -46,16 +39,15 @@ import sys
 # ------------------------------------------------------------------------------
 
 SDE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+# Prod: TRNLRS_TRN_STREET has already been created against this connection.
+# Uncomment to point this script at prod instead of QA.
+# SDE = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
 
 OLD_TURN_FC  = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn"
 OLD_EDGE_FC  = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street"
 NEW_EDGE_FC  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_TRN_STREET"
 NEW_TURN_FC  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_new"
-# The successfully remapped turn FC was published under its original base name,
-# TRN_traffic_turn, rather than being renamed with the TRNLRS_ prefix. This is the
-# FC that a later remap run would need to delete/replace -- confirm the live name
-# in SDEADM.TRNLRS before relying on this constant.
-OLD_TURN_FC_FINAL = SDE + r"\SDEADM.TRNLRS\SDEADM.TRN_traffic_turn"
+OLD_TURN_FC_FINAL = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn"
 NEW_NETWORK  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_street_network"
 
 # Snap tolerance in map units (metres). Turn junctions must fall within this
@@ -411,8 +403,8 @@ def main():
         print(f"  Deleting {OLD_TURN_FC_FINAL}...")
         arcpy.management.Delete(OLD_TURN_FC_FINAL)
 
-        print(f"  Renaming {NEW_TURN_FC} -> TRN_traffic_turn...")
-        arcpy.management.Rename(NEW_TURN_FC, "TRN_traffic_turn")
+        print(f"  Renaming {NEW_TURN_FC} -> TRNLRS_traffic_turn...")
+        arcpy.management.Rename(NEW_TURN_FC, "TRNLRS_traffic_turn")
 
         print(f"  Rebuilding {NEW_NETWORK}...")
         arcpy.na.BuildNetwork(NEW_NETWORK)
@@ -426,7 +418,7 @@ def main():
         print()
         print("To complete the swap manually:")
         print(f"  1. arcpy.management.Delete(r'{OLD_TURN_FC_FINAL}')")
-        print(f"  2. arcpy.management.Rename(r'{NEW_TURN_FC}', 'TRN_traffic_turn')")
+        print(f"  2. arcpy.management.Rename(r'{NEW_TURN_FC}', 'TRNLRS_traffic_turn')")
         print(f"  3. arcpy.na.BuildNetwork(r'{NEW_NETWORK}')")
 
 
