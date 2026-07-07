@@ -32,11 +32,6 @@ SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 # Prod: TRNLRS_TRN_STREET has already been created against this connection.
 # Uncomment to point this script at prod instead of Dev.
 # SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
-
-STANDALONE_EDGE_SOURCE = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS_TRN_STREET_VW")
-FEATURE_DATASET        = os.path.join(SDE_CONNECTION, "SDEADM.TRNLRS")
-FD_EDGE_SOURCE         = os.path.join(FEATURE_DATASET, "TRNLRS_TRN_STREET")
-NETWORK_DATASET        = os.path.join(FEATURE_DATASET, "TRNLRS_street_network")
 # ---------------------------------------------------------------------------
 
 
