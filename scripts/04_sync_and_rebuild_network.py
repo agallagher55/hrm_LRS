@@ -28,17 +28,20 @@ import arcpy
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
+SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
+SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+
 # Prod: TRNLRS_TRN_STREET has already been created against this connection.
 # Uncomment to point this script at prod instead of Dev.
-# SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
+PROD_SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
 # ---------------------------------------------------------------------------
 
 
 def sync_and_rebuild(
-    sde_connection: str = SDE_CONNECTION,
-    standalone: str = None,
-    fd_copy: str = None,
+    update_sde_connection: str = SDE_CONNECTION_UPDATE,
+    prod_sde_connection: str = PROD_SDE_CONNECTION,
+    street_source_fc: str = None,
+    streets_target_fc: str = None,
     network: str = None,
 ):
     """Truncate the FD edge source copy, reload from the standalone FC, and rebuild the network.
@@ -49,22 +52,25 @@ def sync_and_rebuild(
         from scripts.sync_and_rebuild_network import sync_and_rebuild
         sync_and_rebuild(sde_connection=SDEADM_RW)
     """
-    standalone = standalone or os.path.join(sde_connection, "SDEADM.TRNLRS_TRN_STREET_VW")
-    fd_copy    = fd_copy    or os.path.join(sde_connection, "SDEADM.TRNLRS", "TRNLRS_TRN_STREET")
-    network    = network    or os.path.join(sde_connection, "SDEADM.TRNLRS", "TRNLRS_street_network")
+    
+    street_source_fc = street_source_fc or os.path.join(prod_sde_connection, "SDEADM.TRNLRS_TRN_STREET_VW")
+    streets_target_fc    = streets_target_fc or os.path.join(update_sde_connection, "SDEADM.TRNLRS", "TRNLRS_TRN_STREET")
+    network    = network    or os.path.join(update_sde_connection, "SDEADM.TRNLRS", "TRNLRS_street_network")
 
-    for path, label in [(standalone, "standalone edge source"), (fd_copy, "FD edge copy"), (network, "network dataset")]:
+    for path, label in [(street_source_fc, "standalone edge source"), (streets_target_fc, "FD edge copy"), (network, "network dataset")]:
+        
         if not arcpy.Exists(path):
             sys.exit(f"ERROR: Cannot find {label}:\n  {path}")
 
-    print(f"Syncing edge source:\n  {standalone}\n  → {fd_copy}")
-    arcpy.management.TruncateTable(fd_copy)
+    print(f"Syncing edge source:\n  {street_source_fc}\n  → {streets_target_fc}")
+    arcpy.management.TruncateTable(streets_target_fc)
     arcpy.management.Append(
-        inputs=standalone,
-        target=fd_copy,
+        inputs=street_source_fc,
+        target=streets_target_fc,
         schema_type="NO_TEST",
     )
-    count = int(arcpy.management.GetCount(fd_copy)[0])
+    
+    count = int(arcpy.management.GetCount(streets_target_fc)[0])
     print(f"Sync complete — {count:,} features loaded.")
 
     print(f"Rebuilding network dataset: {network}")
@@ -75,10 +81,12 @@ def sync_and_rebuild(
 def main():
     if arcpy.CheckExtension("Network") != "Available":
         sys.exit("ERROR: Network Analyst extension is not available.")
+
     arcpy.CheckOutExtension("Network")
 
     try:
         sync_and_rebuild()
+
     finally:
         arcpy.CheckInExtension("Network")
 
