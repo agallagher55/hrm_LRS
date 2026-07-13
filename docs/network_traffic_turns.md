@@ -421,7 +421,7 @@ sde = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 old_turn_fc  = sde + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn"
 old_edge_fc  = sde + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street"
 new_edge_fc  = sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_TRN_STREET"
-new_turn_fc  = sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_new"
+new_turn_fc  = sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_staging"
 new_network  = sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_street_network"
 
 SNAP_TOLERANCE = 0.5  # metres -- adjust if needed
@@ -512,7 +512,7 @@ print(f"New edge FCID: {new_edge_fcid}")
 
 arcpy.na.CreateTurnFeatureClass(
     out_location=sde + r"\SDEADM.TRNLRS",
-    out_feature_class_name="TRNLRS_traffic_turn_new",
+    out_feature_class_name="TRNLRS_traffic_turn_staging",
     maximum_edges=max(edge_slots),
     # NOT in_network_dataset=new_network: that registers this FC as a live
     # turn source of the network dataset immediately, which then blocks
@@ -583,7 +583,7 @@ A few things to be aware of before running this:
 The pos assumption -- using pos < 0.5 to determine which endpoint a junction is at is a simplification. Turns connect at shared endpoints between sequential edges, so pos near 0 = start of edge, pos near 1 = end. This holds in practice but worth verifying on a few known turns first.
 The snap tolerance -- 0.5 metres is a starting point. If the LRS resegmentation shifted any endpoints slightly, you may need to widen it; if there are closely-spaced intersections, you may need to tighten it. Check the skipped count after running.
 Multiple candidates -- the candidates[0][0] fallback is naive. If you get many skipped turns, add a tiebreaker that checks which candidate edge shares the most geometry with the old edge (direction/angle comparison).
-After running -- delete the old TRNLRS_traffic_turn, rename TRNLRS_traffic_turn_new to TRNLRS_traffic_turn, update the network template XML if the source name changed, then rebuild. Or swap the network to reference the new FC name and rebuild.
+After running -- delete the old TRNLRS_traffic_turn, rename TRNLRS_traffic_turn_staging to TRNLRS_traffic_turn, update the network template XML if the source name changed, then rebuild. Or swap the network to reference the new FC name and rebuild.
 Want me to make any part of this more robust before you run it?
 
 update the md files as required and create a new md file for traffic turns
@@ -706,7 +706,7 @@ Key parameters in the script:
 | `old_turn_fc` | `SDEADM.TRN_streets_routes\TRN_traffic_turn` | Source of truth for turn geometry and type |
 | `old_edge_fc` | `SDEADM.TRN_streets_routes\TRN_street` | Used to resolve old OIDs to geometry |
 | `new_edge_fc` | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` | Target edge source |
-| `new_turn_fc` | `SDEADM.TRNLRS\TRNLRS_traffic_turn_new` | Output -- rename after verification |
+| `new_turn_fc` | `SDEADM.TRNLRS\TRNLRS_traffic_turn_staging` | Output -- rename after verification |
 | `new_network` | `SDEADM.TRNLRS\TRNLRS_street_network` | Used to look up `FCID` of new edge source |
 | `SNAP_TOLERANCE` | `0.5` metres | Widen if skipped count is high; tighten if intersections are close together |
  
@@ -721,7 +721,7 @@ sde = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 old_turn_fc  = sde + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn"
 old_edge_fc  = sde + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street"
 new_edge_fc  = sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_TRN_STREET"
-new_turn_fc  = sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_new"
+new_turn_fc  = sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_staging"
 new_network  = sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_street_network"
  
 SNAP_TOLERANCE = 0.5  # metres
@@ -779,7 +779,7 @@ print(f"New edge FCID: {new_edge_fcid}")
 # 6. Create new turn FC
 arcpy.na.CreateTurnFeatureClass(
     out_location=sde + r"\SDEADM.TRNLRS",
-    out_feature_class_name="TRNLRS_traffic_turn_new",
+    out_feature_class_name="TRNLRS_traffic_turn_staging",
     maximum_edges=max(edge_slots),
     # NOT in_network_dataset=new_network: that registers this FC as a live
     # turn source of the network dataset immediately, which then blocks
@@ -868,7 +868,7 @@ After the script completes:
 ```python
    arcpy.management.Delete(sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn")
    arcpy.management.Rename(
-       sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_new",
+       sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_staging",
        "TRNLRS_traffic_turn"
    )
 ```
@@ -883,7 +883,7 @@ After the script completes:
 6. **Run a turn restriction solve test** -- route through a known prohibited turn and
    confirm the solver avoids it.
 
-**Note:** the remap script itself creates `TRNLRS_traffic_turn_new` via
+**Note:** the remap script itself creates `TRNLRS_traffic_turn_staging` via
 `in_template_feature_class` (schema copied from the current `TRNLRS_traffic_turn`), not
 `in_network_dataset`. Passing `in_network_dataset` to `CreateTurnFeatureClass` registers the
 output as a live turn source of that network dataset immediately on creation -- the same
