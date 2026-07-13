@@ -1,0 +1,125 @@
+TRNLRS_traffic_turn_new -- Review Checklist
+============================================
+
+Purpose
+-------
+scripts/05_rebuild_traffic_turns.py produced a staging feature class,
+SDEADM.TRNLRS_traffic_turn_new, by spatially remapping turn edge references
+from the old edge source (TRN_street) to the new one (TRNLRS_TRN_STREET).
+AUTO_SWAP_AND_REBUILD was False, so nothing in production has changed yet --
+the current TRNLRS_traffic_turn and TRNLRS_street_network are untouched.
+
+This review exists because the remap is a best-effort spatial match, not a
+guaranteed 1:1 translation. Two things can go wrong silently:
+  1. A turn gets mapped to the WRONG edge at a multi-leg intersection
+     (the angle-based tiebreaker in find_new_oid() is a heuristic).
+  2. A turn gets dropped (skipped) that shouldn't have been, or one that
+     should have been dropped (e.g. references a removed segment) wasn't.
+
+Once you swap TRNLRS_traffic_turn_new into place, the old FC is deleted and
+the network dataset is rebuilt -- there is no cheap "undo" (see
+docs/network_traffic_turns.md, controller-dataset locking). Review now,
+before that point.
+
+Run number: 2026-07-13 18:46 run (log:
+\\msfs203.hrm.halifax.ca\GISData\work\giss\monthly\202607jul\gallaga\network_dataset\logs\20260713_184643_05_rebuild_traffic_turns.log)
+Result: 1209 written / 29 skipped (2.3%) -- under the script's 5% warning
+threshold, so no automatic warning fired.
+
+--------------------------------------------------------------------------
+1. Record count sanity check
+--------------------------------------------------------------------------
+- Confirm TRNLRS_traffic_turn_new has exactly 1209 records (GetCount or
+  Catalog pane).
+- Confirm the old TRNLRS_traffic_turn (or TRN_traffic_turn) had 1238, so the
+  arithmetic (1209 + 29 = 1238) actually matches what's in the FC, not just
+  the log.
+
+--------------------------------------------------------------------------
+2. Schema / field check
+--------------------------------------------------------------------------
+- Fields match the template (Edge1FCID/FID/Pos ... up to the max edge slot
+  detected, NODE_ if present) -- compare against TRNLRS_traffic_turn's
+  current schema.
+- Spot check a handful of records: Edge1FCID should equal the FCID logged
+  during the run (2, for TRNLRS_TRN_STREET). Any other value, or nulls in
+  Edge1FID, is a bug.
+- Confirm Edge{N}Pos values were carried over unchanged from the old turn
+  records (the script assumes position-along-edge is meaningful across
+  both edge sources).
+
+--------------------------------------------------------------------------
+3. Visual / spatial spot check
+--------------------------------------------------------------------------
+- In ArcGIS Pro, add both TRNLRS_traffic_turn_new and TRNLRS_TRN_STREET to
+  a map.
+- Symbolize/label the turn FC so you can see individual turn locations.
+- Zoom to 8-10 random turns and confirm the turn marker sits exactly on an
+  intersection in the new edge layer (not offset, not floating over empty
+  space).
+- Pick a few turns you know the real-world restriction for (e.g. a
+  no-left-turn you can picture) and confirm it landed on the correct
+  intersection and edges.
+
+--------------------------------------------------------------------------
+4. Multi-leg intersection spot check (highest-risk area)
+--------------------------------------------------------------------------
+- The angle-based tiebreaker only runs when a snapped endpoint has more
+  than one candidate edge (busy intersections, 4+ legs). This is the part
+  of the algorithm most likely to pick the wrong edge.
+- Identify 5-10 turns located at complex/multi-leg intersections and
+  manually verify: does the turn's Edge1/Edge2 pair actually correspond to
+  the streets you'd expect for that restriction, given the geometry?
+- If any of these are wrong, note the turn OID and intersection -- may
+  indicate SNAP_TOLERANCE needs adjusting or that a manual fix is needed
+  before swap.
+
+--------------------------------------------------------------------------
+5. Skipped turns (29 records) -- assess materiality
+--------------------------------------------------------------------------
+- The skipped old-turn OIDs are logged at DEBUG level in the run's log
+  file (search for "Skipped old turn OIDs").
+- For each skipped OID, look up the corresponding record in the OLD turn
+  FC (TRN_traffic_turn) and its referenced old edge (TRN_street) to see
+  what real-world intersection/restriction was dropped.
+- Acceptable: the referenced old edge segment was removed/re-numbered by
+  LRS resegmentation and genuinely has no equivalent in
+  TRNLRS_TRN_STREET (per docs/network_traffic_turns.md "Known
+  limitations" -- this is correct behavior, not a bug).
+- Not acceptable: a segment that clearly still exists in the new network
+  got skipped anyway -- suggests SNAP_TOLERANCE (currently 0.5m) is too
+  tight for that location, or the endpoint moved slightly during
+  resegmentation. Consider re-running with a wider tolerance if you find
+  cases like this.
+
+--------------------------------------------------------------------------
+6. Turn type / restriction attribute carryover
+--------------------------------------------------------------------------
+- Confirm the field that stores restriction type (e.g. NODE_ / prohibited
+  vs restricted) copied through unchanged for a sample of records.
+- Cross-check against any specific turns Robbie flagged during the
+  2026-06-29 QA review, if his notes are available.
+
+--------------------------------------------------------------------------
+7. Emergency turnarounds (ETAs) -- open question from QA
+--------------------------------------------------------------------------
+- docs/network_traffic_turns.md notes Robbie flagged that ETAs may need to
+  be excluded from the turn source, but this was never confirmed.
+- Check whether TRNLRS_traffic_turn_new (and the old FC) contain ETA-type
+  records, and if so, confirm with Robbie whether they should be filtered
+  out before the swap.
+
+--------------------------------------------------------------------------
+8. Go / no-go
+--------------------------------------------------------------------------
+- If 1-7 look clean (or any issues found are understood and acceptable),
+  proceed with the manual swap steps the script printed:
+    1) arcpy.management.Delete(TRNLRS_street_network)
+    2) arcpy.management.Delete(TRNLRS_traffic_turn)
+    3) arcpy.management.Rename(TRNLRS_traffic_turn_new, 'TRNLRS_traffic_turn')
+    4) Run scripts/03_create_network_dataset.py to recreate + rebuild
+  See docs/network_traffic_turns.md for full context on why this order
+  is required (controller-dataset locking).
+- After the rebuild, run a turn-restriction solve test (route through a
+  known prohibited turn) to confirm enforcement end-to-end, not just that
+  the FC swap succeeded.
