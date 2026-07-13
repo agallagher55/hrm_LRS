@@ -286,7 +286,7 @@ def main():
     out_path, out_name = NEW_TURN_FC.rsplit("\\", 1)
     arcpy.na.CreateTurnFeatureClass(
         out_location=out_path,
-        out_name=out_name,
+        out_feature_class_name=out_name,
         maximum_edges=max(edge_slots),
         in_network_dataset=NEW_NETWORK,
     )

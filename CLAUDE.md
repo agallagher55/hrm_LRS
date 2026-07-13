@@ -15,12 +15,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## arcpy Gotchas
 
 ### `arcpy.na.CreateTurnFeatureClass`
-Correct keyword arguments are `out_location` and `out_name` (not `out_path`/`out_name` or `out_location`/`out_feature_class` — both raise `TypeError: unexpected keyword argument`):
+On ArcGIS Pro 3.3.5, correct keyword arguments are `out_location` and `out_feature_class_name`
+(**not** `out_name` — confirmed against ArcGIS Pro's documented signature
+`CreateTurnFeatureClass(out_location, out_feature_class_name, {maximum_edges}, ...)`).
+`out_name`, `out_path`/`out_name`, and `out_location`/`out_feature_class` all raise
+`TypeError: unexpected keyword argument`:
 
 ```python
 arcpy.na.CreateTurnFeatureClass(
     out_location=out_path,
-    out_name=out_name,
+    out_feature_class_name=out_name,
     maximum_edges=max(edge_slots),
     in_network_dataset=NEW_NETWORK,
 )
