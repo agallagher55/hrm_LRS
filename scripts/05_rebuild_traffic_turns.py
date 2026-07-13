@@ -26,7 +26,7 @@ Usage
 
 Output
 ------
-Creates TRNLRS_traffic_turn_new inside SDEADM.TRNLRS. It is created via
+Creates TRNLRS_traffic_turn_staging inside SDEADM.TRNLRS. It is created via
 in_template_feature_class (schema copied from the current TRNLRS_traffic_turn),
 NOT in_network_dataset -- passing in_network_dataset to CreateTurnFeatureClass
 actually registers the output as a live turn source of that network dataset,
@@ -61,7 +61,7 @@ SDE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 OLD_TURN_FC  = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn"
 OLD_EDGE_FC  = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street"
 NEW_EDGE_FC  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_TRN_STREET"
-NEW_TURN_FC  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_new"
+NEW_TURN_FC  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_staging"
 OLD_TURN_FC_FINAL = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn"
 NEW_NETWORK  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_street_network"
 

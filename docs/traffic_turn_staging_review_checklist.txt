@@ -1,10 +1,10 @@
-TRNLRS_traffic_turn_new -- Review Checklist
+TRNLRS_traffic_turn_staging -- Review Checklist
 ============================================
 
 Purpose
 -------
 scripts/05_rebuild_traffic_turns.py produced a staging feature class,
-SDEADM.TRNLRS_traffic_turn_new, by spatially remapping turn edge references
+SDEADM.TRNLRS_traffic_turn_staging, by spatially remapping turn edge references
 from the old edge source (TRN_street) to the new one (TRNLRS_TRN_STREET).
 AUTO_SWAP_AND_REBUILD was False, so nothing in production has changed yet --
 the current TRNLRS_traffic_turn and TRNLRS_street_network are untouched.
@@ -16,7 +16,7 @@ guaranteed 1:1 translation. Two things can go wrong silently:
   2. A turn gets dropped (skipped) that shouldn't have been, or one that
      should have been dropped (e.g. references a removed segment) wasn't.
 
-Once you swap TRNLRS_traffic_turn_new into place, the old FC is deleted and
+Once you swap TRNLRS_traffic_turn_staging into place, the old FC is deleted and
 the network dataset is rebuilt -- there is no cheap "undo" (see
 docs/network_traffic_turns.md, controller-dataset locking). Review now,
 before that point.
@@ -29,7 +29,7 @@ threshold, so no automatic warning fired.
 --------------------------------------------------------------------------
 1. Record count sanity check
 --------------------------------------------------------------------------
-- Confirm TRNLRS_traffic_turn_new has exactly 1209 records (GetCount or
+- Confirm TRNLRS_traffic_turn_staging has exactly 1209 records (GetCount or
   Catalog pane).
 - Confirm the old TRNLRS_traffic_turn (or TRN_traffic_turn) had 1238, so the
   arithmetic (1209 + 29 = 1238) actually matches what's in the FC, not just
@@ -51,7 +51,7 @@ threshold, so no automatic warning fired.
 --------------------------------------------------------------------------
 3. Visual / spatial spot check
 --------------------------------------------------------------------------
-- In ArcGIS Pro, add both TRNLRS_traffic_turn_new and TRNLRS_TRN_STREET to
+- In ArcGIS Pro, add both TRNLRS_traffic_turn_staging and TRNLRS_TRN_STREET to
   a map.
 - Symbolize/label the turn FC so you can see individual turn locations.
 - Zoom to 8-10 random turns and confirm the turn marker sits exactly on an
@@ -105,7 +105,7 @@ threshold, so no automatic warning fired.
 --------------------------------------------------------------------------
 - docs/network_traffic_turns.md notes Robbie flagged that ETAs may need to
   be excluded from the turn source, but this was never confirmed.
-- Check whether TRNLRS_traffic_turn_new (and the old FC) contain ETA-type
+- Check whether TRNLRS_traffic_turn_staging (and the old FC) contain ETA-type
   records, and if so, confirm with Robbie whether they should be filtered
   out before the swap.
 
@@ -116,7 +116,7 @@ threshold, so no automatic warning fired.
   proceed with the manual swap steps the script printed:
     1) arcpy.management.Delete(TRNLRS_street_network)
     2) arcpy.management.Delete(TRNLRS_traffic_turn)
-    3) arcpy.management.Rename(TRNLRS_traffic_turn_new, 'TRNLRS_traffic_turn')
+    3) arcpy.management.Rename(TRNLRS_traffic_turn_staging, 'TRNLRS_traffic_turn')
     4) Run scripts/03_create_network_dataset.py to recreate + rebuild
   See docs/network_traffic_turns.md for full context on why this order
   is required (controller-dataset locking).

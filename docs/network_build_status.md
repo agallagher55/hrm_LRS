@@ -198,7 +198,7 @@ documented swap order (delete old, rename new, then `BuildNetwork`) never actual
 written for that reason. `05_rebuild_traffic_turns.py` now deletes the network dataset first
 to release the lock, then swaps the turn FCs, then requires re-running
 `scripts/03_create_network_dataset.py` to recreate and rebuild the network dataset. The
-staging FC (`TRNLRS_traffic_turn_new`) is also now created via `in_template_feature_class`
+staging FC (`TRNLRS_traffic_turn_staging`) is also now created via `in_template_feature_class`
 instead of `in_network_dataset`, so it isn't registered as a live source and stays freely
 deletable/renameable before it's swapped in.
 

@@ -303,7 +303,7 @@ Cannot find edge element corresponding to turn identifier 1.
 
 **Solution:** spatially remap turn edge references from old OIDs to new OIDs by matching
 turn junction points (edge endpoints) against the spatial index of `TRNLRS_TRN_STREET`.
-The script creates a new turn FC (`TRNLRS_traffic_turn_new`), populates it with remapped
+The script creates a new turn FC (`TRNLRS_traffic_turn_staging`), populates it with remapped
 records, then the old FC is deleted and the new one renamed to `TRNLRS_traffic_turn` --
 matching the `TRNLRS_` prefix used by the other two sources, and what
 `network_template.xml` already expects.
@@ -319,7 +319,7 @@ no longer coincident with an edge. These are ignored during solves and do not af
 2. Review the `written`/`skipped` counts. A small number of skipped turns is acceptable
    (segments removed during resegmentation). A high skipped count (>5% of total) suggests
    the snap tolerance needs adjustment.
-3. Delete `TRNLRS_traffic_turn` and rename `TRNLRS_traffic_turn_new` to `TRNLRS_traffic_turn`
+3. Delete `TRNLRS_traffic_turn` and rename `TRNLRS_traffic_turn_staging` to `TRNLRS_traffic_turn`
 4. Rebuild the network
 5. Confirm the build errors file no longer contains turn errors
 6. Run a turn restriction solve test
