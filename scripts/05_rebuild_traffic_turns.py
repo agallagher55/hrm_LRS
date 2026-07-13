@@ -19,7 +19,8 @@ Usage
 -----
 1. Set configuration variables below.
 2. Run from an ArcGIS Pro Python environment (arcpy required).
-3. Review the written/skipped summary printed on completion.
+3. Review the written/skipped summary printed on completion, and the skipped OID
+   list in the log file if you need to investigate individual turns.
 4. If skipped count is acceptable, run the swap block at the bottom to replace
    the old turn FC and rebuild the network.
 
@@ -33,6 +34,10 @@ See docs/traffic_turns.md for full diagnosis and post-run steps.
 
 import arcpy
 import sys
+
+from log_utils import setup_logger
+
+logger = setup_logger("05_rebuild_traffic_turns")
 
 # ------------------------------------------------------------------------------
 # Configuration
@@ -210,36 +215,34 @@ def main():
         (NEW_NETWORK,  "New network dataset"),
     ]:
         if not arcpy.Exists(path):
-            print(f"ERROR: {label} not found: {path}")
+            logger.error(f"{label} not found: {path}")
             sys.exit(1)
 
     if arcpy.Exists(NEW_TURN_FC):
-        print(f"ERROR: Output FC already exists: {NEW_TURN_FC}")
-        print("Delete or rename it before running.")
+        logger.error(f"Output FC already exists: {NEW_TURN_FC}. Delete or rename it before running.")
         sys.exit(1)
 
     # ------------------------------------------------------------------
     # 1. Index new edge endpoints
     # ------------------------------------------------------------------
-    print("Indexing new edge endpoints...")
+    logger.info("Indexing new edge endpoints...")
     new_endpoint_index = build_endpoint_index(NEW_EDGE_FC, SNAP_TOLERANCE)
     new_edge_count = sum(len(v) for v in new_endpoint_index.values())
-    print(f"  {new_edge_count} endpoint entries indexed "
-          f"(snap tolerance: {SNAP_TOLERANCE}m)")
+    logger.info(f"  {new_edge_count} endpoint entries indexed (snap tolerance: {SNAP_TOLERANCE}m)")
 
     # ------------------------------------------------------------------
     # 2. Build new edge geometry lookup (used by tiebreaker)
     # ------------------------------------------------------------------
-    print("Loading new edge geometries...")
+    logger.info("Loading new edge geometries...")
     _new_geoms = build_geometry_lookup(NEW_EDGE_FC)
-    print(f"  {len(_new_geoms)} new edge features loaded")
+    logger.info(f"  {len(_new_geoms)} new edge features loaded")
 
     # ------------------------------------------------------------------
     # 3. Build old edge geometry lookup
     # ------------------------------------------------------------------
-    print("Loading old edge geometries...")
+    logger.info("Loading old edge geometries...")
     old_geoms = build_geometry_lookup(OLD_EDGE_FC)
-    print(f"  {len(old_geoms)} old edge features loaded")
+    logger.info(f"  {len(old_geoms)} old edge features loaded")
 
     # ------------------------------------------------------------------
     # 4. Inspect old turn FC schema
@@ -251,17 +254,16 @@ def main():
 
     edge_slots = [i for i in range(1, 6) if f"EDGE{i}FID" in _fld_map]
     if not edge_slots:
-        print("ERROR: No Edge{N}FID fields found in old turn FC.")
-        print(f"  Available fields: {turn_field_names}")
+        logger.error(f"No Edge{{N}}FID fields found in old turn FC. Available fields: {turn_field_names}")
         sys.exit(1)
-    print(f"  Edge slots detected: {edge_slots}")
+    logger.info(f"  Edge slots detected: {edge_slots}")
 
     has_node = "NODE_" in _fld_map
 
     # ------------------------------------------------------------------
     # 5. Get FCID of new edge source from network dataset
     # ------------------------------------------------------------------
-    print("Reading network dataset source FCID...")
+    logger.info("Reading network dataset source FCID...")
     nd_desc = arcpy.Describe(NEW_NETWORK)
     new_edge_fcid = None
     for src in nd_desc.sources:
@@ -270,15 +272,17 @@ def main():
             break
 
     if new_edge_fcid is None:
-        print("ERROR: Could not find FCID for TRNLRS_TRN_STREET in network sources.")
-        print("Ensure the network dataset has been built at least once.")
+        logger.error(
+            "Could not find FCID for TRNLRS_TRN_STREET in network sources. "
+            "Ensure the network dataset has been built at least once."
+        )
         sys.exit(1)
-    print(f"  TRNLRS_TRN_STREET FCID: {new_edge_fcid}")
+    logger.info(f"  TRNLRS_TRN_STREET FCID: {new_edge_fcid}")
 
     # ------------------------------------------------------------------
     # 6. Create new turn feature class
     # ------------------------------------------------------------------
-    print(f"Creating output turn FC: {NEW_TURN_FC}")
+    logger.info(f"Creating output turn FC: {NEW_TURN_FC}")
     out_path, out_name = NEW_TURN_FC.rsplit("\\", 1)
     arcpy.na.CreateTurnFeatureClass(
         out_location=out_path,
@@ -290,8 +294,10 @@ def main():
     # ------------------------------------------------------------------
     # 7. Build cursor field lists
     # ------------------------------------------------------------------
-    # Read fields: SHAPE@, [NODE_,] Edge1FCID, Edge1FID, Edge1Pos, ...
+    # Read fields: SHAPE@, [NODE_,] Edge1FCID, Edge1FID, Edge1Pos, ..., OID@
     # Use actual field names from _fld_map so casing matches what ArcGIS expects.
+    # OID@ is appended last (rather than inserted after SHAPE@) so it doesn't
+    # shift the offsets used to walk the edge slot data below.
     read_fields = ["SHAPE@"]
     if has_node:
         read_fields.append(_fld_map["NODE_"])
@@ -301,6 +307,8 @@ def main():
             _fld_map.get(f"EDGE{i}FID",  f"Edge{i}FID"),
             _fld_map.get(f"EDGE{i}POS",  f"Edge{i}Pos"),
         ]
+    read_fields.append("OID@")
+    oid_idx = len(read_fields) - 1
 
     # Insert fields match read fields
     insert_fields = ["SHAPE@"]
@@ -315,7 +323,7 @@ def main():
     # ------------------------------------------------------------------
     # 8. Remap turns
     # ------------------------------------------------------------------
-    print("Remapping turn edge references...")
+    logger.info("Remapping turn edge references...")
 
     written  = 0
     skipped  = 0
@@ -325,10 +333,10 @@ def main():
          arcpy.da.InsertCursor(NEW_TURN_FC, insert_fields) as ins_cur:
 
         for row in read_cur:
-            row       = list(row)
-            shape     = row[0]
-            node_val  = row[1] if has_node else None
-            old_oid_f = read_cur.fields.index("OID@") if "OID@" in read_cur.fields else None
+            row      = list(row)
+            shape    = row[0]
+            node_val = row[1] if has_node else None
+            turn_oid = row[oid_idx]
 
             new_row = [shape]
             valid   = True
@@ -361,6 +369,7 @@ def main():
 
             if not valid:
                 skipped += 1
+                no_match.append(turn_oid)
                 continue
 
             if has_node:
@@ -375,51 +384,63 @@ def main():
     total = written + skipped
     skip_pct = (skipped / total * 100) if total > 0 else 0
 
-    print()
-    print("=" * 50)
-    print(f"Remap complete")
-    print(f"  Total input turns : {total}")
-    print(f"  Written           : {written}")
-    print(f"  Skipped           : {skipped} ({skip_pct:.1f}%)")
-    print("=" * 50)
+    logger.info("=" * 50)
+    logger.info("Remap complete")
+    logger.info(f"  Total input turns : {total}")
+    logger.info(f"  Written           : {written}")
+    logger.info(f"  Skipped           : {skipped} ({skip_pct:.1f}%)")
+    logger.info("=" * 50)
+    if no_match:
+        logger.debug(f"Skipped old turn OIDs (from {OLD_TURN_FC}): {no_match}")
 
     if skip_pct > 5:
-        print()
-        print("WARNING: skipped rate exceeds 5%. Consider widening SNAP_TOLERANCE")
-        print("or inspecting skipped turns manually before proceeding.")
+        logger.warning(
+            "Skipped rate exceeds 5%. Consider widening SNAP_TOLERANCE "
+            "or inspecting skipped turns manually before proceeding. "
+            "Skipped OID list is in the log file (debug level)."
+        )
 
     # ------------------------------------------------------------------
     # 10. Optional: swap old turn FC for new and rebuild network
     # ------------------------------------------------------------------
     if AUTO_SWAP_AND_REBUILD:
         if skipped / total > 0.05:
-            print()
-            print("Skipped rate > 5% -- aborting auto swap. Review output first.")
+            logger.warning("Skipped rate > 5% -- aborting auto swap. Review output first.")
             return
 
-        print()
-        print("AUTO_SWAP_AND_REBUILD is True -- swapping turn FCs and rebuilding...")
+        logger.info("AUTO_SWAP_AND_REBUILD is True -- swapping turn FCs and rebuilding...")
 
-        print(f"  Deleting {OLD_TURN_FC_FINAL}...")
+        logger.info(f"  Deleting {OLD_TURN_FC_FINAL}...")
         arcpy.management.Delete(OLD_TURN_FC_FINAL)
 
-        print(f"  Renaming {NEW_TURN_FC} -> TRNLRS_traffic_turn...")
+        logger.info(f"  Renaming {NEW_TURN_FC} -> TRNLRS_traffic_turn...")
         arcpy.management.Rename(NEW_TURN_FC, "TRNLRS_traffic_turn")
 
-        print(f"  Rebuilding {NEW_NETWORK}...")
+        logger.info(f"  Rebuilding {NEW_NETWORK}...")
         arcpy.na.BuildNetwork(NEW_NETWORK)
 
-        print("Done. Check the BuildNetwork messages for any remaining errors.")
+        message_count = arcpy.GetMessageCount()
+        severity_counts = {0: 0, 1: 0, 2: 0}
+        for i in range(message_count):
+            severity = arcpy.GetSeverity(i)
+            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        logger.info(
+            f"BuildNetwork messages: {message_count} total "
+            f"({severity_counts.get(2, 0)} errors, {severity_counts.get(1, 0)} warnings) "
+            "-- full detail in the log file"
+        )
+        logger.debug(f"BuildNetwork full messages:\n{arcpy.GetMessages()}")
+
+        logger.info("Done. Check the BuildNetwork messages above for any remaining errors.")
     else:
-        print()
-        print("AUTO_SWAP_AND_REBUILD is False.")
-        print("Review the output FC before committing:")
-        print(f"  {NEW_TURN_FC}")
-        print()
-        print("To complete the swap manually:")
-        print(f"  1. arcpy.management.Delete(r'{OLD_TURN_FC_FINAL}')")
-        print(f"  2. arcpy.management.Rename(r'{NEW_TURN_FC}', 'TRNLRS_traffic_turn')")
-        print(f"  3. arcpy.na.BuildNetwork(r'{NEW_NETWORK}')")
+        logger.info("AUTO_SWAP_AND_REBUILD is False.")
+        logger.info(f"Review the output FC before committing: {NEW_TURN_FC}")
+        logger.info(
+            "To complete the swap manually: "
+            f"1) arcpy.management.Delete(r'{OLD_TURN_FC_FINAL}') "
+            f"2) arcpy.management.Rename(r'{NEW_TURN_FC}', 'TRNLRS_traffic_turn') "
+            f"3) arcpy.na.BuildNetwork(r'{NEW_NETWORK}')"
+        )
 
 
 if __name__ == "__main__":
