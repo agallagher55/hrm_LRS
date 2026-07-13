@@ -26,8 +26,18 @@ Usage
 
 Output
 ------
-Creates TRNLRS_traffic_turn_new inside SDEADM.TRNLRS. The old TRNLRS_traffic_turn
-is not touched until the optional swap step at the end.
+Creates TRNLRS_traffic_turn_new inside SDEADM.TRNLRS. It is created via
+in_template_feature_class (schema copied from the current TRNLRS_traffic_turn),
+NOT in_network_dataset -- passing in_network_dataset to CreateTurnFeatureClass
+actually registers the output as a live turn source of that network dataset,
+which makes it a "controller dataset" participant that ArcGIS refuses to
+delete or rename (ERROR 001919) until the network dataset itself is deleted.
+Using in_template_feature_class gets the same Edge{N}FCID/FID/Pos schema
+without that side effect, so the output FC stays freely disposable until you
+deliberately swap it in. The old TRNLRS_traffic_turn is not touched until the
+optional swap step at the end -- and that step, too, must delete the network
+dataset first, because the CURRENT TRNLRS_traffic_turn is itself a registered
+turn source and subject to the same lock.
 
 See docs/traffic_turns.md for full diagnosis and post-run steps.
 """
@@ -209,10 +219,11 @@ def main():
 
     # Validate inputs
     for path, label in [
-        (OLD_TURN_FC,  "Old turn FC"),
-        (OLD_EDGE_FC,  "Old edge FC"),
-        (NEW_EDGE_FC,  "New edge FC"),
-        (NEW_NETWORK,  "New network dataset"),
+        (OLD_TURN_FC,       "Old turn FC"),
+        (OLD_EDGE_FC,       "Old edge FC"),
+        (NEW_EDGE_FC,       "New edge FC"),
+        (NEW_NETWORK,       "New network dataset"),
+        (OLD_TURN_FC_FINAL, "Current TRNLRS_traffic_turn (used as schema template)"),
     ]:
         if not arcpy.Exists(path):
             logger.error(f"{label} not found: {path}")
@@ -282,13 +293,19 @@ def main():
     # ------------------------------------------------------------------
     # 6. Create new turn feature class
     # ------------------------------------------------------------------
+    # Deliberately uses in_template_feature_class, NOT in_network_dataset.
+    # Passing in_network_dataset registers the output as a real turn source
+    # of that network dataset (a "controller dataset" relationship), which
+    # then blocks Delete/Rename on it (ERROR 001919) until the network
+    # dataset is deleted. in_template_feature_class copies the same schema
+    # from the current TRNLRS_traffic_turn without that side effect.
     logger.info(f"Creating output turn FC: {NEW_TURN_FC}")
     out_path, out_name = NEW_TURN_FC.rsplit("\\", 1)
     arcpy.na.CreateTurnFeatureClass(
         out_location=out_path,
         out_feature_class_name=out_name,
         maximum_edges=max(edge_slots),
-        in_network_dataset=NEW_NETWORK,
+        in_template_feature_class=OLD_TURN_FC_FINAL,
     )
 
     # ------------------------------------------------------------------
@@ -401,14 +418,28 @@ def main():
         )
 
     # ------------------------------------------------------------------
-    # 10. Optional: swap old turn FC for new and rebuild network
+    # 10. Optional: swap old turn FC for new, then recreate/rebuild the network
     # ------------------------------------------------------------------
+    # NOTE: TRNLRS_traffic_turn is itself a registered turn source of
+    # TRNLRS_street_network (defined in data/network_template.xml), which
+    # makes it a "controller dataset" participant -- ArcGIS refuses to
+    # Delete or Rename it (ERROR 001919: "cannot be deleted because it
+    # participates in a controller dataset") while the network dataset still
+    # references it. There is no arcpy call to unregister a single source
+    # from an existing network dataset -- the network dataset itself must be
+    # deleted first to release the lock on ALL its sources, then recreated
+    # from the template afterward (see scripts/03_create_network_dataset.py,
+    # which is idempotent and will just recreate + rebuild the network
+    # dataset since the three source FCs already exist).
     if AUTO_SWAP_AND_REBUILD:
         if skipped / total > 0.05:
             logger.warning("Skipped rate > 5% -- aborting auto swap. Review output first.")
             return
 
-        logger.info("AUTO_SWAP_AND_REBUILD is True -- swapping turn FCs and rebuilding...")
+        logger.info("AUTO_SWAP_AND_REBUILD is True -- swapping turn FCs...")
+
+        logger.info(f"  Deleting network dataset {NEW_NETWORK} (releases the controller-dataset lock)...")
+        arcpy.management.Delete(NEW_NETWORK)
 
         logger.info(f"  Deleting {OLD_TURN_FC_FINAL}...")
         arcpy.management.Delete(OLD_TURN_FC_FINAL)
@@ -416,30 +447,23 @@ def main():
         logger.info(f"  Renaming {NEW_TURN_FC} -> TRNLRS_traffic_turn...")
         arcpy.management.Rename(NEW_TURN_FC, "TRNLRS_traffic_turn")
 
-        logger.info(f"  Rebuilding {NEW_NETWORK}...")
-        arcpy.na.BuildNetwork(NEW_NETWORK)
-
-        message_count = arcpy.GetMessageCount()
-        severity_counts = {0: 0, 1: 0, 2: 0}
-        for i in range(message_count):
-            severity = arcpy.GetSeverity(i)
-            severity_counts[severity] = severity_counts.get(severity, 0) + 1
         logger.info(
-            f"BuildNetwork messages: {message_count} total "
-            f"({severity_counts.get(2, 0)} errors, {severity_counts.get(1, 0)} warnings) "
-            "-- full detail in the log file"
+            "Turn FC swap complete. The network dataset was deleted and must be recreated: "
+            "run scripts/03_create_network_dataset.py to recreate TRNLRS_street_network "
+            "from the template and rebuild it (it will skip re-copying the three source "
+            "FCs since they already exist, and go straight to create + build)."
         )
-        logger.debug(f"BuildNetwork full messages:\n{arcpy.GetMessages()}")
-
-        logger.info("Done. Check the BuildNetwork messages above for any remaining errors.")
     else:
         logger.info("AUTO_SWAP_AND_REBUILD is False.")
         logger.info(f"Review the output FC before committing: {NEW_TURN_FC}")
         logger.info(
-            "To complete the swap manually: "
-            f"1) arcpy.management.Delete(r'{OLD_TURN_FC_FINAL}') "
-            f"2) arcpy.management.Rename(r'{NEW_TURN_FC}', 'TRNLRS_traffic_turn') "
-            f"3) arcpy.na.BuildNetwork(r'{NEW_NETWORK}')"
+            "To complete the swap manually, in this order "
+            "(TRNLRS_traffic_turn is a registered network source and cannot be deleted "
+            "or renamed while the network dataset exists -- delete it first): "
+            f"1) arcpy.management.Delete(r'{NEW_NETWORK}') "
+            f"2) arcpy.management.Delete(r'{OLD_TURN_FC_FINAL}') "
+            f"3) arcpy.management.Rename(r'{NEW_TURN_FC}', 'TRNLRS_traffic_turn') "
+            "4) Run scripts/03_create_network_dataset.py to recreate and rebuild the network dataset."
         )
 
 

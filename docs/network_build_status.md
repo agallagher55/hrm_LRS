@@ -28,7 +28,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | Spatial reference — `TRN_streets_routes` FD | ✅ Confirmed | Identical — no projection on copy |
 | `SDEADM.TRNLRS_TRN_STREET_VW` (standalone, outside FD) | ✅ Exists | Script 03 copies it into FD |
 | `SDEADM.TRNLRS\TRNLRS_street_junction` | ✅ Copied | Copied from `TRN_streets_routes\TRN_street_junction` |
-| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ✅ Rebuilt | Copied from `TRN_streets_routes\TRN_traffic_turn`, OID-remapped via script 05, and renamed to `TRNLRS_traffic_turn` per the swap step -- see `traffic_turns.md` |
+| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ⚠️ Regressed (2026-07-07) | Copied from `TRN_streets_routes\TRN_traffic_turn`, OID-remapped via script 05, and renamed to `TRNLRS_traffic_turn` per the swap step -- see `network_traffic_turns.md`. Reverted to unremapped OIDs; needs script 05 re-run. |
 | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` (FD edge copy) | ✅ Copied | Script 03 copied from standalone `TRNLRS_TRN_STREET_VW` |
 | `SDEADM.TRNLRS\TRNLRS_street_network` | ✅ Created & built | Dev and QA environments |
 
@@ -191,7 +191,18 @@ turn FC over the previously-remapped one. Script 03 and `05_rebuild_traffic_turn
 log this distinction explicitly (copy vs. skip) via `scripts/log_utils.py` to make this
 easier to catch going forward.
 
-See [`traffic_turns.md`](traffic_turns.md) for the original diagnosis and remapping script.
+**Swap step also corrected (2026-07-13):** `TRNLRS_traffic_turn` is a registered turn source
+of `TRNLRS_street_network`, which makes it a "controller dataset" participant -- ArcGIS
+refuses to `Delete` or `Rename` it (`ERROR 001919`) while the network dataset exists. The
+documented swap order (delete old, rename new, then `BuildNetwork`) never actually worked as
+written for that reason. `05_rebuild_traffic_turns.py` now deletes the network dataset first
+to release the lock, then swaps the turn FCs, then requires re-running
+`scripts/03_create_network_dataset.py` to recreate and rebuild the network dataset. The
+staging FC (`TRNLRS_traffic_turn_new`) is also now created via `in_template_feature_class`
+instead of `in_network_dataset`, so it isn't registered as a live source and stays freely
+deletable/renameable before it's swapped in.
+
+See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diagnosis and remapping script.
 
 - [x] Run `scripts/05_rebuild_traffic_turns.py` to spatially remap turns to new edge OIDs (2026-06-26, QA)
 - [x] Verify written/skipped counts from script output
