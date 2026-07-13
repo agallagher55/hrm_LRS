@@ -17,7 +17,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ Complete — Dev and QA built (2026-06-26) |
 | 5 | Validation | 🔄 In progress — properties check passed; solve tests pending |
-| 5a | Traffic turn rebuild | ✅ Complete -- remapped FC renamed to `TRNLRS_traffic_turn` and left in the `TRNLRS` feature dataset, as planned |
+| 5a | Traffic turn rebuild | ⚠️ Regressed (2026-07-07) -- QA build again shows all turn records failing with `Cannot find edge element...`; see note below Step 3 |
 
 ## Confirmed Prerequisites
 
@@ -28,7 +28,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 | Spatial reference — `TRN_streets_routes` FD | ✅ Confirmed | Identical — no projection on copy |
 | `SDEADM.TRNLRS_TRN_STREET_VW` (standalone, outside FD) | ✅ Exists | Script 03 copies it into FD |
 | `SDEADM.TRNLRS\TRNLRS_street_junction` | ✅ Copied | Copied from `TRN_streets_routes\TRN_street_junction` |
-| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ✅ Rebuilt | Copied from `TRN_streets_routes\TRN_traffic_turn`, OID-remapped via script 05, and renamed to `TRNLRS_traffic_turn` per the swap step -- see `traffic_turns.md` |
+| `SDEADM.TRNLRS\TRNLRS_traffic_turn` | ⚠️ Regressed (2026-07-07) | Copied from `TRN_streets_routes\TRN_traffic_turn`, OID-remapped via script 05, and renamed to `TRNLRS_traffic_turn` per the swap step -- see `network_traffic_turns.md`. Reverted to unremapped OIDs; needs script 05 re-run. |
 | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` (FD edge copy) | ✅ Copied | Script 03 copied from standalone `TRNLRS_TRN_STREET_VW` |
 | `SDEADM.TRNLRS\TRNLRS_street_network` | ✅ Created & built | Dev and QA environments |
 
@@ -167,21 +167,47 @@ WHERE name LIKE '%TRNLRS%';
 
 ## Remaining Steps
 
-### Step 3 — Rebuild traffic turn feature class ✅ Complete
+### Step 3 — Rebuild traffic turn feature class ⚠️ Regressed (2026-07-07)
 
-`TRN_traffic_turn` (the pre-migration FC in `TRN_streets_routes`) was copied into
+`TRN_traffic_turn` (the pre-migration FC in `TRN_streets_routes`) was originally copied into
 `SDEADM.TRNLRS`, and its edge references (stored as ObjectIDs of features in the old
 `TRN_street` edge source) were spatially remapped against `TRNLRS_TRN_STREET` using
 `scripts/05_rebuild_traffic_turns.py`. Per the script's swap step, the remapped output
 was renamed to `TRNLRS_traffic_turn` and left in the `SDEADM.TRNLRS` feature dataset --
 matching the `TRNLRS_` prefix used by the other two sources and what
-`network_template.xml` already expects. No naming corrections were needed.
+`network_template.xml` already expects. This was marked complete after the 2026-06-26 QA build.
 
-See [`traffic_turns.md`](traffic_turns.md) for the original diagnosis and remapping script.
+**Regression found 2026-07-07:** a fresh QA build (`ms-gis-sql-q21`, Build Time Jul 7 17:55:29)
+again showed all 1,209 `TRNLRS_traffic_turn` records failing with
+`Cannot find edge element corresponding to turn identifier 1` -- i.e. `TRNLRS_traffic_turn`
+is back to referencing the old, unremapped `TRN_street` OIDs, and Turns shows `0` in
+Network Dataset Properties.
 
-- [x] Run `scripts/05_rebuild_traffic_turns.py` to spatially remap turns to new edge OIDs
+Most likely cause: `scripts/03_create_network_dataset.py`'s `copy_fc_to_fd()` only copies
+`TRN_traffic_turn` → `TRNLRS_traffic_turn` if the destination doesn't already exist. If the
+network dataset (and its feature dataset contents) was deleted and recreated at some point
+after 2026-06-26, re-running script 03 would have silently re-copied the raw, unremapped
+turn FC over the previously-remapped one. Script 03 and `05_rebuild_traffic_turns.py` now
+log this distinction explicitly (copy vs. skip) via `scripts/log_utils.py` to make this
+easier to catch going forward.
+
+**Swap step also corrected (2026-07-13):** `TRNLRS_traffic_turn` is a registered turn source
+of `TRNLRS_street_network`, which makes it a "controller dataset" participant -- ArcGIS
+refuses to `Delete` or `Rename` it (`ERROR 001919`) while the network dataset exists. The
+documented swap order (delete old, rename new, then `BuildNetwork`) never actually worked as
+written for that reason. `05_rebuild_traffic_turns.py` now deletes the network dataset first
+to release the lock, then swaps the turn FCs, then requires re-running
+`scripts/03_create_network_dataset.py` to recreate and rebuild the network dataset. The
+staging FC (`TRNLRS_traffic_turn_new`) is also now created via `in_template_feature_class`
+instead of `in_network_dataset`, so it isn't registered as a live source and stays freely
+deletable/renameable before it's swapped in.
+
+See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diagnosis and remapping script.
+
+- [x] Run `scripts/05_rebuild_traffic_turns.py` to spatially remap turns to new edge OIDs (2026-06-26, QA)
 - [x] Verify written/skipped counts from script output
 - [x] Rebuild network after turn FC is replaced
+- [ ] **Re-run `scripts/05_rebuild_traffic_turns.py` against QA (2026-07-07 regression) and re-verify**
 - [ ] Confirm turn restriction logic in a solve test
 
 ---

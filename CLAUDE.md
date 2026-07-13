@@ -8,19 +8,50 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Environment
 - ArcGIS Pro 3.3.5
 
+### SQL Server instances
+- `ms-gis-sql-q21` → QA
+- `ms-gis-sql-p21` → Prod
+
 ## arcpy Gotchas
 
 ### `arcpy.na.CreateTurnFeatureClass`
-Correct keyword arguments are `out_location` and `out_name` (not `out_path`/`out_name` or `out_location`/`out_feature_class` — both raise `TypeError: unexpected keyword argument`):
+On ArcGIS Pro 3.3.5, correct keyword arguments are `out_location` and `out_feature_class_name`
+(**not** `out_name` — confirmed against ArcGIS Pro's documented signature
+`CreateTurnFeatureClass(out_location, out_feature_class_name, {maximum_edges}, ...)`).
+`out_name`, `out_path`/`out_name`, and `out_location`/`out_feature_class` all raise
+`TypeError: unexpected keyword argument`.
+
+Also avoid the `in_network_dataset` parameter unless you actually want the output FC
+registered as a live source of that network dataset (see "Controller dataset restrictions"
+below — it immediately locks the output against `Delete`/`Rename`). To just match an
+existing turn FC's schema without that side effect, use `in_template_feature_class` instead:
 
 ```python
 arcpy.na.CreateTurnFeatureClass(
     out_location=out_path,
-    out_name=out_name,
+    out_feature_class_name=out_name,
     maximum_edges=max(edge_slots),
-    in_network_dataset=NEW_NETWORK,
+    in_template_feature_class=EXISTING_TURN_FC,  # schema only, no ND registration
 )
 ```
+
+### Controller dataset restrictions (network dataset member feature classes)
+Any feature class that is a registered source of a network dataset (edge, junction, or turn
+— defined in the network's XML template / Sources tab) becomes a **controller dataset**
+participant. Several arcpy operations are blocked on it while the network dataset exists,
+and there is no arcpy call to unregister a single source — the network dataset itself must
+be deleted to release the lock, then recreated (`CreateNetworkDatasetFromTemplate` +
+`BuildNetwork`) afterward. Two variants hit in this project:
+
+- **`arcpy.management.Delete` / `arcpy.management.Rename`** → `ERROR 001919: <value> cannot
+  be deleted because it participates in a controller dataset such as a network dataset,
+  utility network, or trace network.` Hit when trying to delete/rename a turn or edge source
+  FC in place (e.g. the old→new turn FC swap in `scripts/05_rebuild_traffic_turns.py`).
+- **`arcpy.management.TruncateTable`** → `ERROR 001395: Operation not supported on a feature
+  class in a controller dataset.` Hit when re-syncing the edge source FC
+  (`scripts/04_sync_and_rebuild_network.py`). Fix: use `arcpy.management.DeleteRows` instead
+  — it's a normal edit operation and IS supported on controller-dataset members (slower than
+  `TruncateTable` on large tables, but doesn't require deleting the network dataset).
 
 ## Project Purpose
 

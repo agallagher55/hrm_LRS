@@ -512,9 +512,13 @@ print(f"New edge FCID: {new_edge_fcid}")
 
 arcpy.na.CreateTurnFeatureClass(
     out_location=sde + r"\SDEADM.TRNLRS",
-    out_name="TRNLRS_traffic_turn_new",
+    out_feature_class_name="TRNLRS_traffic_turn_new",
     maximum_edges=max(edge_slots),
-    in_network_dataset=new_network
+    # NOT in_network_dataset=new_network: that registers this FC as a live
+    # turn source of the network dataset immediately, which then blocks
+    # Delete/Rename on it (ERROR 001919) until the network dataset itself
+    # is deleted. in_template_feature_class copies the same schema instead.
+    in_template_feature_class=old_turn_fc_final,
 )
 
 # Build insert field list
@@ -775,9 +779,13 @@ print(f"New edge FCID: {new_edge_fcid}")
 # 6. Create new turn FC
 arcpy.na.CreateTurnFeatureClass(
     out_location=sde + r"\SDEADM.TRNLRS",
-    out_name="TRNLRS_traffic_turn_new",
+    out_feature_class_name="TRNLRS_traffic_turn_new",
     maximum_edges=max(edge_slots),
-    in_network_dataset=new_network
+    # NOT in_network_dataset=new_network: that registers this FC as a live
+    # turn source of the network dataset immediately, which then blocks
+    # Delete/Rename on it (ERROR 001919) until the network dataset itself
+    # is deleted. in_template_feature_class copies the same schema instead.
+    in_template_feature_class=old_turn_fc_final,
 )
  
 # 7. Build field lists
@@ -846,7 +854,17 @@ After the script completes:
    are turns where the old edge endpoint no longer exists in the new network (e.g. segments
    removed by LRS resegmentation). A high skipped count (>5% of total) suggests the snap
    tolerance needs adjustment.
-2. **Delete the old turn FC and rename the new one:**
+2. **Delete the network dataset first.** `TRNLRS_traffic_turn` is itself a registered turn
+   source of `TRNLRS_street_network` (defined in `data/network_template.xml`), which makes
+   it a "controller dataset" participant. ArcGIS refuses to `Delete` or `Rename` it while the
+   network dataset still references it (`ERROR 001919: <value> cannot be deleted because it
+   participates in a controller dataset...`). There is no arcpy call to unregister a single
+   source from an existing network dataset -- the network dataset must be deleted to release
+   the lock on all its sources:
+```python
+   arcpy.management.Delete(sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_street_network")
+```
+3. **Delete the old turn FC and rename the new one:**
 ```python
    arcpy.management.Delete(sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn")
    arcpy.management.Rename(
@@ -855,15 +873,25 @@ After the script completes:
    )
 ```
  
-3. **Rebuild the network:**
-```python
-   arcpy.na.BuildNetwork(sde + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_street_network")
-```
+4. **Recreate and rebuild the network dataset** by re-running
+   `scripts/03_create_network_dataset.py` -- it's idempotent, so it will skip re-copying the
+   three source FCs (they already exist) and go straight to
+   `CreateNetworkDatasetFromTemplate` + `BuildNetwork`.
  
-4. **Confirm the build errors file no longer contains turn errors.** Standalone junction
+5. **Confirm the build errors file no longer contains turn errors.** Standalone junction
    warnings for `TRNLRS_street_junction` will likely still appear and can be ignored.
-5. **Run a turn restriction solve test** -- route through a known prohibited turn and
+6. **Run a turn restriction solve test** -- route through a known prohibited turn and
    confirm the solver avoids it.
+
+**Note:** the remap script itself creates `TRNLRS_traffic_turn_new` via
+`in_template_feature_class` (schema copied from the current `TRNLRS_traffic_turn`), not
+`in_network_dataset`. Passing `in_network_dataset` to `CreateTurnFeatureClass` registers the
+output as a live turn source of that network dataset immediately on creation -- the same
+controller-dataset lock described above -- which would make the staging FC itself
+undeletable/unrenameable before it's even reviewed. Using a numbered or otherwise
+differently-named staging FC would not avoid this: the lock is caused by the
+`in_network_dataset` parameter, not the output name, so each attempt would just leave behind
+another permanently-locked orphan turn source.
 ---
  
 ## Known limitations

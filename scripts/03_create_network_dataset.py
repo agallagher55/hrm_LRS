@@ -23,6 +23,16 @@ Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
   LRS_updates.py. After each LRS refresh, re-copy the standalone FC over the FD
   copy and rebuild (see scripts/04_sync_and_rebuild_network.py).
 
+Note on TRNLRS_traffic_turn:
+  copy_fc_to_fd() below skips copying a source FC if the destination already
+  exists in the feature dataset. If TRNLRS_traffic_turn has previously been
+  remapped and swapped in by scripts/05_rebuild_traffic_turns.py, re-running
+  this script will correctly leave that remapped FC alone. But if the network
+  dataset (and its FD contents) is ever deleted and recreated, this script
+  will re-copy the raw, unremapped TRN_traffic_turn and silently undo the
+  remap -- watch the log for "Copying into feature dataset" vs "Already
+  present, skipping" on the turn FC specifically.
+
 Run from ArcGIS Pro Python environment:
   > python scripts/03_create_network_dataset.py
 """
@@ -32,6 +42,10 @@ import sys
 from pathlib import Path
 
 import arcpy
+
+from log_utils import setup_logger
+
+logger = setup_logger("03_create_network_dataset")
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -77,37 +91,52 @@ def copy_fc_to_fd(source_path, feature_dataset, fc_name, error_hint=""):
     """Copy a feature class into the feature dataset, skipping if already present."""
     dest = os.path.join(feature_dataset, fc_name)
     if arcpy.Exists(dest):
-        print(f"Already present in feature dataset, skipping: {fc_name}")
+        logger.info(
+            f"Already present in feature dataset, skipping copy: {fc_name} "
+            f"(existing data at {dest} was NOT refreshed)"
+        )
         return
     if not arcpy.Exists(source_path):
-        sys.exit(
-            f"ERROR: Source feature class not found: {source_path}"
-            + (f"\n{error_hint}" if error_hint else "")
-        )
-    print(f"Copying into feature dataset:\n  {source_path}\n  → {dest}")
+        msg = f"Source feature class not found: {source_path}" + (f" {error_hint}" if error_hint else "")
+        logger.error(msg)
+        sys.exit(f"ERROR: {msg}")
+    logger.info(f"Copying into feature dataset: {source_path} -> {dest}")
     arcpy.management.CopyFeatures(source_path, dest)
-    print("Copy complete.")
+    logger.info(f"Copy complete: {fc_name}")
 
 
 def build_network(nd_path):
-    """Build the network dataset after creation."""
-    print(f"Building network dataset: {nd_path}")
+    """Build the network dataset after creation, and log the geoprocessing messages."""
+    logger.info(f"Building network dataset: {nd_path}")
     arcpy.na.BuildNetwork(nd_path)
-    print("Build complete.")
+    logger.info("Build complete.")
+
+    message_count = arcpy.GetMessageCount()
+    severity_counts = {0: 0, 1: 0, 2: 0}  # 0=info, 1=warning, 2=error
+    for i in range(message_count):
+        severity = arcpy.GetSeverity(i)
+        severity_counts[severity] = severity_counts.get(severity, 0) + 1
+    logger.info(
+        f"BuildNetwork messages: {message_count} total "
+        f"({severity_counts.get(2, 0)} errors, {severity_counts.get(1, 0)} warnings) "
+        "-- full detail in the log file"
+    )
+    logger.debug(f"BuildNetwork full messages:\n{arcpy.GetMessages()}")
 
 
 def main():
     if not TEMPLATE_XML.exists():
-        sys.exit(
-            f"ERROR: Template XML not found at {TEMPLATE_XML}\n"
+        msg = (
+            f"Template XML not found at {TEMPLATE_XML}. "
             "Run 01_extract_network_config.py and edit the template before proceeding."
         )
+        logger.error(msg)
+        sys.exit(f"ERROR: {msg}")
 
     if not arcpy.Exists(FEATURE_DATASET):
-        sys.exit(
-            f"ERROR: Feature dataset not found: {FEATURE_DATASET}\n"
-            "Update FEATURE_DATASET to the correct path."
-        )
+        msg = f"Feature dataset not found: {FEATURE_DATASET}. Update FEATURE_DATASET to the correct path."
+        logger.error(msg)
+        sys.exit(f"ERROR: {msg}")
 
     copy_fc_to_fd(
         STANDALONE_EDGE_SOURCE, FEATURE_DATASET, EDGE_SOURCE_NAME,
@@ -118,7 +147,7 @@ def main():
 
     new_nd_path = os.path.join(FEATURE_DATASET, NEW_ND_NAME)
 
-    print(f"Creating network dataset from template: {TEMPLATE_XML}")
+    logger.info(f"Creating network dataset from template: {TEMPLATE_XML}")
     try:
         arcpy.na.CreateNetworkDatasetFromTemplate(
             network_dataset_template=str(TEMPLATE_XML),
@@ -127,19 +156,24 @@ def main():
     except arcpy.ExecuteError:
         msgs = arcpy.GetMessages()
         if "already exists" in msgs:
-            sys.exit(
-                f"ERROR: Network dataset already exists: {new_nd_path}\n"
+            msg = (
+                f"Network dataset already exists: {new_nd_path}. "
                 "Delete it in ArcGIS Pro (Catalog pane → right-click → Delete) and re-run."
             )
+            logger.error(msg)
+            sys.exit(f"ERROR: {msg}")
+        logger.error(f"CreateNetworkDatasetFromTemplate failed:\n{msgs}")
         sys.exit(f"ERROR: CreateNetworkDatasetFromTemplate failed:\n{msgs}")
-    print(f"Network dataset created: {new_nd_path}")
+    logger.info(f"Network dataset created: {new_nd_path}")
 
     build_network(new_nd_path)
-    print("\nDone. Validate the new network dataset by:")
-    print("  1. Opening Network Dataset Properties in ArcGIS Pro and reviewing each tab.")
-    print("  2. Running a test Route solve between two known points.")
-    print("  3. Running a test Service Area solve.")
-    print("  4. Comparing results against the old TRN_street_network.")
+    logger.info(
+        "Done. Validate the new network dataset by: "
+        "1) Opening Network Dataset Properties in ArcGIS Pro and reviewing each tab. "
+        "2) Running a test Route solve between two known points. "
+        "3) Running a test Service Area solve. "
+        "4) Comparing results against the old TRN_street_network."
+    )
 
 
 if __name__ == "__main__":

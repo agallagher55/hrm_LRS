@@ -31,6 +31,10 @@ import sys
 
 import arcpy
 
+from log_utils import setup_logger
+
+logger = setup_logger("04_sync_and_rebuild_network")
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -69,10 +73,21 @@ def sync_and_rebuild(
     for path, label in [(street_source_fc, "standalone edge source"), (streets_target_fc, "FD edge copy"), (network, "network dataset")]:
 
         if not arcpy.Exists(path):
+            logger.error(f"Cannot find {label}: {path}")
             sys.exit(f"ERROR: Cannot find {label}:\n  {path}")
 
-    print(f"Syncing edge source:\n  {street_source_fc}\n  → {streets_target_fc}")
-    arcpy.management.TruncateTable(streets_target_fc)
+    logger.info(f"Syncing edge source: {street_source_fc} -> {streets_target_fc}")
+    # streets_target_fc (TRNLRS_TRN_STREET) is a registered edge source of
+    # `network`, which makes it a "controller dataset" participant.
+    # TruncateTable is not supported on controller-dataset feature classes
+    # (ERROR 001395: "Operation not supported on a feature class in a
+    # controller dataset") -- unlike Delete/Rename (ERROR 001919), there's no
+    # need to delete the network dataset here, since DeleteRows is a normal
+    # edit operation that IS supported on controller-dataset members. It's
+    # slower than TruncateTable for large tables (>10k rows), which this is,
+    # but it's the only option that doesn't require tearing down and
+    # rebuilding the network dataset on every sync.
+    arcpy.management.DeleteRows(streets_target_fc)
     arcpy.management.Append(
         inputs=street_source_fc,
         target=streets_target_fc,
@@ -80,15 +95,28 @@ def sync_and_rebuild(
     )
 
     count = int(arcpy.management.GetCount(streets_target_fc)[0])
-    print(f"Sync complete — {count:,} features loaded.")
+    logger.info(f"Sync complete -- {count:,} features loaded.")
 
-    print(f"Rebuilding network dataset: {network}")
+    logger.info(f"Rebuilding network dataset: {network}")
     arcpy.na.BuildNetwork(network)
-    print("Rebuild complete.")
+    logger.info("Rebuild complete.")
+
+    message_count = arcpy.GetMessageCount()
+    severity_counts = {0: 0, 1: 0, 2: 0}
+    for i in range(message_count):
+        severity = arcpy.GetSeverity(i)
+        severity_counts[severity] = severity_counts.get(severity, 0) + 1
+    logger.info(
+        f"BuildNetwork messages: {message_count} total "
+        f"({severity_counts.get(2, 0)} errors, {severity_counts.get(1, 0)} warnings) "
+        "-- full detail in the log file"
+    )
+    logger.debug(f"BuildNetwork full messages:\n{arcpy.GetMessages()}")
 
 
 def main():
     if arcpy.CheckExtension("Network") != "Available":
+        logger.error("Network Analyst extension is not available.")
         sys.exit("ERROR: Network Analyst extension is not available.")
 
     arcpy.CheckOutExtension("Network")
