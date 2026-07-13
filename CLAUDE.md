@@ -8,6 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Environment
 - ArcGIS Pro 3.3.5
 
+### SQL Server instances
+- `ms-gis-sql-q21` → QA
+- `ms-gis-sql-p21` → Prod
+
 ## arcpy Gotchas
 
 ### `arcpy.na.CreateTurnFeatureClass`
