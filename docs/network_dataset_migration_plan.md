@@ -12,9 +12,23 @@ truncated and repopulated by `LRS_updates.py` on each LRS refresh cycle.
 **Important:** `TRNLRS_TRN_STREET_VW` is registered in SDE as a standalone
 feature class, not inside any feature dataset. ArcGIS network datasets require
 all source FCs to reside inside the target feature dataset, so
-`03_create_network_dataset.py` automatically copies it into `SDEADM.TRNLRS`
-before creating the network. See [Rebuild Cadence](#rebuild-cadence) for how to
-keep that copy current after each LRS refresh.
+`03_create_network_dataset.py` automatically copies it into
+`SDEADM.TRNLRS_network` before creating the network. See
+[Rebuild Cadence](#rebuild-cadence) for how to keep that copy current after
+each LRS refresh.
+
+**Feature dataset separation:** the network source FCs (`TRNLRS_TRN_STREET`,
+`TRNLRS_street_junction`, `TRNLRS_traffic_turn`, and `TRNLRS_street_network`
+itself) live in `SDEADM.TRNLRS_network`, a feature dataset dedicated to the
+network -- separate from `SDEADM.TRNLRS` (the LRS feature dataset holding
+`LRSN_Route`, the `E_*` event tables, `Redline`, and `INT_RouteOnRoute`).
+`SDEADM.TRNLRS_network` already exists in both Dev and QA; as of this writing
+only Dev has had the three source FCs moved into it and the scripts/template
+updated accordingly -- QA and prod are still on the earlier layout where these
+FCs lived inside `SDEADM.TRNLRS` alongside the LRS data. The move itself
+(verify feature dataset + spatial reference match, copy each FC, verify
+feature counts, then delete the originals) is implemented in
+`scripts/06_migrate_network_fd.py`.
 
 #### LRS Data Pipeline
 
@@ -32,7 +46,7 @@ TRNLRS_segmented_street_events   (intermediate dynamic segmentation feature clas
 TRNLRS_TRN_STREET_VW             (standalone SDE FC — authoritative edge source)
         │
         ▼  CopyFeatures (performed by 03_create_network_dataset.py)
-SDEADM.TRNLRS\TRNLRS_TRN_STREET  (copy inside feature dataset — used by ND)
+SDEADM.TRNLRS_network\TRNLRS_TRN_STREET  (copy inside feature dataset — used by ND)
 ```
 
 Note: the FD copy is named `TRNLRS_TRN_STREET`, not `TRNLRS_TRN_STREET_VW`.
@@ -57,8 +71,8 @@ the copy cannot share the standalone FC's name. See Phase 4 for details.
 
 | Property | Value |
 |---|---|
-| Location | `SDEADM.TRNLRS_street_network` (SDE, SDEADM.TRNLRS) |
-| Feature dataset | `SDEADM.TRNLRS` |
+| Location | `SDEADM.TRNLRS_street_network` (SDE, SDEADM.TRNLRS_network) |
+| Feature dataset | `SDEADM.TRNLRS_network` |
 | Edge source | `TRNLRS_TRN_STREET` (copied from standalone `TRNLRS_TRN_STREET_VW` into FD by script 03) |
 | Junction source | `TRNLRS_street_junction` (copied from `TRN_streets_routes`) |
 | Turn source | `TRNLRS_traffic_turn` (copied from `TRN_streets_routes`, OID-remapped and renamed -- see Phase 4b) |
@@ -190,6 +204,13 @@ re-applied. The XML `<Name>` element determines the output network dataset name 
 `CreateNetworkDatasetFromTemplate` is called -- it must match `NEW_ND_NAME` in
 `03_create_network_dataset.py`.
 
+**Follow-up (Dev pilot):** `<CatalogPath>` has since been updated again, from
+`/FD=TRNLRS/ND=TRNLRS_street_network` to `/FD=TRNLRS_network/ND=TRNLRS_street_network`,
+as part of separating the network source FCs into their own `SDEADM.TRNLRS_network`
+feature dataset -- see the Feature dataset separation note under
+[Overview](#overview). `<Name>`, `<LogicalNetworkName>`, and the `NetworkSourceName`
+values above are unaffected since those are source names, not paths.
+
 ---
 
 ### Phase 4 — Create and Build the New Network Dataset
@@ -205,14 +226,14 @@ Review and set these configuration variables at the top of the script:
 | Variable | Purpose | Current value |
 |---|---|---|
 | `SDE_CONNECTION` | Path to `.sde` connection file | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` / `qa_RW_sdeadm.sde` active; `Prod\prod_RW_sdeadm.sde` available as a commented-out line |
-| `FEATURE_DATASET` | Target feature dataset for the new ND | `SDEADM.TRNLRS` |
+| `FEATURE_DATASET` | Target feature dataset for the new ND | `SDEADM.TRNLRS` at original build time (2026-06-26); now `SDEADM.TRNLRS_network` in Dev following the FD separation -- see note below |
 | `NEW_ND_NAME` | Name of the network dataset to create | `TRNLRS_street_network` |
 | `STANDALONE_EDGE_SOURCE` | SDE path to the standalone `TRNLRS_TRN_STREET_VW` FC | `SDEADM.TRNLRS_TRN_STREET_VW` |
 
 The script performs these steps in order:
 
 1. **Validates** that the template XML and target feature dataset both exist.
-2. **Copies** the standalone `TRNLRS_TRN_STREET_VW` into `SDEADM.TRNLRS` as `TRNLRS_TRN_STREET`
+2. **Copies** the standalone `TRNLRS_TRN_STREET_VW` into `FEATURE_DATASET` as `TRNLRS_TRN_STREET`
    using `arcpy.management.CopyFeatures` (skipped if the destination already exists).
 3. **Verifies** that all three source FCs are present inside the feature dataset:
    `TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRNLRS_traffic_turn`.
@@ -223,9 +244,15 @@ The script performs these steps in order:
 > **Prerequisites before running:**
 > - `TRNLRS_TRN_STREET_VW` must exist as a standalone SDE FC (run `LRS_updates.py` first).
 > - `TRNLRS_street_junction` and `TRNLRS_traffic_turn` must already exist inside
->   `SDEADM.TRNLRS` (copy them from `SDEADM.TRN_streets_routes`).
+>   `FEATURE_DATASET`.
 > - `TRNLRS_traffic_turn` must have been remapped to new edge OIDs (see Phase 4b below)
 >   before the build will produce a working turn restriction layer.
+
+**Feature dataset separation (Dev pilot):** the original 2026-06-26 build targeted
+`SDEADM.TRNLRS` (the LRS feature dataset). The three network source FCs and
+`TRNLRS_street_network` have since been moved into a dedicated `SDEADM.TRNLRS_network`
+feature dataset in Dev, and `FEATURE_DATASET` in the script updated to match -- see
+the note under [Overview](#overview). QA and prod have not had this move applied yet.
 
 #### Issues encountered during build (Dev, 2026-06-26)
 
@@ -388,22 +415,33 @@ rebuild required after any filter is applied.
 
 `TRNLRS_TRN_STREET_VW` is a standalone SDE feature class maintained by
 `LRS_updates.py` (truncate/append on each LRS refresh). The copy of this FC
-inside `SDEADM.TRNLRS` -- which the network dataset references -- goes stale after
-each refresh and must be overwritten.
+inside `SDEADM.TRNLRS_network` -- which the network dataset references -- goes
+stale after each refresh and must be overwritten.
 
 After each LRS refresh, two steps are required:
 
 1. **Re-copy the edge source** into the feature dataset, overwriting the stale copy:
    ```python
    arcpy.management.CopyFeatures(
-       r"<sde>\SDEADM.TRNLRS_TRN_STREET_VW",       # standalone (authoritative)
-       r"<sde>\SDEADM.TRNLRS\TRNLRS_TRN_STREET",   # FD copy (used by ND)
+       r"<sde>\SDEADM.TRNLRS_TRN_STREET_VW",               # standalone (authoritative)
+       r"<sde>\SDEADM.TRNLRS_network\TRNLRS_TRN_STREET",   # FD copy (used by ND)
    )
    ```
 2. **Rebuild the network dataset**:
    ```python
-   arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS\TRNLRS_street_network")
+   arcpy.na.BuildNetwork(r"<sde>\SDEADM.TRNLRS_network\TRNLRS_street_network")
    ```
+
+**Prod caveat:** `scripts/04_sync_and_rebuild_network.py` and
+`sync_network_edge_source()` now point at `SDEADM.TRNLRS_network`, but only Dev
+has actually had its FCs moved into that feature dataset so far (see the note
+under [Overview](#overview)). Until prod's `TRNLRS_TRN_STREET`,
+`TRNLRS_street_junction`, `TRNLRS_traffic_turn`, and `TRNLRS_street_network`
+are moved into `SDEADM.TRNLRS_network` there too, running these against prod
+will fail to find the FD copy at its new expected path. `LRS_updates.py` has
+not yet been deployed to prod (see the open deployment checklist item in
+`network_build_status.md`), so this has not caused a live failure yet --
+prod's FC move must land before it is.
 
 Both steps are implemented in `scripts/LRS_updates.py` via `sync_network_edge_source()`,
 called after the `street_features` loop inside the QC-pass `else` block. A standalone
@@ -470,5 +508,7 @@ hrm_LRS/
     ├── 02_compare_schemas.py
     ├── 03_create_network_dataset.py
     ├── 04_sync_and_rebuild_network.py
-    └── 05_rebuild_traffic_turns.py
+    ├── 05_rebuild_traffic_turns.py
+    └── 06_migrate_network_fd.py         ← moves network source FCs from SDEADM.TRNLRS
+                                            into SDEADM.TRNLRS_network (Dev pilot)
 ```

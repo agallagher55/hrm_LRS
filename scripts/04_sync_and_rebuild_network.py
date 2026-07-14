@@ -67,8 +67,8 @@ def sync_and_rebuild(
     """
 
     street_source_fc  = street_source_fc  or os.path.join(prod_sde_connection, "SDEADM.TRNLRS_TRN_STREET_VW")
-    streets_target_fc = streets_target_fc or os.path.join(prod_sde_connection, "SDEADM.TRNLRS", "TRNLRS_TRN_STREET")
-    network           = network           or os.path.join(prod_sde_connection, "SDEADM.TRNLRS", "TRNLRS_street_network")
+    streets_target_fc = streets_target_fc or os.path.join(prod_sde_connection, "SDEADM.TRNLRS_network", "TRNLRS_TRN_STREET")
+    network           = network           or os.path.join(prod_sde_connection, "SDEADM.TRNLRS_network", "TRNLRS_street_network")
 
     for path, label in [(street_source_fc, "standalone edge source"), (streets_target_fc, "FD edge copy"), (network, "network dataset")]:
 
