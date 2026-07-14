@@ -53,17 +53,31 @@ logger = setup_logger("05_rebuild_traffic_turns")
 # Configuration
 # ------------------------------------------------------------------------------
 
-SDE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-# Prod: TRNLRS_TRN_STREET has already been created against this connection.
-# Uncomment to point this script at prod instead of QA.
-# SDE = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
+# Dev: network source FCs live in SDEADM.TRNLRS_network (moved out of
+# SDEADM.TRNLRS by scripts/06_migrate_network_fd.py). Active by default --
+# this is the current FD-separation pilot environment.
+SDE        = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
+NETWORK_FD = r"SDEADM.TRNLRS_network"
 
-OLD_TURN_FC  = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn"
-OLD_EDGE_FC  = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street"
-NEW_EDGE_FC  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_TRN_STREET"
-NEW_TURN_FC  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn_staging"
-OLD_TURN_FC_FINAL = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn"
-NEW_NETWORK  = SDE + r"\SDEADM.TRNLRS\SDEADM.TRNLRS_street_network"
+# QA: network source FCs still live in SDEADM.TRNLRS -- the FD separation
+# pilot has not been applied there yet. Uncomment to point this script at QA
+# instead of Dev.
+# SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+# NETWORK_FD = r"SDEADM.TRNLRS"
+
+# Prod: TRNLRS_TRN_STREET has already been created against this connection;
+# network source FCs still live in SDEADM.TRNLRS -- the FD separation pilot
+# has not been applied there yet. Uncomment to point this script at prod
+# instead of Dev/QA.
+# SDE        = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
+# NETWORK_FD = r"SDEADM.TRNLRS"
+
+OLD_TURN_FC       = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn"
+OLD_EDGE_FC       = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street"
+NEW_EDGE_FC       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_TRN_STREET"
+NEW_TURN_FC       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn_staging"
+OLD_TURN_FC_FINAL = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn"
+NEW_NETWORK       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_street_network"
 
 # Snap tolerance in map units (metres). Turn junctions must fall within this
 # distance of a new edge endpoint to be matched. Widen if skipped count is
