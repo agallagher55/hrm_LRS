@@ -6,16 +6,36 @@
 
 For full technical details see [`network_dataset_migration_plan.md`](network_dataset_migration_plan.md).
 
-**Feature dataset separation (in progress):** the network source FCs and
+**Feature dataset separation (in progress, 2026-07-14):** the network source FCs and
 `TRNLRS_street_network` are being moved out of `SDEADM.TRNLRS` (the LRS feature
 dataset) into a dedicated `SDEADM.TRNLRS_network` feature dataset.
-`SDEADM.TRNLRS_network` already exists in both Dev and QA, but as of this
-writing **only Dev** has had the three source FCs moved and the
-scripts/template updated to point at it -- QA and prod are still on the
-original layout described throughout most of this document (FCs living inside
-`SDEADM.TRNLRS`). Sections below that predate the Dev move are left as
-historical record of what happened in Dev/QA at the time; where a path is
-still current for QA/prod but has changed for Dev, that's called out inline.
+`SDEADM.TRNLRS_network` now has `TRNLRS_street_network` built in **both Dev and
+QA** -- prod is still on the original layout described throughout most of this
+document (FCs living inside `SDEADM.TRNLRS`). In both Dev and QA, script 03 was
+run before `scripts/06_migrate_network_fd.py` (which was meant to move the
+already-remapped FCs from `SDEADM.TRNLRS` first), so `SDEADM.TRNLRS_network`
+was empty when script 03 ran and its fallback copy logic kicked in for all
+three sources in both environments -- see the 2026-07-14 regression note under
+Step 3. That means:
+- The edge (`TRNLRS_TRN_STREET`) and junction (`TRNLRS_street_junction`)
+  copies in `TRNLRS_network` are fresh copies from their respective sources
+  (prod's `TRNLRS_TRN_STREET_VW` and legacy `TRN_streets_routes`), which is
+  fine.
+- The turn (`TRNLRS_traffic_turn`) copies in `TRNLRS_network` are fresh,
+  **unremapped** copies from the legacy `TRN_traffic_turn` in both
+  environments. Dev's has since been re-remapped via `scripts/05_rebuild_traffic_turns.py`
+  (its default config now targets Dev + `SDEADM.TRNLRS_network`). **QA still
+  needs the same treatment** -- uncomment the QA config block in script 05 and
+  run it there too.
+- The original three FCs are still sitting untouched in `SDEADM.TRNLRS` in
+  **both** Dev and QA -- `scripts/06_migrate_network_fd.py` (the intended
+  clean move-and-verify path) hasn't been run in either environment yet, so
+  there's duplicate data in both feature datasets for now. No urgency to clean
+  this up until the `TRNLRS_network` builds are validated.
+
+Sections below that predate this move are left as historical record of what
+happened in Dev/QA at the time; where a path is still current for prod but has
+changed for Dev/QA, that's called out inline.
 
 ---
 
@@ -43,14 +63,17 @@ still current for QA/prod but has changed for Dev, that's called out inline.
 | `SDEADM.TRNLRS\TRNLRS_TRN_STREET` (FD edge copy) | ✅ Copied | Script 03 copied from standalone `TRNLRS_TRN_STREET_VW` |
 | `SDEADM.TRNLRS\TRNLRS_street_network` | ✅ Created & built | Dev and QA environments |
 
-**Dev update:** the four `SDEADM.TRNLRS\...` paths above have moved to
-`SDEADM.TRNLRS_network\...` in Dev as part of the feature dataset separation
-(see the note under [Current Status](#current-status)). They still describe
-QA's current layout. Note that Dev's `TRNLRS_network\TRNLRS_traffic_turn` is
-**not** a copy of the (possibly still-remapped) `SDEADM.TRNLRS\TRNLRS_traffic_turn`
-row above -- it's a fresh, unremapped copy from the legacy `TRN_traffic_turn`,
-picked up via script 03's fallback copy logic rather than the intended FD
-move. See the 2026-07-14 regression note under Step 3 below.
+**Dev/QA update (2026-07-14):** the four `SDEADM.TRNLRS\...` paths above have
+been superseded by `SDEADM.TRNLRS_network\...` copies in **both** Dev and QA
+as part of the feature dataset separation (see the note under
+[Current Status](#current-status)) -- this table's rows still describe the
+original `SDEADM.TRNLRS` copies, which remain in place untouched in both
+environments (not yet cleaned up). Note that the new `TRNLRS_network\TRNLRS_traffic_turn`
+copies in both Dev and QA are **not** copies of the (possibly still-remapped)
+`SDEADM.TRNLRS\TRNLRS_traffic_turn` row above -- they're fresh, unremapped
+copies from the legacy `TRN_traffic_turn`, picked up via script 03's fallback
+copy logic rather than the intended FD move. Dev's has been re-remapped since;
+QA's has not. See the 2026-07-14 regression note under Step 3 below.
 
 ---
 
@@ -187,7 +210,7 @@ WHERE name LIKE '%TRNLRS%';
 
 ## Remaining Steps
 
-### Step 3 — Rebuild traffic turn feature class ⚠️ Regressed (2026-07-07, again 2026-07-14 in Dev)
+### Step 3 — Rebuild traffic turn feature class ⚠️ Regressed (2026-07-07, again 2026-07-14 in Dev and QA)
 
 `TRN_traffic_turn` (the pre-migration FC in `TRN_streets_routes`) was originally copied into
 `SDEADM.TRNLRS`, and its edge references (stored as ObjectIDs of features in the old
@@ -211,21 +234,27 @@ turn FC over the previously-remapped one. Script 03 and `05_rebuild_traffic_turn
 log this distinction explicitly (copy vs. skip) via `scripts/log_utils.py` to make this
 easier to catch going forward.
 
-**Same regression hit again in Dev (2026-07-14):** during the `SDEADM.TRNLRS_network`
+**Same regression hit again in Dev and QA (2026-07-14):** during the `SDEADM.TRNLRS_network`
 feature-dataset-separation pilot, `scripts/03_create_network_dataset.py` was run against
-Dev before `scripts/06_migrate_network_fd.py` (which was supposed to move the
+both Dev and QA before `scripts/06_migrate_network_fd.py` (which was supposed to move the
 already-remapped `TRNLRS_traffic_turn` out of `SDEADM.TRNLRS` first). Since
-`SDEADM.TRNLRS_network` was still empty, `copy_fc_to_fd()`'s "skip if destination exists"
-check didn't fire, and script 03 fell back to copying fresh from the raw, unremapped
-`SDEADM.TRN_streets_routes\TRN_traffic_turn` -- confirmed by inspecting the new
-`SDEADM.TRNLRS_network\TRNLRS_traffic_turn` attribute table: every row has
-`EDGE1FCID = 7134`, the old `TRN_street` source's registration ID (also the value baked
+`SDEADM.TRNLRS_network` was still empty in both environments, `copy_fc_to_fd()`'s "skip if
+destination exists" check didn't fire, and script 03 fell back to copying fresh from the
+raw, unremapped `SDEADM.TRN_streets_routes\TRN_traffic_turn` in each -- confirmed in Dev by
+inspecting the new `SDEADM.TRNLRS_network\TRNLRS_traffic_turn` attribute table: every row
+has `EDGE1FCID = 7134`, the old `TRN_street` source's registration ID (also the value baked
 into `network_template.xml`'s original `<ClassID>` from the Phase 1 extraction), not the
 new `TRNLRS_TRN_STREET` copy's freshly assigned ID. `scripts/05_rebuild_traffic_turns.py`
-now has a Dev + `SDEADM.TRNLRS_network` configuration (active by default) so the remap can
-be re-run against the new location -- see the "Key Paths Reference" note on script 05 below.
-The original, previously-remapped `SDEADM.TRNLRS\TRNLRS_traffic_turn` was left untouched in
-this run and may still be the good copy -- worth comparing before re-remapping from scratch.
+now has a Dev + `SDEADM.TRNLRS_network` configuration (active by default) plus a commented
+QA + `SDEADM.TRNLRS_network` config, so the remap can be re-run against the new location in
+either environment -- see the "Key Paths Reference" note on script 05 below.
+
+**Status:** Dev's turn FC has been re-remapped via script 05 (2026-07-14) -- swap/rebuild
+completion pending confirmation. **QA's turn FC still needs script 05 run against it** --
+uncomment the QA + `SDEADM.TRNLRS_network` block in `scripts/05_rebuild_traffic_turns.py`.
+The original, previously-remapped `SDEADM.TRNLRS\TRNLRS_traffic_turn` copies were left
+untouched in both environments during this run and may still be good copies -- worth
+comparing before treating the fresh remaps as final.
 
 **Swap step also corrected (2026-07-13):** `TRNLRS_traffic_turn` is a registered turn source
 of `TRNLRS_street_network`, which makes it a "controller dataset" participant -- ArcGIS
@@ -243,8 +272,10 @@ See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diag
 - [x] Run `scripts/05_rebuild_traffic_turns.py` to spatially remap turns to new edge OIDs (2026-06-26, QA)
 - [x] Verify written/skipped counts from script output
 - [x] Rebuild network after turn FC is replaced
-- [ ] **Re-run `scripts/05_rebuild_traffic_turns.py` against QA (2026-07-07 regression) and re-verify**
-- [ ] Confirm turn restriction logic in a solve test
+- [x] Re-run `scripts/05_rebuild_traffic_turns.py` against Dev + `SDEADM.TRNLRS_network` (2026-07-14 regression)
+- [ ] Confirm the Dev swap (delete network dataset → swap turn FCs → re-run script 03) completed and the rebuilt Dev network shows nonzero turns
+- [ ] **Run `scripts/05_rebuild_traffic_turns.py` against QA + `SDEADM.TRNLRS_network` (same 2026-07-14 regression, not yet remapped there)**
+- [ ] Confirm turn restriction logic in a solve test (Dev and QA)
 
 ---
 
@@ -404,10 +435,10 @@ review — it has no routing speed value.
 | Dev SDE connection | `E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde` |
 | QA SDE connection | `E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde` |
 | Prod SDE connection | `E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde` -- always used as `PROD_SDE_CONNECTION` in scripts 03/04 (04 uses it exclusively); still a manually-edited `SDE` constant in script 05, see "Prod cutover" above |
-| Target feature dataset | `SDEADM.TRNLRS_network` in Dev (moved); `SDEADM.TRNLRS` still in QA/prod -- see feature dataset separation note above |
+| Target feature dataset | `SDEADM.TRNLRS_network` in Dev and QA (both built 2026-07-14); `SDEADM.TRNLRS` still in prod -- see feature dataset separation note above |
 | New network dataset name | `TRNLRS_street_network` |
 | Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` (unchanged -- outside any feature dataset, prod only) |
-| FD copy of edge source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_TRN_STREET` in Dev; `SDEADM.TRNLRS\TRNLRS_TRN_STREET` in QA/prod |
-| Turn source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_traffic_turn` in Dev; `SDEADM.TRNLRS\TRNLRS_traffic_turn` in QA/prod |
+| FD copy of edge source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_TRN_STREET` in Dev/QA; `SDEADM.TRNLRS\TRNLRS_TRN_STREET` in prod |
+| Turn source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_traffic_turn` in Dev/QA -- Dev re-remapped via script 05 (2026-07-14), QA still needs the same remap; `SDEADM.TRNLRS\TRNLRS_traffic_turn` in prod |
 | XML template | `data/network_template.xml` |
 | Old network dataset | `SDEADM.TRN_street_network` (in `TRN_streets_routes`) |
