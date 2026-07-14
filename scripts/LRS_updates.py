@@ -53,7 +53,10 @@ SPEED_LIMIT_NEIGHBOURHOOD_FEATURE_NAME = "TRNLRS_SpeedLimit_Neighbourhood_VW"
 # in sync with TRNLRS_TRN_STREET_VW (standalone authoritative FC).
 # When TRNLRS_TRN_STREET_VW is eventually moved into the feature dataset
 # permanently, remove these constants and the sync_network_edge_source() call.
-TRNLRS_FD                   = "SDEADM.TRNLRS"
+# TRNLRS_network is a dedicated feature dataset for the network source FCs,
+# separate from SDEADM.TRNLRS (the LRS feature dataset holding LRSN_Route and
+# the E_* event tables).
+TRNLRS_NETWORK_FD           = "SDEADM.TRNLRS_network"
 NETWORK_FD_EDGE_COPY_NAME   = "TRNLRS_TRN_STREET"
 NETWORK_DATASET_NAME        = "TRNLRS_street_network"
 
@@ -406,8 +409,8 @@ def sync_network_edge_source(sde_connection: str):
     once TRNLRS_TRN_STREET_VW is moved into the feature dataset permanently.
     """
     standalone = os.path.join(sde_connection, LRS_VIEW_NAME)
-    fd_copy    = os.path.join(sde_connection, TRNLRS_FD, NETWORK_FD_EDGE_COPY_NAME)
-    network    = os.path.join(sde_connection, TRNLRS_FD, NETWORK_DATASET_NAME)
+    fd_copy    = os.path.join(sde_connection, TRNLRS_NETWORK_FD, NETWORK_FD_EDGE_COPY_NAME)
+    network    = os.path.join(sde_connection, TRNLRS_NETWORK_FD, NETWORK_DATASET_NAME)
 
     logger.info(f"Syncing network edge source: {LRS_VIEW_NAME} → {NETWORK_FD_EDGE_COPY_NAME}")
     append_feature(standalone, fd_copy, sde_connection)
