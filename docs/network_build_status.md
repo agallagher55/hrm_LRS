@@ -166,7 +166,7 @@ no reprojection occurs on copy.
   `NetworkElevationModel=0`. Fixed by clearing `ElevationFieldName` on the
   `SystemJunctionSource` element in `network_template.xml`.
 
-### Step 2 — Grant PUBLIC SELECT on network system tables ⚠️ Needs re-verification in Dev/QA (2026-07-14)
+### Step 2 — Grant PUBLIC SELECT on network system tables ✅ QA re-granted (2026-07-14); Dev still pending
 
 OS authentication users could not add `TRNLRS_street_network` to ArcGIS Pro. Two separate sets of SDE system tables required grants, resolved in sequence:
 
@@ -199,26 +199,34 @@ After both sets of grants, `TRNLRS_street_network` loads successfully under OS a
 **This has now actually happened (2026-07-14):** the turn FC swap in both Dev and QA
 deleted and recreated `TRNLRS_street_network` (delete network dataset → swap turn FCs →
 re-run script 03 -- see Step 3). The `3` / `37029` registration IDs above were captured
-against the original 2026-06-26 build and are almost certainly stale now in both
-environments. Re-run the queries below against Dev and QA to find the new IDs and
-re-apply both sets of grants before assuming OS-auth users can open the rebuilt network
-dataset.
+against the original 2026-06-26 build and were stale after the rebuild.
+
+A full step-by-step procedure (plus a faster aggregated audit query and known gotchas --
+including that `GDB_ITEMS` actually lives under the `sde` schema, not `SDEADM` as the old
+snippet here claimed) now lives in
+[`network_dataset_sql_permissions.md`](network_dataset_sql_permissions.md). Short version of
+that query:
 
 ```sql
 SELECT name FROM sys.tables
 WHERE schema_id = SCHEMA_ID('SDEADM')
-AND (name LIKE 'N_%' OR name LIKE 'ND_%')
+AND (name LIKE 'N\_%' ESCAPE '\' OR name LIKE 'ND\_%' ESCAPE '\')
 ORDER BY name;
 ```
 
-Then cross-reference against `SDEADM.GDB_ITEMS` to confirm which IDs belong to `TRNLRS_street_network`:
+**QA: done (2026-07-14).** New IDs identified and granted: `N_3` (same number as the
+original build, but its grant had been dropped by the delete+recreate) and `ND_38726`
+(replacing the original `ND_37029`). Full disambiguation trail in
+`network_dataset_sql_permissions.md`.
 
-```sql
-SELECT name, physicalname FROM SDEADM.GDB_ITEMS
-WHERE name LIKE '%TRNLRS%';
-```
+**Dev: still pending.** Dev's `TRNLRS_street_network` went through the same swap, so its
+`N_<id>`/`ND_<id>` need to be looked up fresh -- run the same procedure there; the IDs will
+almost certainly differ from QA's.
 
-**Note:** also verify that the edge source feature classes inside `SDEADM.TRNLRS` (`TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRNLRS_traffic_turn`) have appropriate grants so that OS auth users can run solves, not just open the network dataset.
+**Note:** also verify that the three source feature classes (`TRNLRS_TRN_STREET`,
+`TRNLRS_street_junction`, `TRNLRS_traffic_turn`) have appropriate grants so that OS auth
+users can run solves, not just open the network dataset -- see step 5 in
+`network_dataset_sql_permissions.md`.
 
 ---
 
@@ -300,7 +308,8 @@ See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diag
 - [x] Complete the swap in Dev (delete network dataset → swap turn FCs → re-run script 03)
 - [x] Complete the swap in QA (delete network dataset → swap turn FCs → re-run script 03)
 - [ ] Confirm rebuilt Dev and QA networks show nonzero turns in Network Dataset Properties
-- [ ] Re-apply Step 2 PUBLIC SELECT grants under the new registration IDs (Dev and QA)
+- [x] Re-apply Step 2 PUBLIC SELECT grants under the new registration IDs (QA -- `N_3` + `ND_38726`, 2026-07-14)
+- [ ] Re-apply Step 2 PUBLIC SELECT grants under the new registration IDs (Dev -- still pending)
 - [ ] Confirm turn restriction logic in a solve test (Dev and QA)
 
 ---

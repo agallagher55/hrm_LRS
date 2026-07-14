@@ -72,6 +72,53 @@ shared database, expect to see sets that belong to **other** networks entirely -
 mentally by table count (a proper Network Dataset's `ND_<id>` set has both `DIRTYAREAS` and
 `DIRTYOBJECTS`; older/different network types may only have `DIRTYOBJECTS`).
 
+### 2b. Faster combined audit (list IDs + grant status in one query)
+
+The raw table list above can run to dozens of rows on a shared database, and steps 2-4 as
+written mean re-querying per candidate ID one at a time. This single query collapses the
+raw list into one row per registration group, with a per-group grant count so the groups
+still needing a grant are obvious without any manual per-ID follow-up:
+
+```sql
+SELECT
+    CASE
+        WHEN t.name LIKE 'ND\_%' ESCAPE '\'
+            THEN 'ND_' + SUBSTRING(t.name, 4, CHARINDEX('_', t.name + '_', 4) - 4)
+        ELSE 'N_' + SUBSTRING(t.name, 3, CHARINDEX('_', t.name + '_', 3) - 3)
+    END AS reg_group,
+    COUNT(*) AS table_count,
+    MIN(t.name) AS example_table,
+    SUM(CASE WHEN pub.permission_name = 'SELECT' THEN 1 ELSE 0 END) AS tables_with_public_select
+FROM sys.tables t
+OUTER APPLY (
+    SELECT TOP 1 p.permission_name
+    FROM sys.database_permissions p
+    JOIN sys.database_principals dp ON p.grantee_principal_id = dp.principal_id
+    WHERE p.major_id = t.object_id
+      AND dp.name = 'public'
+      AND p.permission_name = 'SELECT'
+) pub
+WHERE t.schema_id = SCHEMA_ID('SDEADM')
+AND (t.name LIKE 'N\_%' ESCAPE '\' OR t.name LIKE 'ND\_%' ESCAPE '\')
+GROUP BY
+    CASE
+        WHEN t.name LIKE 'ND\_%' ESCAPE '\'
+            THEN 'ND_' + SUBSTRING(t.name, 4, CHARINDEX('_', t.name + '_', 4) - 4)
+        ELSE 'N_' + SUBSTRING(t.name, 3, CHARINDEX('_', t.name + '_', 3) - 3)
+    END
+ORDER BY reg_group;
+```
+
+Read the result: `tables_with_public_select = 0` means nothing in that group is granted yet
+(a freshly rebuilt network's tables always start here -- see step 3); `= table_count` means
+fully granted already; anything in between is an inconsistent/partial state worth
+investigating rather than re-granting over. `table_count` alone still tells you the group's
+*shape* (6 = Network Analyst network dataset `N_<id>`, 2 = a complete `ND_<id>` dirty-area
+pair, 1 = an orphaned/incomplete `ND_<id>` leftover, other counts = likely an unrelated
+object type such as a geometric network). This is exactly what identified `N_3` and
+`ND_38726` in the 2026-07-14 QA run below -- both came back `0 / table_count`, with no
+ambiguous partial grants to sort out.
+
 Cross-reference against the geodatabase item catalog if you want to confirm a dataset is
 actually registered (note: this system table lives under the `sde` schema, **not**
 `SDEADM` -- querying `SDEADM.GDB_ITEMS` fails with `Invalid object name`):
@@ -170,7 +217,37 @@ Have an OS-auth user:
   will exist simultaneously. Don't grant based on "looks new" alone -- confirm via existing
   permission history and, ideally, the actual client-side error.
 
-## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-07-13)
+## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-07-14)
+
+**Supersedes the 2026-07-13 entry below.** `TRNLRS_street_network` was deleted and
+recreated again on 2026-07-14 as part of the turn FC swap
+(`scripts/05_rebuild_traffic_turns.py` + `scripts/03_create_network_dataset.py` -- see
+`network_build_status.md` Step 3), which drops and reassigns these tables again regardless
+of what was granted before.
+
+| Table set | Status |
+|---|---|
+| `N_1_*` | Unrelated -- 10 tables including `ESTATUS`/`FLODIR`/`JSTATUS` is a geometric network's table shape, not the 6-table Network Analyst `N_<id>` pattern. Not touched. |
+| `N_2_*` | `TRN_street_network` (legacy). Not touched. |
+| `N_3_*` | `TRNLRS_street_network`. Same ID number as the 2026-07-13 build, but the 2026-07-14 delete+recreate dropped its `PUBLIC SELECT` grant -- confirmed via the [2b audit query](#2b-faster-combined-audit-list-ids--grant-status-in-one-query) returning `0 / 6`, then **granted** (all 6 tables). |
+| `ND_7293_*` | `TRN_street_network`'s dirty-area tracking -- matches the `<DSID>7293</DSID>` captured in the original `network_template.xml` extraction (Phase 1, from the old network, before any of the LRS-migration edits). This resolves the 2026-07-13 "Blocked" disambiguation below: `ND_7293` belongs to the *old* network, not `TRNLRS_street_network`. Not touched. |
+| `ND_12010_*`, `ND_21268_*`, `ND_396_*` | Only `DIRTYOBJECTS` present (no matching `DIRTYAREAS`) -- orphaned leftovers from earlier deleted/recreated network datasets during this migration. Not touched. |
+| `ND_38726_*` | `TRNLRS_street_network`'s new dirty-area tracking ID -- replaces both the original `ND_37029` and the 2026-07-13 session's unconfirmed `ND_38712` guess (neither exists anymore after this rebuild). Confirmed via the audit query returning `0 / 2` with no pre-existing `LRSUSER`/etc. grants (unlike the `ND_38712` false lead from 2026-07-13), then **granted** (both tables). |
+
+**Resolved:** the 2026-07-13 "Blocked" item (disambiguating `ND_38712` vs `ND_7293`) is moot
+now -- `ND_38712` no longer exists after the 2026-07-14 rebuild, and `ND_7293` is confirmed
+to belong to `TRN_street_network`, not `TRNLRS_street_network`, via the `DSID` match above.
+
+**Still open:**
+1. Verify grants on the three source FCs (`TRNLRS_TRN_STREET`, `TRNLRS_street_junction`,
+   `TRNLRS_traffic_turn` -- step 5 below).
+2. Re-test via an OS-auth "add to map" + solve (step 6 below).
+3. Run this whole procedure against **Dev** -- Dev's `TRNLRS_street_network` went through
+   the same delete+recreate swap on 2026-07-14, so its registration IDs need to be looked
+   up fresh; they will almost certainly differ from QA's numbers above.
+4. Run against prod once `TRNLRS_street_network` is built there.
+
+## Historical status (QA, 2026-07-13, superseded above)
 
 | Table set | Status |
 |---|---|
