@@ -21,17 +21,24 @@ Step 3. That means:
   copies in `TRNLRS_network` are fresh copies from their respective sources
   (prod's `TRNLRS_TRN_STREET_VW` and legacy `TRN_streets_routes`), which is
   fine.
-- The turn (`TRNLRS_traffic_turn`) copies in `TRNLRS_network` are fresh,
+- The turn (`TRNLRS_traffic_turn`) copies in `TRNLRS_network` were fresh,
   **unremapped** copies from the legacy `TRN_traffic_turn` in both
-  environments. Dev's has since been re-remapped via `scripts/05_rebuild_traffic_turns.py`
-  (its default config now targets Dev + `SDEADM.TRNLRS_network`). **QA still
-  needs the same treatment** -- uncomment the QA config block in script 05 and
-  run it there too.
+  environments. **Fixed (2026-07-14):** both Dev and QA have since been
+  re-remapped via `scripts/05_rebuild_traffic_turns.py` and swapped in
+  (delete network dataset → swap turn FCs → re-run script 03 to recreate and
+  rebuild) -- see Step 3 below.
 - The original three FCs are still sitting untouched in `SDEADM.TRNLRS` in
   **both** Dev and QA -- `scripts/06_migrate_network_fd.py` (the intended
   clean move-and-verify path) hasn't been run in either environment yet, so
   there's duplicate data in both feature datasets for now. No urgency to clean
   this up until the `TRNLRS_network` builds are validated.
+- **New action item:** the swap step deletes and recreates
+  `TRNLRS_street_network` in both environments, which changes its SQL Server
+  registration IDs (the `N_3_*` / `ND_37029_*` numbers from Step 2 are
+  specific to the network dataset instance they were granted against). The
+  PUBLIC SELECT grants from Step 2 need to be re-applied under the new IDs in
+  both Dev and QA before OS-auth users can open the rebuilt network dataset --
+  see Step 2 below for the query to find the new IDs.
 
 Sections below that predate this move are left as historical record of what
 happened in Dev/QA at the time; where a path is still current for prod but has
@@ -48,7 +55,7 @@ changed for Dev/QA, that's called out inline.
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ Complete — Dev and QA built (2026-06-26) |
 | 5 | Validation | 🔄 In progress — properties check passed; solve tests pending |
-| 5a | Traffic turn rebuild | ⚠️ Regressed (2026-07-07) -- QA build again shows all turn records failing with `Cannot find edge element...`; see note below Step 3 |
+| 5a | Traffic turn rebuild | ✅ Complete (2026-07-14) -- Dev and QA both re-remapped and swapped in; solve test to confirm turn restrictions still pending; see note below Step 3 |
 
 ## Confirmed Prerequisites
 
@@ -68,12 +75,11 @@ been superseded by `SDEADM.TRNLRS_network\...` copies in **both** Dev and QA
 as part of the feature dataset separation (see the note under
 [Current Status](#current-status)) -- this table's rows still describe the
 original `SDEADM.TRNLRS` copies, which remain in place untouched in both
-environments (not yet cleaned up). Note that the new `TRNLRS_network\TRNLRS_traffic_turn`
-copies in both Dev and QA are **not** copies of the (possibly still-remapped)
-`SDEADM.TRNLRS\TRNLRS_traffic_turn` row above -- they're fresh, unremapped
-copies from the legacy `TRN_traffic_turn`, picked up via script 03's fallback
-copy logic rather than the intended FD move. Dev's has been re-remapped since;
-QA's has not. See the 2026-07-14 regression note under Step 3 below.
+environments (not yet cleaned up). The new `TRNLRS_network\TRNLRS_traffic_turn`
+copies in both Dev and QA started out as fresh, unremapped copies from the
+legacy `TRN_traffic_turn` (picked up via script 03's fallback copy logic
+rather than the intended FD move), but both have since been re-remapped and
+swapped in -- see Step 3 below.
 
 ---
 
@@ -160,7 +166,7 @@ no reprojection occurs on copy.
   `NetworkElevationModel=0`. Fixed by clearing `ElevationFieldName` on the
   `SystemJunctionSource` element in `network_template.xml`.
 
-### Step 2 — Grant PUBLIC SELECT on network system tables ✅
+### Step 2 — Grant PUBLIC SELECT on network system tables ✅ QA re-granted (2026-07-14); Dev still pending
 
 OS authentication users could not add `TRNLRS_street_network` to ArcGIS Pro. Two separate sets of SDE system tables required grants, resolved in sequence:
 
@@ -190,27 +196,43 @@ After both sets of grants, `TRNLRS_street_network` loads successfully under OS a
 
 **If rebuilding the network dataset from scratch**, both sets of grants will need to be re-applied -- the registration IDs (`3` and `37029`) may change if the network is deleted and recreated. Confirm the new IDs by querying:
 
+**This has now actually happened (2026-07-14):** the turn FC swap in both Dev and QA
+deleted and recreated `TRNLRS_street_network` (delete network dataset → swap turn FCs →
+re-run script 03 -- see Step 3). The `3` / `37029` registration IDs above were captured
+against the original 2026-06-26 build and were stale after the rebuild.
+
+A full step-by-step procedure (plus a faster aggregated audit query and known gotchas --
+including that `GDB_ITEMS` actually lives under the `sde` schema, not `SDEADM` as the old
+snippet here claimed) now lives in
+[`network_dataset_sql_permissions.md`](network_dataset_sql_permissions.md). Short version of
+that query:
+
 ```sql
 SELECT name FROM sys.tables
 WHERE schema_id = SCHEMA_ID('SDEADM')
-AND (name LIKE 'N_%' OR name LIKE 'ND_%')
+AND (name LIKE 'N\_%' ESCAPE '\' OR name LIKE 'ND\_%' ESCAPE '\')
 ORDER BY name;
 ```
 
-Then cross-reference against `SDEADM.GDB_ITEMS` to confirm which IDs belong to `TRNLRS_street_network`:
+**QA: done (2026-07-14).** New IDs identified and granted: `N_3` (same number as the
+original build, but its grant had been dropped by the delete+recreate) and `ND_38726`
+(replacing the original `ND_37029`). Full disambiguation trail in
+`network_dataset_sql_permissions.md`.
 
-```sql
-SELECT name, physicalname FROM SDEADM.GDB_ITEMS
-WHERE name LIKE '%TRNLRS%';
-```
+**Dev: still pending.** Dev's `TRNLRS_street_network` went through the same swap, so its
+`N_<id>`/`ND_<id>` need to be looked up fresh -- run the same procedure there; the IDs will
+almost certainly differ from QA's.
 
-**Note:** also verify that the edge source feature classes inside `SDEADM.TRNLRS` (`TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRNLRS_traffic_turn`) have appropriate grants so that OS auth users can run solves, not just open the network dataset.
+**Note:** also verify that the three source feature classes (`TRNLRS_TRN_STREET`,
+`TRNLRS_street_junction`, `TRNLRS_traffic_turn`) have appropriate grants so that OS auth
+users can run solves, not just open the network dataset -- see step 5 in
+`network_dataset_sql_permissions.md`.
 
 ---
 
 ## Remaining Steps
 
-### Step 3 — Rebuild traffic turn feature class ⚠️ Regressed (2026-07-07, again 2026-07-14 in Dev and QA)
+### Step 3 — Rebuild traffic turn feature class ✅ Complete (2026-07-14, Dev and QA)
 
 `TRN_traffic_turn` (the pre-migration FC in `TRN_streets_routes`) was originally copied into
 `SDEADM.TRNLRS`, and its edge references (stored as ObjectIDs of features in the old
@@ -249,12 +271,21 @@ now has a Dev + `SDEADM.TRNLRS_network` configuration (active by default) plus a
 QA + `SDEADM.TRNLRS_network` config, so the remap can be re-run against the new location in
 either environment -- see the "Key Paths Reference" note on script 05 below.
 
-**Status:** Dev's turn FC has been re-remapped via script 05 (2026-07-14) -- swap/rebuild
-completion pending confirmation. **QA's turn FC still needs script 05 run against it** --
-uncomment the QA + `SDEADM.TRNLRS_network` block in `scripts/05_rebuild_traffic_turns.py`.
-The original, previously-remapped `SDEADM.TRNLRS\TRNLRS_traffic_turn` copies were left
-untouched in both environments during this run and may still be good copies -- worth
-comparing before treating the fresh remaps as final.
+**Status:** both Dev and QA turn FCs have been re-remapped via script 05 and swapped in
+(2026-07-14). QA's remap: 1,238 total input turns, 1,209 written, 29 skipped (2.3% --
+within the acceptable range). Both environments completed the full swap sequence: delete
+network dataset → swap turn FCs → re-run script 03 to recreate and rebuild. The original,
+previously-remapped `SDEADM.TRNLRS\TRNLRS_traffic_turn` copies were left untouched in both
+environments during this whole process and may still be good copies -- worth comparing
+before fully retiring them.
+
+Remaining before this is fully validated:
+- Confirm the rebuilt networks in both Dev and QA show nonzero turns in Network Dataset
+  Properties (Sources tab).
+- Re-apply the Step 2 PUBLIC SELECT grants under the new registration IDs in both
+  environments -- deleting and recreating the network dataset changed them (see Step 2
+  above).
+- Run a turn-restriction solve test in both environments.
 
 **Swap step also corrected (2026-07-13):** `TRNLRS_traffic_turn` is a registered turn source
 of `TRNLRS_street_network`, which makes it a "controller dataset" participant -- ArcGIS
@@ -273,8 +304,12 @@ See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diag
 - [x] Verify written/skipped counts from script output
 - [x] Rebuild network after turn FC is replaced
 - [x] Re-run `scripts/05_rebuild_traffic_turns.py` against Dev + `SDEADM.TRNLRS_network` (2026-07-14 regression)
-- [ ] Confirm the Dev swap (delete network dataset → swap turn FCs → re-run script 03) completed and the rebuilt Dev network shows nonzero turns
-- [ ] **Run `scripts/05_rebuild_traffic_turns.py` against QA + `SDEADM.TRNLRS_network` (same 2026-07-14 regression, not yet remapped there)**
+- [x] Re-run `scripts/05_rebuild_traffic_turns.py` against QA + `SDEADM.TRNLRS_network` (2026-07-14 regression; 1,209/1,238 written, 2.3% skipped)
+- [x] Complete the swap in Dev (delete network dataset → swap turn FCs → re-run script 03)
+- [x] Complete the swap in QA (delete network dataset → swap turn FCs → re-run script 03)
+- [ ] Confirm rebuilt Dev and QA networks show nonzero turns in Network Dataset Properties
+- [x] Re-apply Step 2 PUBLIC SELECT grants under the new registration IDs (QA -- `N_3` + `ND_38726`, 2026-07-14)
+- [ ] Re-apply Step 2 PUBLIC SELECT grants under the new registration IDs (Dev -- still pending)
 - [ ] Confirm turn restriction logic in a solve test (Dev and QA)
 
 ---
@@ -439,6 +474,6 @@ review — it has no routing speed value.
 | New network dataset name | `TRNLRS_street_network` |
 | Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` (unchanged -- outside any feature dataset, prod only) |
 | FD copy of edge source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_TRN_STREET` in Dev/QA; `SDEADM.TRNLRS\TRNLRS_TRN_STREET` in prod |
-| Turn source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_traffic_turn` in Dev/QA -- Dev re-remapped via script 05 (2026-07-14), QA still needs the same remap; `SDEADM.TRNLRS\TRNLRS_traffic_turn` in prod |
+| Turn source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_traffic_turn` in Dev/QA -- both re-remapped via script 05 and swapped in (2026-07-14); `SDEADM.TRNLRS\TRNLRS_traffic_turn` in prod |
 | XML template | `data/network_template.xml` |
 | Old network dataset | `SDEADM.TRN_street_network` (in `TRN_streets_routes`) |
