@@ -180,26 +180,93 @@ JOIN sys.database_principals dp ON p.grantee_principal_id = dp.principal_id
 WHERE p.major_id = OBJECT_ID('SDEADM.N_<id>_PROPS');
 ```
 
-### 5. Verify grants on the three source feature classes
+### 5. Verify grants on the source feature classes -- all four, not just three
 
 Opening the network dataset only needs the `N_<id>_*`/`ND_<id>_*` grants above. Actually
-**solving** against it also requires read access to the three registered sources:
+**solving** against it also requires read access to the three *registered* sources, plus a
+fourth table that's easy to miss:
 
 ```sql
 SELECT dp.name AS principal, p.permission_name
 FROM sys.database_permissions p
 JOIN sys.database_principals dp ON p.grantee_principal_id = dp.principal_id
 WHERE p.major_id = OBJECT_ID('SDEADM.TRNLRS_TRN_STREET');
--- repeat for SDEADM.TRNLRS_street_junction and SDEADM.TRNLRS_traffic_turn
+-- repeat for SDEADM.TRNLRS_street_junction, SDEADM.TRNLRS_traffic_turn,
+-- and SDEADM.TRNLRS_street_network_Junctions
 ```
 
-Grant `SELECT ... TO PUBLIC` on any of the three missing it.
+Grant `SELECT ... TO PUBLIC` on any of the four missing it.
+
+**`SDEADM.TRNLRS_street_network_Junctions` is easy to overlook.** It's the auto-created
+*system junction* feature class (the `SystemJunctionSource` in `network_template.xml`) --
+a separate physical table from `TRNLRS_street_junction`, generated automatically when the
+network dataset is built, living in the same feature dataset. Missing its grant produces:
+
+```
+Insufficient permissions [SDEADM.TRNLRS_street_network_Junctions]
+```
+
+immediately followed by a secondary, misleading
+
+```
+DBMS table not found [...] Invalid object name 'SDEADM.TRNLRS_street_network'.
+```
+
+on the network dataset itself when adding it to a map -- the second error is fallout from
+the first failed lookup (same `STATE_ID`), not a separate root cause. Diagnose by the first
+line, not the second.
 
 ### 6. Re-test
 
 Have an OS-auth user:
-1. Add `TRNLRS_street_network` to a fresh map -- confirms the `N_<id>`/`ND_<id>` grants.
+1. Add `TRNLRS_street_network` to a fresh map -- confirms the `N_<id>`/`ND_<id>` grants and
+   all four source-table `SELECT` grants (including the system junctions table).
 2. Run a Route or Service Area solve -- confirms the source feature class grants.
+
+## Write access for editor roles
+
+Everything above is `PUBLIC SELECT` -- enough to browse and solve, but not to edit. Editing
+(e.g. deleting bad/duplicate turn records) needs `INSERT`/`UPDATE`/`DELETE` granted to the
+*specific* editor role, not `PUBLIC`. Missing this produces a distinct, less obvious error
+in ArcGIS Pro when you try to delete/edit features:
+
+```
+Delete Selected Features failed.
+The selection contains no editable features. - No edits producing database changes were found.
+```
+
+This can also mean the connection itself is read-only (e.g. an `RO`-prefixed `.sde`
+connection file) -- rule that out first by confirming you're on an `RW` connection before
+chasing SQL grants.
+
+Once on a genuine read-write connection, check/grant per table, per role -- same pattern as
+the `PUBLIC SELECT` grants above but scoped to the specific role and including write verbs:
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON SDEADM.TRNLRS_TRN_STREET               TO [HRM\GIS_LRS_EVENT_EDITOR];
+GRANT SELECT, INSERT, UPDATE, DELETE ON SDEADM.TRNLRS_street_junction          TO [HRM\GIS_LRS_EVENT_EDITOR];
+GRANT SELECT, INSERT, UPDATE, DELETE ON SDEADM.TRNLRS_street_network_Junctions TO [HRM\GIS_LRS_EVENT_EDITOR];
+GRANT SELECT, INSERT, UPDATE, DELETE ON SDEADM.TRNLRS_traffic_turn             TO [HRM\GIS_LRS_EVENT_EDITOR];
+```
+
+Windows domain logins/roles need bracket-quoting (`[HRM\GIS_LRS_EVENT_EDITOR]`) because of
+the `\`. `SELECT` has to be included even if the role already has `PUBLIC SELECT` -- editing
+in ArcGIS Pro reads the current value before writing, and the same "no editable features"
+error can mask a read-side gap as easily as a write-side one.
+
+**Caveat on `TRNLRS_TRN_STREET` specifically:** it's the FD copy of the LRS-authoritative
+edge source, truncated and reloaded from `TRNLRS_TRN_STREET_VW` on every LRS refresh via
+`sync_network_edge_source()` (see `network_dataset_migration_plan.md`). Any manual edits
+made there through this grant will be silently overwritten on the next sync. Granted anyway
+in QA per the confirmed status below -- worth keeping in mind if edits there seem to
+"disappear."
+
+**SQL Server has no "grant on the whole feature dataset" statement** -- a feature dataset is
+a geodatabase-level grouping, not a SQL Server securable. Every grant above (`PUBLIC SELECT`
+or role-specific write access) has to be issued per physical table. This is also why the
+Catalog "Manage > Privileges" dialog for a feature dataset works by silently iterating and
+granting each child table individually -- and why it can fail once that per-table state gets
+inconsistent (see the gotcha below).
 
 ## Known gotchas
 
@@ -216,6 +283,26 @@ Have an OS-auth user:
 - **This is a shared, multi-project database.** Multiple unrelated `N_<id>`/`ND_<id>` sets
   will exist simultaneously. Don't grant based on "looks new" alone -- confirm via existing
   permission history and, ideally, the actual client-side error.
+- **ArcGIS Pro's Catalog "Manage > Privileges" dialog cannot apply privilege changes to a
+  feature dataset while a network dataset exists inside it.** Applying (Apply or OK) fails
+  with a generic `Error: Unexpected operation`, no further detail. This is the same category
+  of restriction as the controller-dataset gotchas in `CLAUDE.md` (`Delete`/`Rename`/
+  `TruncateTable` all get blocked on a network dataset's registered sources while it exists)
+  -- the Privileges cascade apparently can't handle a network dataset as one of the children
+  it's iterating over, and the whole apply fails as a result.
+
+  Confirmed (2026-07-14, QA): deleting `TRNLRS_street_network` from `SDEADM.TRNLRS_network`
+  made the Privileges dialog work again immediately -- so this is about the network
+  dataset's presence, not (only) about whatever SQL grants happen to already exist on its
+  children. (Earlier working theory here was that raw SQL grants alone caused a "mixed
+  privilege state" the dialog couldn't reconcile -- that's superseded by this cleaner
+  explanation, though the two aren't mutually exclusive.)
+
+  Not a practical workaround for routine grant management -- deleting the network dataset to
+  use the GUI, then having to recreate/rebuild it via `scripts/03_create_network_dataset.py`
+  afterward, is far more disruptive than just using SQL directly. Use the permission-check
+  queries and `GRANT` statements above instead of the Catalog dialog whenever the target
+  feature dataset contains a network dataset.
 
 ## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-07-14)
 
@@ -238,14 +325,28 @@ of what was granted before.
 now -- `ND_38712` no longer exists after the 2026-07-14 rebuild, and `ND_7293` is confirmed
 to belong to `TRN_street_network`, not `TRNLRS_street_network`, via the `DSID` match above.
 
+**PUBLIC SELECT on the four source tables: done (2026-07-14).** `TRNLRS_TRN_STREET`,
+`TRNLRS_street_junction`, `TRNLRS_traffic_turn`, and `TRNLRS_street_network_Junctions`
+(the auto-created system junction FC -- see step 5) all confirmed granted. Add-to-map and
+attribute browsing confirmed working for an OS-auth user after these were applied.
+
+**Write access for `HRM\GIS_LRS_EVENT_EDITOR`: done (2026-07-14).** `SELECT, INSERT,
+UPDATE, DELETE` granted on all four source tables (`TRNLRS_TRN_STREET`,
+`TRNLRS_street_junction`, `TRNLRS_street_network_Junctions`, `TRNLRS_traffic_turn`) -- see
+"Write access for editor roles" above. Triggered by a real editing need: deleting duplicate
+turn records at an intersection failed with `The selection contains no editable features`
+until this was granted. Note the `TRNLRS_TRN_STREET` caveat above -- edits there get
+overwritten by the next LRS refresh sync.
+
 **Still open:**
-1. Verify grants on the three source FCs (`TRNLRS_TRN_STREET`, `TRNLRS_street_junction`,
-   `TRNLRS_traffic_turn` -- step 5 below).
-2. Re-test via an OS-auth "add to map" + solve (step 6 below).
-3. Run this whole procedure against **Dev** -- Dev's `TRNLRS_street_network` went through
+1. Re-test via an OS-auth "add to map" + solve (step 6 below) -- add-to-map confirmed; Route
+   / Service Area solve test still pending.
+2. Run this whole procedure against **Dev** -- Dev's `TRNLRS_street_network` went through
    the same delete+recreate swap on 2026-07-14, so its registration IDs need to be looked
-   up fresh; they will almost certainly differ from QA's numbers above.
-4. Run against prod once `TRNLRS_street_network` is built there.
+   up fresh (both the `PUBLIC SELECT` grants and, if the same editor role needs to edit
+   turns/junctions in Dev, the write-access grants too); they will almost certainly differ
+   from QA's numbers above.
+3. Run against prod once `TRNLRS_street_network` is built there.
 
 ## Historical status (QA, 2026-07-13, superseded above)
 

@@ -223,10 +223,14 @@ original build, but its grant had been dropped by the delete+recreate) and `ND_3
 `N_<id>`/`ND_<id>` need to be looked up fresh -- run the same procedure there; the IDs will
 almost certainly differ from QA's.
 
-**Note:** also verify that the three source feature classes (`TRNLRS_TRN_STREET`,
-`TRNLRS_street_junction`, `TRNLRS_traffic_turn`) have appropriate grants so that OS auth
-users can run solves, not just open the network dataset -- see step 5 in
-`network_dataset_sql_permissions.md`.
+**QA: source table grants done (2026-07-14).** All four source tables -- `TRNLRS_TRN_STREET`,
+`TRNLRS_street_junction`, `TRNLRS_traffic_turn`, and the easy-to-miss auto-created
+`TRNLRS_street_network_Junctions` -- confirmed `PUBLIC SELECT` in QA, plus write access
+(`SELECT, INSERT, UPDATE, DELETE`) granted to `HRM\GIS_LRS_EVENT_EDITOR` on all four for
+editing turns/junctions. See "Write access for editor roles" in
+`network_dataset_sql_permissions.md` for the write-access grants and the caveat that
+`TRNLRS_TRN_STREET` edits get overwritten by the next LRS refresh sync. Dev still needs the
+same treatment (both the PUBLIC read grants and, if needed there, the editor write grants).
 
 ---
 
@@ -409,9 +413,10 @@ one's data actually needs to live:
       in script 03 with an explicit `--env` flag or a `ConfigParser` section (as
       `LRS_updates.py` already uses) so prod-vs-Dev/QA runs don't depend on
       remembering to edit the right line
-- [ ] Re-verify the PUBLIC SELECT grants (`N_3_*`, `ND_37029_*`, and the three source
-      FCs) against prod's registration IDs -- these are almost certainly different from
-      the Dev/QA IDs recorded above
+- [ ] Re-verify the PUBLIC SELECT grants (`N_3_*`, `ND_37029_*`, and all four source
+      tables -- `TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRNLRS_traffic_turn`,
+      and `TRNLRS_street_network_Junctions`) against prod's registration IDs -- these
+      are almost certainly different from the Dev/QA IDs recorded above
 
 ### Edge source naming
 
