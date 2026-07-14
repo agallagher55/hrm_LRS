@@ -283,19 +283,26 @@ inconsistent (see the gotcha below).
 - **This is a shared, multi-project database.** Multiple unrelated `N_<id>`/`ND_<id>` sets
   will exist simultaneously. Don't grant based on "looks new" alone -- confirm via existing
   permission history and, ideally, the actual client-side error.
-- **ArcGIS Pro's Catalog "Manage > Privileges" dialog stops working on a feature dataset
-  after you grant its network dataset's system tables directly via SQL.** Applying (Apply or
-  OK) fails with a generic `Error: Unexpected operation`, no further detail. Cause: granting
-  `N_<id>_*`/`ND_<id>_*` tables via raw `GRANT` puts the feature dataset's children into a
-  mixed privilege state (some objects grant-managed via SQL, others still at their prior
-  ArcGIS-managed default) that the dialog can't reconcile into the single uniform state it
-  needs to render checkboxes for. Observed on QA (`SDEADM.TRNLRS_network`, 2026-07-14) right
-  after granting `N_3_*`/`ND_38726_*` via SSMS -- Dev's equivalent dialog still worked at the
-  time because Dev hadn't had any manual SQL grants applied yet. This does **not** mean the
-  SQL grants failed or anything is broken -- confirm via the permission-check queries above
-  instead of the GUI. Once a feature dataset's network dataset tables have been granted via
-  SQL, keep managing that dataset's permissions via SQL going forward; don't fall back to the
-  Catalog dialog expecting it to still work.
+- **ArcGIS Pro's Catalog "Manage > Privileges" dialog cannot apply privilege changes to a
+  feature dataset while a network dataset exists inside it.** Applying (Apply or OK) fails
+  with a generic `Error: Unexpected operation`, no further detail. This is the same category
+  of restriction as the controller-dataset gotchas in `CLAUDE.md` (`Delete`/`Rename`/
+  `TruncateTable` all get blocked on a network dataset's registered sources while it exists)
+  -- the Privileges cascade apparently can't handle a network dataset as one of the children
+  it's iterating over, and the whole apply fails as a result.
+
+  Confirmed (2026-07-14, QA): deleting `TRNLRS_street_network` from `SDEADM.TRNLRS_network`
+  made the Privileges dialog work again immediately -- so this is about the network
+  dataset's presence, not (only) about whatever SQL grants happen to already exist on its
+  children. (Earlier working theory here was that raw SQL grants alone caused a "mixed
+  privilege state" the dialog couldn't reconcile -- that's superseded by this cleaner
+  explanation, though the two aren't mutually exclusive.)
+
+  Not a practical workaround for routine grant management -- deleting the network dataset to
+  use the GUI, then having to recreate/rebuild it via `scripts/03_create_network_dataset.py`
+  afterward, is far more disruptive than just using SQL directly. Use the permission-check
+  queries and `GRANT` statements above instead of the Catalog dialog whenever the target
+  feature dataset contains a network dataset.
 
 ## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-07-14)
 
