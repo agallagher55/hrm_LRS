@@ -216,6 +216,19 @@ Have an OS-auth user:
 - **This is a shared, multi-project database.** Multiple unrelated `N_<id>`/`ND_<id>` sets
   will exist simultaneously. Don't grant based on "looks new" alone -- confirm via existing
   permission history and, ideally, the actual client-side error.
+- **ArcGIS Pro's Catalog "Manage > Privileges" dialog stops working on a feature dataset
+  after you grant its network dataset's system tables directly via SQL.** Applying (Apply or
+  OK) fails with a generic `Error: Unexpected operation`, no further detail. Cause: granting
+  `N_<id>_*`/`ND_<id>_*` tables via raw `GRANT` puts the feature dataset's children into a
+  mixed privilege state (some objects grant-managed via SQL, others still at their prior
+  ArcGIS-managed default) that the dialog can't reconcile into the single uniform state it
+  needs to render checkboxes for. Observed on QA (`SDEADM.TRNLRS_network`, 2026-07-14) right
+  after granting `N_3_*`/`ND_38726_*` via SSMS -- Dev's equivalent dialog still worked at the
+  time because Dev hadn't had any manual SQL grants applied yet. This does **not** mean the
+  SQL grants failed or anything is broken -- confirm via the permission-check queries above
+  instead of the GUI. Once a feature dataset's network dataset tables have been granted via
+  SQL, keep managing that dataset's permissions via SQL going forward; don't fall back to the
+  Catalog dialog expecting it to still work.
 
 ## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-07-14)
 
