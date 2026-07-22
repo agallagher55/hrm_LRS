@@ -56,13 +56,13 @@ logger = setup_logger("05_rebuild_traffic_turns")
 # Dev: network source FCs live in SDEADM.TRNLRS_network (moved out of
 # SDEADM.TRNLRS by scripts/06_migrate_network_fd.py). Active by default --
 # this is the current FD-separation pilot environment.
-SDE        = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
+# SDE        = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 NETWORK_FD = r"SDEADM.TRNLRS_network"
 
 # QA: network source FCs still live in SDEADM.TRNLRS -- the FD separation
 # pilot has not been applied there yet. Uncomment to point this script at QA
 # instead of Dev.
-# SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 # NETWORK_FD = r"SDEADM.TRNLRS"
 
 # Prod: TRNLRS_TRN_STREET has already been created against this connection;
@@ -78,6 +78,12 @@ NEW_EDGE_FC       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_TRN_STREET"
 NEW_TURN_FC       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn_staging"
 OLD_TURN_FC_FINAL = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn"
 NEW_NETWORK       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_street_network"
+
+# Edge source name, used only in log messages below. The FCID itself is now
+# read directly from the edge FC's own DSID (arcpy.Describe(NEW_EDGE_FC)
+# .DSID), not looked up by name from a template or a live network's source
+# list -- see the comment at Section 5 for why those approaches were wrong.
+EDGE_SOURCE_NAME = "TRNLRS_TRN_STREET"
 
 # Snap tolerance in map units (metres). Turn junctions must fall within this
 # distance of a new edge endpoint to be matched. Widen if skipped count is
@@ -231,12 +237,16 @@ _new_geoms = {}
 def main():
     global _new_geoms
 
-    # Validate inputs
+    # Validate inputs. NEW_NETWORK is intentionally NOT required here --
+    # the FCID lookup now reads from network_template.xml (see Section 5
+    # below) specifically so this script can run during a clean rebuild,
+    # before any network dataset exists. If NEW_NETWORK does happen to
+    # exist, Section 5 still cross-checks its live FCID against the
+    # template as a safety net.
     for path, label in [
         (OLD_TURN_FC,       "Old turn FC"),
         (OLD_EDGE_FC,       "Old edge FC"),
         (NEW_EDGE_FC,       "New edge FC"),
-        (NEW_NETWORK,       "New network dataset"),
         (OLD_TURN_FC_FINAL, "Current TRNLRS_traffic_turn (used as schema template)"),
     ]:
         if not arcpy.Exists(path):
@@ -286,23 +296,37 @@ def main():
     has_node = "NODE_" in _fld_map
 
     # ------------------------------------------------------------------
-    # 5. Get FCID of new edge source from network dataset
+    # 5. Get FCID of new edge source
     # ------------------------------------------------------------------
-    logger.info("Reading network dataset source FCID...")
-    nd_desc = arcpy.Describe(NEW_NETWORK)
-    new_edge_fcid = None
-    for src in nd_desc.sources:
-        if "TRNLRS_TRN_STREET" in src.name.upper():
-            new_edge_fcid = src.sourceID
-            break
+    # CONFIRMED WRONG (2026-07-21): both approaches previously used here
+    # -- reading Describe(NEW_NETWORK).sources[i].sourceID from a live
+    # network, and reading <EdgeFeatureSource><ID> from
+    # network_template.xml -- report the edge source's ORDERING INDEX
+    # within the network dataset (a small sequential number, "2" every
+    # single time observed in this project), not the edge FC's actual
+    # dataset ID. Both stayed "2" all day regardless of how many times
+    # TRNLRS_TRN_STREET was deleted and recreated, which is exactly why
+    # every cross-check between them kept passing while every turn 05
+    # produced still failed to resolve at build time -- both numbers were
+    # wrong in the same way, so they always agreed with each other.
+    #
+    # The value Edge{N}FCID actually needs is the edge FC's real DSID.
+    # Confirmed directly: a turn created natively in Pro's turn-editing
+    # tool at a live intersection resolved correctly with FCID=39618 (the
+    # edge FC's actual DSID at the time), while every 05-produced turn on
+    # the same build used FCID=2 and failed uniformly. DSID is a property
+    # of the edge FC itself, so this still requires no live network
+    # dataset to exist, keeping the earlier fix (05 runnable before a
+    # network dataset exists) intact. See traffic_turns.md for the full
+    # diagnosis, including the multipart-geometry and edge-coincidence
+    # checks that were run and ruled out before this was found.
+    logger.info(f"Reading edge source FCID (DSID) from: {NEW_EDGE_FC}")
+    new_edge_fcid = arcpy.Describe(NEW_EDGE_FC).DSID
+    logger.info(f"  {EDGE_SOURCE_NAME} DSID: {new_edge_fcid}")
 
     if new_edge_fcid is None:
-        logger.error(
-            "Could not find FCID for TRNLRS_TRN_STREET in network sources. "
-            "Ensure the network dataset has been built at least once."
-        )
+        logger.error(f"Could not read DSID for {NEW_EDGE_FC}.")
         sys.exit(1)
-    logger.info(f"  TRNLRS_TRN_STREET FCID: {new_edge_fcid}")
 
     # ------------------------------------------------------------------
     # 6. Create new turn feature class
@@ -342,7 +366,14 @@ def main():
     oid_idx = len(read_fields) - 1
 
     # Insert fields match read fields
-    insert_fields = ["SHAPE@"]
+    # Edge1End is present on every turn feature class (per Esri schema) and
+    # must be set correctly -- "Y" if the turn passes through the end of
+    # Edge1 (Edge1Pos >= 0.5), "N" if it passes through the beginning.
+    # Leaving it unset takes the schema default ("N"), which is wrong for
+    # roughly 90% of turns in practice and was the confirmed root cause of
+    # a total build failure (every remapped turn failing to resolve).
+    # See traffic_turns.md for the full diagnosis.
+    insert_fields = ["SHAPE@", "Edge1End"]
     for i in edge_slots:
         insert_fields += [f"Edge{i}FCID", f"Edge{i}FID", f"Edge{i}Pos"]
     if has_node:
@@ -370,6 +401,7 @@ def main():
             turn_oid = row[oid_idx]
 
             new_row = [shape]
+            edge1_end = None  # computed once Edge1's new position is known
             valid   = True
 
             for idx, i in enumerate(edge_slots):
@@ -398,10 +430,25 @@ def main():
 
                 new_row += [new_edge_fcid, new_fid, old_pos]
 
+                if i == 1:
+                    # old_pos is preserved unchanged onto the new edge (the
+                    # remap does not alter position along the edge, only
+                    # which edge OID it refers to), so it is still valid
+                    # here for deriving Edge1End. Per Esri's schema: "Y"
+                    # means the turn passes through the end of Edge1,
+                    # "N" means the beginning.
+                    edge1_end = "Y" if old_pos is not None and old_pos >= 0.5 else "N"
+
             if not valid:
                 skipped += 1
                 no_match.append(turn_oid)
                 continue
+
+            # Insert Edge1End right after SHAPE@ (index 1), matching the
+            # insert_fields order set in Section 7. Fall back to "N" only
+            # if edge1_end was never set, which should not happen for a
+            # valid row since Edge1 (i == 1) is always required.
+            new_row.insert(1, edge1_end if edge1_end is not None else "N")
 
             if has_node:
                 new_row.append(node_val)
