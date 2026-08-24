@@ -469,7 +469,7 @@ class DynSegFeature:
             e.CRIT_STAT_COMMENT,
             e.LOCERROR,
             e.SDATE,
-            e.SOURCE,
+            e.[SOURCE],
             e.SACC,
             sss.MinAddDate AS ADDDATE,
             sss.AddBy      AS ADDBY,
