@@ -449,11 +449,11 @@ class DynSegFeature:
         """Create the publishable safe school streets feature.
 
         ``out_feature`` should point to a feature class with the target fields
-        ROUTEID, STR_NAME, FULL_NAME, FROM_STR, TO_STR, DIST_ID, ST_CLASS,
+        ROUTEID, STR_NAME, FULL_NAME, FROM_STR, TO_STR, DISTRICT, ST_CLASS,
         PRESCREEN_CRIT, AAWT, TRANSIT_RTE, THROUGH_RD_ACCESS,
         ACTIVE_TRANS_INFRA_CONN, CRIT_STAT_COMMENT, LOCERROR, SDATE, SOURCE,
         SACC, ADDDATE, ADDBY, MODDATE, and MODBY. FROM_STR/TO_STR come from
-        LRSN_Route (via network_fields), DIST_ID from E_District, and
+        LRSN_Route (via network_fields), DISTRICT from E_District, and
         ST_CLASS from E_StreetClass — all carried through directly by
         OverlayEvents. LOCERROR, SDATE, SOURCE, SACC, and the audit fields
         are not carried through by OverlayEvents, so they're joined back
@@ -474,7 +474,7 @@ class DynSegFeature:
             e.ROUTENAME AS FULL_NAME,
             e.FROM_STR,
             e.TO_STR,
-            e.DIST_ID,
+            e.DISTRICT,
             e.ST_CLASS,
             e.PRESCREEN_CRIT,
             e.AAWT,
