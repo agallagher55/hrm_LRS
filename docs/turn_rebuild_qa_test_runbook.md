@@ -204,6 +204,17 @@ This compares the source's own `Edge1End` against the junction this script finds
 - **95–99%** — proceed, but the disagreeing OIDs (DEBUG in the log) are worth a look.
 - **< 95%** — the script warns and will refuse an auto-swap. **Stop and send me the log.**
 
+**Update 2026-08-31, same day:** the run that motivated writing this gate came back at
+70.9% (846/1194). `scripts/diagnose_edge1end_disagreement.py` traced 345 of the 348
+disagreements to one exact cause: Edge1 and Edge2 tying at 0.0m on **both** possible endpoint
+pairings simultaneously — the signature of two edges digitised between the same pair of
+cross-street nodes (e.g. the two carriageways of a divided road). That's a genuine geometric
+ambiguity a distance-only tie-break can't resolve; `shared_endpoint()` now uses the turn's
+own recorded `SHAPE` point (already read, previously unused for this) to break exactly that
+tie. Fixed and verified against the reported pattern, but **not yet re-run against QA** —
+re-run Phase 1.1 with the updated script before trusting this percentage. Expect it well
+above 95% given how much of the prior disagreement this explains.
+
 ### 1.3 Gate
 
 Do not continue if: the environment lines say Dev, the DSID is `2`, the agreement rate is
