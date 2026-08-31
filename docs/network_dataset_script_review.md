@@ -16,13 +16,16 @@ G are still open.
 
 ## TL;DR
 
-1. **`TRNLRS_TRN_STREET` may be systematically offset from where routes actually cross** —
-   the biggest open item, and the likely root cause of several others below. Three hand-picked
-   intersections all showed the edge source shifted from the true crossing point "in a similar
-   direction and magnitude" — the signature of a transform bug in `OverlayEvents`, not random
-   noise. A city-wide diagnostic exists (`06_check_junction_alignment.py`, uploaded
-   2026-08-31) but has not been run yet. See
-   [A0b](#a0b-possible-systematic-geometry-offset-in-trnlrs_trn_street-found-2026-08-31-not-yet-run).
+1. **`TRNLRS_TRN_STREET` vs. route intersections: run 2026-08-31, no systematic transform bug
+   — but a real, mostly-explained gap and a handful of genuine anomalies.** 249 of the city's
+   active route intersections show no aligned edge endpoint; 221 have none at all within 10m.
+   The offset vectors point in every direction (no shared direction/magnitude), so this is
+   NOT the systematic `OverlayEvents` bug the original 3-spot-check note suggested. Names show
+   the bulk is highway ramps/interchanges — an already-known consequence of no elevation
+   modelling (grade-separated crossings get flagged as intersections with no street-level
+   match). A handful of plain surface-street pairs (e.g. `HEMLOCK DR`/`HIGH TIMBER DR`,
+   9m offset) are NOT explained by that and are real candidates for investigation. See
+   [A0b](#a0b-junction-alignment-check-run-2026-08-31----grade-separation-not-a-transform-bug-a-handful-of-real-anomalies).
 2. **The turn rebuild is almost certainly still broken in Dev and QA.** The status docs say
    Phase 5a is ✅ complete as of 2026-07-14, but the code comments added on 2026-07-21/22
    record that *every* turn produced by script 05 on that same build failed to resolve, for
@@ -116,55 +119,64 @@ missing.
 
 ---
 
-## A0b. Possible systematic geometry offset in `TRNLRS_TRN_STREET` (found 2026-08-31, not yet run)
+## A0b. Junction alignment check (run 2026-08-31) -- grade separation, not a transform bug; a handful of real anomalies
 
-`scripts/06_check_junction_alignment.py`, uploaded 2026-08-31, is a read-only diagnostic that
-may explain both the 23 `Cannot find at junction` turn failures above and the long-standing
-"Standalone user-defined junction is detected" warnings previously written off in
-`network_traffic_turns.md` as an expected resegmentation artifact.
+`scripts/06_check_junction_alignment.py` compares `TRNLRS_TRN_STREET` edge endpoints against
+`SDEADM.INT_RouteOnRoute` (generated independently from `LRSN_Route` geometry via
+`GenerateIntersections`) at every active route intersection. It was written because three
+hand-picked intersections (Blowers/Barrington, Barrington/Salter, Upper Water/Hollis) showed
+the edge source offset from the true crossing point "in a similar direction and magnitude" --
+suggestive of a systematic transform bug. **Run city-wide, the result does not confirm that
+hypothesis.**
 
-**What it checks.** `TRNLRS_TRN_STREET` is reconstructed from LRS route measures via
-`OverlayEvents` (see `CLAUDE.md`'s pipeline diagram). `SDEADM.INT_RouteOnRoute` ("Route
-Intersection Class") is generated independently, directly from `LRSN_Route` geometry via
-`GenerateIntersections`. These two should agree on where routes cross. The script's own
-background note: *"Spot checks (Blowers/Barrington, Barrington/Salter, Upper Water/Hollis)
-found the edge source consistently offset from the route intersection point at real
-intersections, all in a similar direction and magnitude."* Three unrelated intersections
-sharing a consistent offset direction and magnitude is the signature of a **systematic
-transform or calibration bug** in the `OverlayEvents`-based reconstruction, not scattered
-digitizing noise. The script checks this city-wide: for every active route intersection, it
-finds the nearest `TRNLRS_TRN_STREET` edge endpoint via `GenerateNearTable`, computes the
-offset vector, bins it into severity bands, and reports the mean and standard deviation of
-the offset vector across the whole city -- a small std-dev relative to the mean is the
-confirming signal for "systematic," not "random."
+**Result.** Of the active route intersections, 249 have no edge endpoint within 1cm (the
+alignment tolerance): 221 have **no edge endpoint at all within the 10m search radius**
+(`NO_MATCH`); the other 28 have a nearest endpoint somewhere between 0.03m and 10.0m away.
+Read the raw numbers in `docs/turn_rebuild_qa_test_runbook.md` for the exact commands used.
 
-**Status: not yet run.** The docstring's three examples are anecdotal spot checks that
-motivated writing the script; no city-wide run output has been produced or uploaded (unlike
-`diagnose_turn_remap.py`, whose output was captured to
-`intermediate_results/diagnose_turn_remap_OUT.txt`). The actual scale of this problem --
-how many intersections, what magnitude, whether the offset is truly systematic -- is
-unknown until it's run.
+**Not a systematic transform.** The offset vectors on the 28 matched-but-misaligned records
+point in every direction with no shared sign or ratio -- e.g. `(-0.445, 9.984)`,
+`(-8.973, 2.663)`, `(9.165, -0.516)`, `(-3.612, -7.914)` on the four largest. A coordinate
+transform bug would produce the same vector (or a small family of them) repeatedly; this
+doesn't. The pooled mean is near `(0, 0)` with a large standard deviation -- consistent with
+unrelated small errors cancelling out, not a citywide shift.
 
-**Why this matters beyond turns.** If confirmed, this is not a turn-remap problem, it is a
-potential geometry-quality problem in the edge source itself, with several downstream
-implications already documented elsewhere in this project:
-- **The 23 `Cannot find at junction` turn failures** ([A0](#a0-duplicate--degenerate-turn-signatures----a-separate-unresolved-problem-found-2026-08-31)) -- if two routes' edges are
-  each pulled slightly differently by this offset, they may no longer meet exactly where a
-  turn expects them to.
-- **`unresolved_edge` and `no_shared_endpoint` skips** that `05_rebuild_traffic_turns.py`
-  reports -- if the offset at some intersections exceeds `SNAP_TOLERANCE` (0.5m, the same
-  tolerance this diagnostic's `ALIGNMENT_TOLERANCE` of 0.01m is far stricter than), a skip
-  attributed to "segment removed by resegmentation" could actually be this offset instead.
-- **The "Standalone user-defined junction" warnings** on `TRNLRS_street_junction` -- these
-  were reasoned through and accepted as harmless in `network_traffic_turns.md`, but that
-  reasoning did not have this diagnostic available at the time.
+**Mostly explained by grade separation, an already-known limitation.** Both the `NO_MATCH`
+population and the largest offsets in the matched set are dominated by highway ramps and
+interchanges -- `ALM-A RAMP`, `HIGHWAY 102 NB EXIT 4B ... OFF RAMP`, `RAMP MAC-L RAMP,RAMP
+MAC-R RAMP`, `HIGHWAY 111 WB EXIT 6 ON RAMP`, repeatedly. This network has no elevation
+modelling (`FROM_ELEV`/`TO_ELEV` cleared -- see `network_build_status.md`'s "No elevation
+modelling" limitation), and `INT_RouteOnRoute` marks every place two LRS routes cross in the
+measure/2D-plane sense with no awareness of grade separation. A highway passing over an
+off-ramp gets flagged as an "intersection" even though the streets never meet at ground
+level -- `TRNLRS_TRN_STREET` correctly has no shared edge endpoint there. This diagnostic is
+quantifying an already-accepted limitation, not surfacing a new one, and does not on its own
+justify a change to `OverlayEvents` or `LRS_updates.py`.
 
-**Recommendation:** run this before or alongside the Phase 1.5 turn-signature check on the
-next QA cycle -- it is read-only, has no lock or swap risk, and the mean/std-dev output
-directly informs whether `SNAP_TOLERANCE` in script 05 needs to be reconsidered, or whether
-the fix belongs upstream in `LRS_updates.py`'s `OverlayEvents` call instead.
+**A handful of real, unexplained anomalies remain.** Several of the largest offsets are plain
+surface-street pairs with no grade-separation excuse: `HEMLOCK DR`/`HIGH TIMBER DR` (8.7m),
+`WRIGHT AVE`/`COUNTRYVIEW DR` (9.36m), `SKREIA RD`/`SAILVIEW LANE` (6.26m), `MASSACHUSETTS
+AVE`/`LADY HAMMOND RD` (7.44m). These are genuine candidates for a real defect in
+`TRNLRS_TRN_STREET`'s geometry at those specific locations and are worth a manual look in Pro
+-- not dismissible as interchange noise.
+
+**Open:** none of the three original spot-check intersections (Blowers/Barrington,
+Barrington/Salter, Upper Water/Hollis) appear by name in the 28 matched rows or in a 20-row
+sample of the 221 `NO_MATCH` rows. Whether they came in aligned (contradicting the original
+spot-check note) or are simply buried in the other ~200 unprinted `NO_MATCH` rows has not been
+checked directly.
+
+**Not yet done:**
+- Confirm the three original spot-check locations directly by name (a targeted query, not yet
+  run).
+- Classify the full 249 (not just a 20-row sample of `NO_MATCH`) by an interchange-name
+  heuristic (RAMP/EXIT/HIGHWAY/BRIDGE) to quantify what fraction is grade-separation vs. real
+  anomaly, rather than judging by eye from a sample.
+- Manually review the handful of plain-street anomalies identified above in Pro.
 
 ---
+
+## A. Script 05 — `05_rebuild_traffic_turns.py`
 
 ## A. Script 05 — `05_rebuild_traffic_turns.py`
 
@@ -599,8 +611,9 @@ now actively mislead:
 These are the things blocking a confident read of where the project actually stands. Most
 need one arcpy session against QA.
 
-1. **Esri's `Edge#Pos` / `Edge1End` semantics as they apply to this data.** The largest gap;
-   it determines whether the turn remap can work at all. Resolved by the [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-blocking) diagnostic.
+1. ~~Esri's `Edge#Pos` / `Edge1End` semantics as they apply to this data.~~ **Resolved
+   2026-08-31** — see [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-fixed-2026-08-31):
+   the rewritten script 05 no longer depends on `Edge#Pos` for junction detection at all.
 2. **Were the 2026-07-22 fixes ever run?** No evidence either way. `logs/` is gitignored and
    runs write to a network share (`\\msfs203...\network_dataset\logs\`). Check for a log
    file dated after 2026-07-22.
