@@ -1,0 +1,456 @@
+# Network Dataset Scripts — Full Review (2026-08-31)
+
+A code-and-docs review of everything used to recreate `TRNLRS_street_network` from LRS
+data: scripts `01`–`06`, `run_full_network_rebuild.py`, `log_utils.py`, the
+`sync_network_edge_source()` path in `LRS_updates.py`, `data/network_template.xml`, and
+the four docs in `docs/`.
+
+Findings are split into **Confirmed** (readable directly from the repo) and **Needs
+verification** (requires an arcpy/SDE session, which this review did not have). Nothing in
+the repo was changed by this review other than adding this file.
+
+---
+
+## TL;DR
+
+1. **The turn rebuild is almost certainly still broken in Dev and QA.** The status docs say
+   Phase 5a is ✅ complete as of 2026-07-14, but the code comments added on 2026-07-21/22
+   record that *every* turn produced by script 05 on that same build failed to resolve, for
+   two reasons (wrong `Edge#FCID`, unset `Edge1End`). Fixes for both landed in code on
+   2026-07-22 and — as far as the repo shows — **have never been run**. No log, no doc
+   update, no status change since. Treat Dev and QA turns as broken until re-verified.
+2. **One of those two fixes looks incomplete.** Script 05 synthesises `Edge1End` from
+   `Edge1Pos` instead of reading the `Edge1End` value that already exists on the source turn
+   FC, and derives it from the *old* edge's geometry rather than the *new* one. See
+   [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-blocking).
+3. **`run_full_network_rebuild.py` is currently wired to two different environments.**
+   Script 05 is set to QA, script 03 is set to Dev. Running the orchestrator as committed
+   remaps QA's turns and then builds Dev's network dataset. See [B](#b-environment-config-drift).
+4. **The documented rebuild cadence is wrong in a way that will break prod on day one.**
+   The migration plan states turns don't need rebuilding on each LRS refresh. They do —
+   turn references are edge `OBJECTID`s, and the refresh reassigns them. See
+   [D](#d-turn-references-do-not-survive-an-lrs-refresh-structural).
+5. **`LRS_updates.py` will fail on its first prod run** with `ERROR 001395` — the
+   `TruncateTable` fix that landed in script 04 was never ported to it. See [C](#c-lrs_updatespy-will-fail-on-first-prod-run).
+
+---
+
+## Current status (honest version)
+
+| Area | State |
+|---|---|
+| Phase 1 — extract old config | ✅ Done (`network_config.json`, `network_template.xml`) |
+| Phase 2 — schema comparison | ⚠️ Ran, but the evaluator half never executed — see [E](#e-script-02s-evaluator-cross-check-has-never-actually-run) |
+| Phase 3 — XML template edits | ✅ Done (elevation cleared, sources renamed); stale `ClassID`s remain — see [F](#f-template-hygiene) |
+| Phase 4 — create + build ND | ✅ Dev and QA built (last rebuilt 2026-07-14) |
+| Phase 5a — traffic turns | ❌ **Not complete.** Docs say ✅ (2026-07-14); code comments dated 2026-07-21 say that build's turns all failed. Fixes uncommitted-to-reality since 2026-07-22. |
+| Phase 5 — solve tests | 🔄 Properties ✅ (06-26); 50 km service area ✅ (Robbie, 06-29); route / one-way / turn-restriction / address-range solves **not done** |
+| SQL grants | QA ✅ (2026-07-14, `N_3_*` + `ND_38726_*` + 4 source tables + editor writes); **Dev pending**; prod N/A |
+| FD separation (`TRNLRS_network`) | ⚠️ Dev + QA populated by script 03's *fallback copy*, not by script 06. Script 06 has never been run anywhere. Duplicate FCs still sitting in `SDEADM.TRNLRS` in both environments. |
+| Prod | Nothing built. `TRNLRS_TRN_STREET` exists (created 2026-07-07); no `TRNLRS_network` FD, no ND, no grants, `LRS_updates.py` not deployed. |
+| Open data-scope questions from QA (06-29) | ❌ All four still open: transit access roads, water access roads, George's Island, emergency turnarounds |
+
+**Workstream cadence:** the last network-dataset commit was 2026-07-22. The six weeks since
+were spent on `TRNLRS_TRN_Safe_School_Streets_VW`. Whoever picks this back up is resuming
+cold, into a state where the docs and the code disagree about whether the last step worked.
+
+---
+
+## A. Script 05 — `05_rebuild_traffic_turns.py`
+
+This is the script the whole migration is blocked on, so it gets the most attention.
+
+### A1. `Edge1End` is synthesised from `Edge1Pos` rather than read (BLOCKING)
+
+**Confirmed from code.** Section 7 builds `read_fields` from the old turn FC as
+`SHAPE@`, optional `NODE_`, then `Edge{i}FCID/FID/Pos` per slot, then `OID@`. `Edge1End` is
+never read — even though Section 4 already builds `_fld_map` over *every* field on
+`OLD_TURN_FC`, so the value is sitting right there. Instead, Section 8 derives it:
+
+```python
+edge1_end = "Y" if old_pos is not None and old_pos >= 0.5 else "N"
+```
+
+Two independent problems with that derivation:
+
+- **`Edge#Pos` probably does not mean what the script assumes.** In the Esri turn schema,
+  `Edge#Pos` identifies *which edge element* of the edge feature the turn uses, expressed as
+  the relative position of that element's midpoint along the feature — an edge feature that
+  is not split into multiple elements canonically carries `0.5`. It is not "how close the
+  junction is to the start of the edge". The template sets `ClassConnectivity = 1`
+  (endpoint), so new edge features are not split at interior junctions, which is exactly the
+  case where every `Pos` collapses to `0.5`. If the old `TRN_traffic_turn` records also
+  carry `~0.5`, then this expression evaluates to `"Y"` for **every** record, and
+  `find_new_oid`'s sibling test (`pt = shape.firstPoint if pos < 0.5 else shape.lastPoint`)
+  picks `lastPoint` for **every** record. Roughly half of those are the wrong end of the
+  edge.
+- **Even under the script's own assumption, it is computed from the wrong geometry.**
+  `Edge1End` describes which end of the *new* Edge1 the turn passes through. It is computed
+  here from the *old* edge's `Pos`. The old and new edge features are different features
+  and may be digitised in opposite directions; when they are, the value is inverted.
+
+This matters because the 2026-07-21 comment in this same file identifies an unset
+`Edge1End` as *"the confirmed root cause of a total build failure (every remapped turn
+failing to resolve)"*. The fix moved it from unset to derived — but the derivation may
+still be wrong for most records, which would reproduce the same symptom.
+
+**The 15-minute diagnostic that settles it.** Run against QA before touching anything else:
+
+```python
+import arcpy, collections
+old_turn = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn"
+pos, end, combo = collections.Counter(), collections.Counter(), collections.Counter()
+with arcpy.da.SearchCursor(old_turn, ["Edge1Pos", "Edge1End", "Edge2Pos"]) as cur:
+    for p1, e1, p2 in cur:
+        pos[round(p1, 2) if p1 is not None else None] += 1
+        end[e1] += 1
+        combo[(round(p1, 2) if p1 is not None else None, e1)] += 1
+print("Edge1Pos distribution:", pos.most_common(10))
+print("Edge1End distribution:", end.most_common())
+print("(Pos, End) pairs      :", combo.most_common(10))
+```
+
+- If `Edge1Pos` is overwhelmingly `0.5` → **A1 is confirmed**, the derivation is dead code
+  producing a constant, and `Edge1End` must be read from the source (and re-derived against
+  the matched new edge). Fix before any further remap run.
+- If `Edge1Pos` spreads across `0.0`–`1.0` and correlates with `Edge1End` → the assumption
+  holds for this data and only the second problem (old-vs-new geometry) needs fixing.
+
+Either way, **read `Edge1End` from the source turn FC** — it is authoritative and free.
+
+### A2. Junction identification is indirect and fragile (recommended rework)
+
+`find_new_oid` locates the turn junction by picking one endpoint of the *old* edge based on
+`Pos`. A version that does not depend on `Pos` semantics at all:
+
+1. The junction is the endpoint **shared** between old Edge1 and old Edge2 geometry —
+   compute it directly, no `Pos` needed.
+2. Snap that point into the new-edge endpoint index (as today).
+3. For each resolved new edge, set `Edge{i}Pos = 0.5` (single element under endpoint
+   connectivity) rather than copying the old value, which refers to a different feature.
+4. Set `Edge1End = "Y"` if the junction coincides with the **matched new Edge1's**
+   `lastPoint`, `"N"` if its `firstPoint`.
+
+This removes both failure modes in A1 and makes the result independent of how the old FC
+happened to encode position.
+
+### A3. Partially-resolved turns are written as valid (BLOCKING, silent)
+
+**Confirmed from code.** In Section 8, only an Edge1 miss sets `valid = False`. A miss on
+Edge2–Edge5 writes `[None, None, None]` and continues:
+
+```python
+if new_fid is None:
+    if i == 1:
+        valid = False
+        break
+    else:
+        new_row += [None, None, None]
+        continue
+```
+
+Two invalid outputs fall out of this:
+
+- A turn whose Edge2 did not resolve is written as a **one-edge turn**. A turn needs at
+  least two edges; this will fail at build time.
+- A turn whose Edge2 missed but Edge3 matched is written with a **gap** in the edge
+  sequence (`Edge2FID = NULL`, `Edge3FID` set). ArcGIS expects Edge1..EdgeN contiguous.
+
+Neither increments `skipped`, so both are invisible to the "1,209 written / 29 skipped
+(2.3%)" quality gate the whole go/no-go decision has been resting on — and to the 5%
+warning threshold. **The real skip rate is unknown.** Fix: treat a miss on any slot that was
+populated in the source as a skip, and count/report per-slot misses separately.
+
+### A4. Angle tiebreaker uses the old edge's chord, not its local tangent (accuracy)
+
+The multi-candidate tiebreaker compares the direction `junction → other endpoint` of the
+*whole old edge* against the same for each candidate new edge. LRS resegmentation makes new
+edges much shorter than old ones, so on a curved or long old street the old chord bearing
+can differ substantially from the true bearing at the junction, and the nearest-angle
+candidate can be the wrong leg. Using the first/last **vertex pair** (i.e. the tangent at
+the junction) on both sides would compare like with like. Flagged in the staging checklist
+as "highest-risk area" — this is why.
+
+### A5. Minor
+
+- `ZeroDivisionError` if `total == 0` at `if skipped / total > 0.05` in the
+  `AUTO_SWAP_AND_REBUILD` block (Section 10). The Section 9 summary guards this; Section 10
+  does not.
+- The header comment says the Dev config is "Active by default" and QA is commented out.
+  Since 2026-07-22 the opposite is true — QA is the live line. Comment and code disagree in
+  the config block a reader trusts most.
+- The Section 4 validation comment still says *"the FCID lookup now reads from
+  network_template.xml (see Section 5 below)"*. Section 5 was rewritten in the same commit to
+  read `Describe(NEW_EDGE_FC).DSID`, and explains at length why the template approach was
+  wrong. Stale comment sitting directly above the corrected one.
+
+---
+
+## B. Environment config drift
+
+**Confirmed from code.** Every script carries its own manually-edited connection constant,
+and they currently disagree:
+
+| Script | Active environment |
+|---|---|
+| `01_extract_network_config.py` | QA |
+| `02_compare_schemas.py` | QA |
+| `03_create_network_dataset.py` | **Dev** (`SDE_CONNECTION_UPDATE`) + prod (read-only, edge source) |
+| `04_sync_and_rebuild_network.py` | prod only (by design) |
+| `05_rebuild_traffic_turns.py` | **QA** |
+| `06_migrate_network_fd.py` | Dev (hardcoded) |
+
+`run_full_network_rebuild.py` takes the turn/edge/network paths from `mod05` and then calls
+`mod03.main()`, which uses **its own** `FEATURE_DATASET` built from `mod03`'s constant. As
+committed, running the orchestrator would: remap turns in QA → delete QA's network dataset →
+swap QA's turn FC → then create and build a network dataset **in Dev**. The Dev build would
+also silently succeed, because script 03 skips copying source FCs that already exist.
+
+This has been on the open-questions list since 2026-07-07 ("consider replacing the manually
+edit the active connection constant pattern with an `--env` flag"). The orchestrator turns
+it from a papercut into a data-integrity hazard. Recommend a single `env.py` (or
+`ConfigParser` section, matching `LRS_updates.py`) that all six scripts import, with the
+orchestrator asserting `mod05.SDE == mod03.SDE_CONNECTION_UPDATE` before it does anything.
+
+Related: `run_full_network_rebuild.py` also assumes `mod05.AUTO_SWAP_AND_REBUILD is False`.
+If someone leaves it `True`, script 05 performs its own swap, the orchestrator then finds no
+staging FC, and reports *"05 did not complete successfully"* — misleading, though it does
+fail safe. An explicit assert with a clear message would be better.
+
+---
+
+## C. `LRS_updates.py` will fail on first prod run
+
+**Confirmed from code.** `sync_network_edge_source()` (line ~528) calls `append_feature()`
+(line ~720), which does:
+
+```python
+arcpy.TruncateTable_management(target_feature)
+```
+
+`TRNLRS_TRN_STREET` is a registered edge source of `TRNLRS_street_network`, i.e. a
+controller-dataset member. Per `CLAUDE.md` and commit `b441b58`, `TruncateTable` raises
+`ERROR 001395: Operation not supported on a feature class in a controller dataset`. Script
+04 was fixed to use `DeleteRows`; **`LRS_updates.py` was not**. It has not surfaced only
+because `LRS_updates.py` has never been deployed to prod. It will fail on the first run
+after deployment.
+
+Two further problems in the same helper, both specific to the FD copy:
+
+- `append_feature` rebinds the target as
+  `target_feature = os.path.join(sde_conn, arcpy.Describe(target_feature).name)` — dropping
+  the feature dataset from the path. That is fine for the standalone FCs it was originally
+  written for, but `TRNLRS_TRN_STREET` lives *inside* `SDEADM.TRNLRS_network`, and a feature
+  class inside a feature dataset is not addressable at the workspace root in an enterprise
+  geodatabase. **Needs verification**, but likely a second failure immediately after the
+  first is fixed.
+- `LRS_VIEW_NAME = "TRNLRS_TRN_street_VW"` is unqualified and mixed-case, so it resolves
+  only when connected as `SDEADM`. True today (`SDEADM_RW`), but brittle.
+
+Recommendation: don't reuse `append_feature()` here. Have `sync_network_edge_source()` call
+`sync_and_rebuild()` from script 04 directly — that function is already correct, already
+prod-scoped, and already logs. One import removes three bugs and the duplication.
+
+---
+
+## D. Turn references do not survive an LRS refresh (STRUCTURAL)
+
+`docs/network_dataset_migration_plan.md` (Rebuild Cadence) states:
+
+> **Note:** the traffic turn FC (`TRNLRS_traffic_turn`) does not need to be rebuilt on each
+> LRS refresh -- turn restrictions are maintained separately from the street LRS pipeline
+> and only need to be rebuilt if the turn source itself is updated.
+
+**This is incorrect, and it is the single biggest gap between the current design and a
+working prod cutover.** Chain of reasoning, each link established elsewhere in this repo:
+
+1. `Edge{N}FID` stores the **`OBJECTID`** of a feature in the edge source
+   (`network_traffic_turns.md`, root-cause section — this is the entire reason script 05
+   exists).
+2. `TRNLRS_TRN_STREET_VW` is *"truncated and repopulated on every LRS refresh run"*
+   (`CLAUDE.md`).
+3. The sync into the FD copy is `DeleteRows` + `Append(schema_type="NO_TEST")` (script 04)
+   — `OBJECTID` is a database-managed field and is not carried across by `Append`; every row
+   gets a fresh one.
+
+So after each LRS refresh, the segment ↔ `OBJECTID` mapping the turn FC depends on is gone,
+and `BuildNetwork` re-emits `Cannot find edge element corresponding to turn identifier 1`
+for all 1,209 turns — the exact regression this project has already chased three times. The
+steady-state pipeline as designed re-creates the bug on every run.
+
+`Edge{N}FCID` is safer but not free: it holds the edge FC's `DSID`, which survives
+`DeleteRows`/`Append` (the FC object persists) but **changes whenever the FC itself is
+recreated** — script 03's fallback copy, script 06's move, or any manual drop/recreate. That
+invariant is worth stating explicitly in the docs: **re-run script 05 after anything that
+recreates `TRNLRS_TRN_STREET`, not just after edge geometry changes.**
+
+Three ways out, to be decided before prod cutover:
+
+1. **Remap every cycle.** Make `04`/`LRS_updates.py` run the full
+   `05 → swap → 03 (recreate + build)` sequence rather than `sync → BuildNetwork`.
+   Correct with today's tooling; expensive (deletes and recreates the ND on every LRS
+   refresh, which also invalidates the SQL grants every time — see the permissions doc) and
+   it re-runs a best-effort spatial heuristic unattended, on a schedule, with nobody
+   reviewing the skip counts.
+2. **Make edge `OBJECTID`s stable.** Replace truncate/reload with a keyed update
+   (insert/update/delete against a stable business key — `FDMID` plus measures) so
+   `OBJECTID`s persist across refreshes. Larger change to `LRS_updates.py`, but it is the
+   only option that makes turns durable, and it would benefit any other consumer that holds
+   references into this FC.
+3. **Store turns against a stable key and regenerate.** Persist each restriction as
+   street identity + junction point (not `OBJECTID`s) in a side table, and derive
+   `Edge{N}FID/FCID/Pos` from geometry on each build. Most work up front; makes the turn
+   source a durable asset rather than derived data that must be re-derived correctly every
+   time.
+
+This decision also determines whether hand-authored turns are safe: **Mel's Cogswell ramp
+turns** (noted in `run_full_network_rebuild.py`) and any turn edits made through the editor
+role granted on 2026-07-14 live only in the FC. Under option 1 they survive only because
+they are carried through the remap from the *old* turn table; anything authored directly
+against `TRNLRS_traffic_turn` is destroyed by the next swap. That should be written down
+before more manual turn editing happens.
+
+---
+
+## E. Script 02's evaluator cross-check has never actually run
+
+**Confirmed from code + data.** Script 01 writes each evaluator as:
+
+```json
+{"source": "...", "edge_direction": "...", "evaluator_type": "Field", "data": "[STR_DIR]..."}
+```
+
+Script 02's `map_evaluator_fields()` reads `ev.get("field_name")` and `ev["element_type"]` —
+neither key exists. `field_ref` is therefore always `""`, every evaluator hits the
+`if not field_ref: continue` guard, and the function returns `[]`. That is why
+`data/evaluator_field_map.json` is `[]`. (Had the guard not fired first, `ev["element_type"]`
+would have raised `KeyError`.)
+
+`docs/network_build_status.md` explains the empty file as:
+
+> `evaluator_field_map.json` is empty because the existing evaluators use VB Script
+> expressions, not direct field evaluators.
+
+`data/network_config.json` contradicts this: all four Length/OneWay evaluators are
+`"evaluator_type": "Field"`. The file is empty because of a key mismatch, not because of
+evaluator type.
+
+The *conclusion* still holds — the expressions reference `[SHAPE.STLength()]` and
+`[STR_DIR]`, both present and unchanged in the new source — but it was reached by hand, not
+by the script. The automated safety net is dead, and it is precisely the check that should
+catch a regression when `E_SpeedLimit` / a `TravelTime` attribute is added later.
+
+Fix: extract bracketed field references out of `data` and test each against the new source:
+
+```python
+field_refs = re.findall(r"\[([A-Za-z0-9_.()]+)\]", ev.get("data") or "")
+```
+
+---
+
+## F. Template hygiene (`data/network_template.xml`)
+
+- **Stale `ClassID`s.** The template still carries the *old* network's dataset IDs:
+  `7134` (edge), `7135` (junction), `7137` (turn), `7292` (system junctions), plus
+  `<DSID>7293</DSID>` for the ND itself — while every `<Name>` has been updated to the
+  `TRNLRS_*` FCs. Builds succeed, so `CreateNetworkDatasetFromTemplate` is evidently
+  resolving sources by `<Name>` and reassigning IDs. Worth confirming and writing down,
+  because `7134` is the exact number that muddied the 2026-07-14 diagnosis (it appeared in
+  `EDGE1FCID` and in the template, and was read as corroboration).
+- **`<ID>2</ID>`** on the edge source is the source *ordering index* — the "2" that cost a
+  full day on 2026-07-21. That finding currently lives only in a code comment in script 05.
+  It belongs in the docs.
+- **`DefaultOutputLengthUnits = esriNAUMiles`.** Inherited verbatim from the legacy network.
+  HRM is metric; directions output will report miles. Cheap change to `esriNAUKilometers` —
+  worth a confirm with Robbie/Mel rather than a silent edit.
+- **`network_config.json` understates the directions config.** Script 01's
+  `describe_directions()` reads `getattr(d, "fieldMappings", [])`, which is not an arcpy
+  attribute, so it always records `directions_field_mappings: []`. The mappings do exist and
+  are correct in the template (`StreetNameFieldName=STR_NAME`, `SuffixTypeFieldName=STR_TYPE`,
+  `FullNameFieldName=FULL_NAME`) and the 06-26 properties check verified them in Pro.
+  Cosmetic, but the JSON is the thing people grep.
+
+---
+
+## G. Documentation drift
+
+The docs are the main artifact this project hands to the next person, and several of them
+now actively mislead:
+
+| Item | Problem |
+|---|---|
+| `docs/traffic_turns.md` | **Does not exist.** Referenced from `05_rebuild_traffic_turns.py` (twice, including *"See traffic_turns.md for the full diagnosis"* of the DSID and `Edge1End` findings) and from `run_full_network_rebuild.py`. The actual file is `docs/network_traffic_turns.md` — which does **not** contain that diagnosis. |
+| `network_review.md` | **Does not exist.** Referenced from `network_dataset_migration_plan.md` for the full QA review notes. Never committed. |
+| The 2026-07-21/22 work | The two most consequential fixes in the project (FCID→DSID, `Edge1End`) exist only as inline comments. No doc, no status-table update, no log. |
+| `traffic_turn_staging_review_checklist.txt` §2 | Says *"Edge1FCID should equal the FCID logged during the run (2, for TRNLRS_TRN_STREET). Any other value ... is a bug."* Now exactly inverted — `2` **is** the bug; the DSID is correct. Anyone following this checklist would sign off a broken FC. |
+| `network_build_status.md` Phase 5a | `✅ Complete (2026-07-14)`. The 07-21 finding says that build's turns all failed. Should be walked back to ⚠️. |
+| `run_full_network_rebuild.py` docstring | *"05 has since been patched to read the FCID from network_template.xml"* — superseded by the DSID fix committed 27 minutes earlier. |
+| Solve-test status | `network_dataset_migration_plan.md` records a service area solve ✅ (06-29); `network_build_status.md` lists all solve tests as pending. Reconcile. |
+| `network_traffic_turns.md` | ~600 of its 934 lines are a raw chat transcript containing three superseded versions of the remap script inline, including the original naive `candidates[0][0]` version. Someone will copy the wrong one. Worth reducing to the diagnosis + current procedure. |
+| `README.md` | Advertises `tests/`. There is no `tests/` directory and no test of any kind. |
+
+---
+
+## H. Recommended next steps, in order
+
+1. **Run the `Edge1Pos`/`Edge1End` diagnostic in [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-blocking) against QA.** ~15 minutes, and
+   it decides whether the turn remap needs another fix before it can possibly work. Nothing
+   else should happen first.
+2. **Fix script 05** — read `Edge1End` from source, re-derive against the matched new edge,
+   count partial-resolution failures as skips ([A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-blocking)–[A3](#a3-partially-resolved-turns-are-written-as-valid-blocking-silent)).
+3. **Fix the environment mismatch ([B](#b-environment-config-drift))** before running `run_full_network_rebuild.py` again.
+   Point both scripts at QA, and add the assert.
+4. **Re-run the cycle in QA and actually verify the result:** `BuildErrors_<guid>.txt`
+   contains zero turn errors *and* the GUID matches this run; Sources tab shows a nonzero
+   Turns count; a Route solve through a known prohibited turn is refused. Only then is
+   Phase 5a complete. Repeat in Dev.
+5. **Re-apply Dev's SQL grants** (still pending since 07-14) using the procedure in
+   `network_dataset_sql_permissions.md`.
+6. **Decide the OID-stability question ([D](#d-turn-references-do-not-survive-an-lrs-refresh-structural))** — it changes what `04` and
+   `LRS_updates.py` have to do, so it gates prod cutover.
+7. **Fix `LRS_updates.py` ([C](#c-lrs_updatespy-will-fail-on-first-prod-run))** before deploying to prod.
+8. **Finish the remaining Phase 5 solve tests** (route, one-way, address ranges).
+9. **Chase the four open data-scope questions** with Robbie/Mel — transit access roads,
+   water access roads, George's Island, emergency turnarounds. Open since 06-29; the ETA
+   answer changes what the turn FC should contain, so it is upstream of any final turn
+   rebuild.
+10. **Doc cleanup ([G](#g-documentation-drift)), script 02's evaluator fix ([E](#e-script-02s-evaluator-cross-check-has-never-actually-run)), template units ([F](#f-template-hygiene)).**
+
+---
+
+## I. Knowledge gaps — what could not be determined from the repo
+
+These are the things blocking a confident read of where the project actually stands. Most
+need one arcpy session against QA.
+
+1. **Esri's `Edge#Pos` / `Edge1End` semantics as they apply to this data.** The largest gap;
+   it determines whether the turn remap can work at all. Resolved by the [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-blocking) diagnostic.
+2. **Were the 2026-07-22 fixes ever run?** No evidence either way. `logs/` is gitignored and
+   runs write to a network share (`\\msfs203...\network_dataset\logs\`). Check for a log
+   file dated after 2026-07-22.
+3. **The actual current state of the Dev and QA turn FCs.** What are their `Edge1FCID`
+   values (`2`, or a real DSID)? What does the ND Properties Sources tab report for Turns?
+   What does the newest `BuildErrors_<guid>.txt` contain?
+4. **Does `Append` reassign `OBJECTID`s in this pipeline?** Confident it does — the D chain
+   depends on it. Confirmable in one pass: record a few `FDMID → OBJECTID` pairs, run
+   script 04, compare.
+5. **Has `TRNLRS_TRN_STREET`'s DSID changed** since the turn FCs were last written? If yes,
+   every `Edge{N}FCID` in them is already stale regardless of everything else.
+6. **Robbie's traffic turn notes.** Promised at the 06-29 QA session, never received per the
+   docs. The ETA (emergency turnaround) scope question is still unanswered and is upstream
+   of finalising the turn source.
+7. **Mel's hand-authored Cogswell ramp turns** — are they in the old `TRN_traffic_turn`
+   (and therefore carried through each remap), or authored directly against
+   `TRNLRS_traffic_turn` (and therefore destroyed by each swap)?
+8. **Prod topology and ownership.** Does `SDEADM.TRNLRS_network` exist in prod? Who owns
+   the cutover window, and what is the rollback if the new ND misroutes? The old
+   `TRN_street_network` is still live and untouched, which is the de facto rollback — worth
+   confirming it stays that way through cutover.
+9. **Consumers of `TRNLRS_TRN_STREET_VW`.** The impact assessment for eliminating the
+   two-copy arrangement (open since 06-26) has never been done, and it gates the cleanest
+   long-term fix for both [C](#c-lrs_updatespy-will-fail-on-first-prod-run) and [D](#d-turn-references-do-not-survive-an-lrs-refresh-structural).
+10. **No regression coverage.** There is no test that would have caught any finding in this
+    review. A small harness that, post-build, asserts (a) turn count > 0 in ND properties,
+    (b) zero turn errors in the build errors file, and (c) a known prohibited turn is
+    actually refused by a Route solve would have caught the 07-07, 07-14 and 07-21
+    regressions at the point they happened rather than weeks later.
