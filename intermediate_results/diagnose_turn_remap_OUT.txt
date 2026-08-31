@@ -1,0 +1,111 @@
+SDE connection: E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde
+Old turn FC:    E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn
+Old edge FC:    E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde\SDEADM.TRN_streets_routes\SDEADM.TRN_street
+New edge FC:    E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde\SDEADM.TRNLRS\SDEADM.TRNLRS_TRN_STREET
+
+==============================================================================
+SECTION 1 -- Old Turn Feature Class
+==============================================================================
+Record count: 1238
+Edge*FID fields found:  []
+Edge*Pos fields found:  []
+Edge*FCID fields found: []
+WARNING: Edge1FID field not found. Cannot proceed with remap diagnosis.
+
+==============================================================================
+SECTION 2 -- OID Resolution Against Old Edge FC
+==============================================================================
+Old edge FC feature count: 19324
+Distinct Edge1FID values referenced by turns: 1155
+Resolved against old edge FC:   1133
+NOT resolved against old edge FC: 22
+Sample of unresolved Edge1FID values (up to 10):
+  - 2486
+  - 5339
+  - 6883
+  - 12441
+  - 14342
+  - 14869
+  - 14873
+  - 14877
+  - 15239
+  - 15348
+These OIDs do not exist in the old edge FC. Possible causes:
+  - The old edge FC has been edited/compressed since turns were created
+  - Turns reference a different or stale edge source
+
+==============================================================================
+SECTION 3 -- Spatial Proximity (Old Junction Point vs Nearest New Endpoint)
+==============================================================================
+Sampled 25 turns with resolvable Edge1FID.
+Loading new edge geometries (this may take a moment)...
+Loaded 18575 new edge geometries.
+
+  Distance to nearest new-edge endpoint:
+    min    = 0.0001 m
+    max    = 0.0003 m
+    mean   = 0.0002 m
+    median = 0.0003 m
+
+Histogram (count of sampled turns by distance bucket):
+     <= 0.1m: 25
+
+FINDING: at least one sampled junction point is within 0.5m of a new
+edge endpoint. Tolerance alone may not explain a zero-record result --
+check Section 1 and Section 2 for a non-spatial cause (e.g. no usable
+Edge1FID values, or a bug in the remap script's field indexing).
+
+==============================================================================
+SECTION 4 -- Spatial Reference Comparison
+==============================================================================
+Old turn FC:
+  Name:          NAD_1983_CSRS_2010_MTM_5_Nova_Scotia
+  Factory code:  0
+  Linear unit:   Meter
+  XY tolerance:  0.001
+  XY resolution: 0.0001
+
+Old edge FC:
+  Name:          NAD_1983_CSRS_2010_MTM_5_Nova_Scotia
+  Factory code:  0
+  Linear unit:   Meter
+  XY tolerance:  0.001
+  XY resolution: 0.0001
+
+New edge FC:
+  Name:          NAD_1983_CSRS_2010_MTM_5_Nova_Scotia
+  Factory code:  0
+  Linear unit:   Meter
+  XY tolerance:  0.001
+  XY resolution: 0.0001
+
+All three feature classes share the same spatial reference. This rules
+out projection mismatch as a cause of the zero-match result.
+
+==============================================================================
+SECTION 5 -- New Edge FC ObjectID Stability Reference
+==============================================================================
+New edge FC record count: 18575
+New edge FC ObjectID range: 1 to 18575
+
+This range and count are a baseline snapshot for the current state of
+TRNLRS_TRN_STREET. To test whether ObjectIDs are stable across a
+truncate/append refresh cycle:
+  1. Record these values now.
+  2. Run the next LRS refresh (which truncates and reloads this FC).
+  3. Run this script again and compare the new min/max/count against
+     these values.
+
+If the ObjectID range resets (e.g. min goes back to 1) or the count
+changes in a way inconsistent with the actual data change, ObjectIDs
+are NOT stable across refreshes. In that case, any turn remap keyed on
+ObjectID will break on every refresh, not just on resegmentation events,
+and a stable key (such as ASSETID) should be used instead.
+
+==============================================================================
+DIAGNOSTIC COMPLETE
+==============================================================================
+No data was modified. Review the findings above to determine the fix
+for 05_rebuild_traffic_turns.py.
+
+Process finished with exit code 0
