@@ -182,6 +182,56 @@ below 95%, or the total skip rate is above ~10%.
 
 ---
 
+## Phase 1.5 — A newly surfaced issue: duplicate / degenerate turn signatures
+
+**Added 2026-08-31, after locally-held diagnostic work (`scripts/08_find_duplicate_siblings.py`,
+`09_classify_origin_duplicate.py`, `classify_unresolved_turns.py`, and
+`intermediate_results/*.csv`) was uploaded to the repo.** This predates and is independent of
+the A1-A4 rewrite -- it's a different failure mode that only shows up once turns actually
+start resolving.
+
+**What was found (against an earlier, hand-patched build):** of 1,209 turns, 1,021 built,
+165 failed with `Turn element already exists`, and 23 failed with `Cannot find at junction`.
+`intermediate_results/turn_review_for_mel.csv` and `intersection_context_check_v2.csv` show
+the 165 are pairs of old turn records -- both describing a U-turn on the same street, at a
+real intersection, with slightly different measured positions. `duplicate_turn_siblings.csv`
+shows why they collide after remap: **both old edges resolve to the same new edge**, because
+LRS resegmentation merged the two old street segments the original turn spanned into one new
+edge. A turn "from segment A onto segment B" becomes, in the new topology, "from an edge onto
+itself" -- indistinguishable from its sibling. `degenerate_turns_disambiguated.csv` shows an
+attempt to decide, per pair, whether to keep one canonical record or drop both -- every row is
+still `UNRESOLVED`. This is a domain decision (is the restriction "no through movement across
+the old segment break", now meaningless, or "no U-turn here", still meaningful?), not
+something either script decided on its own.
+
+**`scripts/verify_turn_rebuild.py` now has a tenth check** for exactly this: it groups turns
+by `(Edge{N}FID..., Edge1End)` and reports any signature shared by more than one record,
+flagging the edge-onto-itself subset separately. It's a **warning**, not a failure -- unlike
+checks 1-9, a collision here isn't necessarily a bug in the remap, it may be correct output
+colliding with another correct output. Read it, but it doesn't block a swap by itself the way
+a check 1-9 failure does.
+
+**What this means for today's run:** expect check 10 to report a comparable batch of
+collisions -- the *cause* (resegmentation merging old segments) is a property of the data, not
+of which script produced the remap, so the rewritten script 05 should rediscover the same
+structural pattern (though the exact OIDs may differ, since the 165/23 split above was
+measured against a differently-patched turn FC, not today's rewrite). If it does: the swap can
+still proceed for validating that A1-A4 actually fixed the OID/FCID/Edge1End-level failures
+(the thing today's test is for), since BuildNetwork will simply keep one turn per collision
+and reject the rest -- it will not corrupt anything or block the build. But **the final turn
+count will be lower than 1,209**, and finalizing the turn source (vs. just confirming the
+rewrite works) still needs the dedup decision made first. Do not treat a comparable
+duplicate/degenerate count as a new regression -- it is the same open question this project
+already raised with Mel, now caught earlier than a `BuildErrors_<guid>.txt` file.
+
+**The separate `Cannot find at junction` failures (23, in the earlier run)** are not yet
+understood -- `classify_unresolved_turns.py`'s docstring references `junctions.md` and a
+`06_check_junction_alignment.py` script, neither of which is in the repo. If you have them,
+they're worth adding; if not, this is a still-open question, distinct from the duplicate
+pattern above.
+
+---
+
 ## Phase 2 — Verify the staging FC
 
 ### 2.1 Run the verifier
@@ -346,10 +396,13 @@ Enough to assess it without a second round trip. In rough priority order:
    that QA's turns are broken today.
 3. **The `BuildErrors_<guid>.txt` file**, plus the log line naming it so I can confirm the
    GUID matches the run. If it's huge, the line counts are enough:
-   `find /c "Cannot find edge element" BuildErrors_*.txt` and
+   `find /c "Cannot find edge element" BuildErrors_*.txt`,
+   `find /c "Turn element already exists" BuildErrors_*.txt`,
+   `find /c "Cannot find at junction" BuildErrors_*.txt`, and
    `find /c "Standalone user-defined" BuildErrors_*.txt`.
 4. **The Network Dataset Properties → Sources tab** — screenshot or the counts typed out.
-   Specifically the Turns number.
+   Specifically the Turns number, and how far short of the verifier's written count it is —
+   that gap is expected to be roughly the check 10 duplicate count (see Phase 1.5).
 
 **Also useful**
 

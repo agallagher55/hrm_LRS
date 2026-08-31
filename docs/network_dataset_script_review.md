@@ -33,6 +33,12 @@ G are still open.
    The migration plan states turns don't need rebuilding on each LRS refresh. They do —
    turn references are edge `OBJECTID`s, and the refresh reassigns them. See
    [D](#d-turn-references-do-not-survive-an-lrs-refresh-structural).
+6. **Duplicate/degenerate turn signatures are a separate, still-open problem** —
+   independent of A1-A4, discovered via locally-held diagnostic scripts uploaded 2026-08-31.
+   LRS resegmentation merges some old street segments into one new edge, turning a legacy
+   "segment A onto segment B" restriction into a self-collision after remap. No fix exists;
+   `verify_turn_rebuild.py` now surfaces it as a warning. See
+   [A0](#a0-duplicate--degenerate-turn-signatures----a-separate-unresolved-problem-found-2026-08-31).
 5. **`LRS_updates.py` will fail on its first prod run** with `ERROR 001395` — the
    `TruncateTable` fix that landed in script 04 was never ported to it. See [C](#c-lrs_updatespy-will-fail-on-first-prod-run).
 
@@ -56,6 +62,48 @@ G are still open.
 **Workstream cadence:** the last network-dataset commit was 2026-07-22. The six weeks since
 were spent on `TRNLRS_TRN_Safe_School_Streets_VW`. Whoever picks this back up is resuming
 cold, into a state where the docs and the code disagree about whether the last step worked.
+
+---
+
+## A0. Duplicate / degenerate turn signatures -- a separate, unresolved problem (found 2026-08-31)
+
+Discovered via diagnostic scripts (`scripts/08_find_duplicate_siblings.py`,
+`09_classify_origin_duplicate.py`, `classify_unresolved_turns.py`) and their outputs
+(`intermediate_results/*.csv`) that predate A1-A4 and were uploaded to the repo separately.
+This is **not** the same bug as A1-A4 -- it only shows up once the OID/FCID/Edge1End-level
+failures are fixed and turns actually start resolving, which is exactly why it wasn't visible
+earlier: every prior build had turns failing 100% for a more fundamental reason.
+
+**Evidence.** Against an earlier, hand-patched build (`scripts/patch.py`, which recomputed
+`Edge1End` in place using the same `Edge1Pos >= 0.5` heuristic A1 identifies as unsound), 1,209
+turns produced 1,021 successful builds, 165 `Turn element already exists` failures, and 23
+`Cannot find at junction` failures. `turn_review_for_mel.csv` / `intersection_context_check_v2.csv`
+show the 165 are pairs of legacy turn records describing what looks like the same U-turn
+restriction at a real intersection, each with slightly different measured positions.
+`duplicate_turn_siblings.csv` shows the mechanism: both old edges in each pair resolve to the
+**same** new edge, because LRS resegmentation merged the two old segments the turn originally
+spanned into one new edge -- so "from segment A onto segment B" becomes "from an edge onto
+itself" in the new topology, indistinguishable from its sibling. `degenerate_turns_disambiguated.csv`
+records an attempt to decide, per pair, whether to keep one canonical record or drop both --
+every row is `UNRESOLVED`. This is a domain question (does the restriction mean "no through
+movement across the old segment break", now meaningless, or "no U-turn here", still
+meaningful?), not something a script should decide unilaterally.
+
+**Why this affects today's test regardless of A1-A4:** the cause (resegmentation merging
+segments) is a property of the *data*, not of which script produced the remap. The rewritten
+script 05 should rediscover a comparable pattern -- expect check 10 in `verify_turn_rebuild.py`
+(added the same day this was found) to report it before the swap, rather than it turning up
+again in a `BuildErrors_<guid>.txt` file after the fact.
+
+**Fix status: not fixed, and not something A1-A4 should have fixed.** `05_rebuild_traffic_turns.py`
+still has no deduplication step -- adding one requires the domain decision above, which remains
+open. `verify_turn_rebuild.py`'s check 10 surfaces the count and the edge-onto-itself subset as
+a warning (not a failure, since a collision may be entirely correct output that legitimately
+collides), pointing at the CSVs above for context, but does not decide anything on its own.
+
+**Still open, separately:** the 23 `Cannot find at junction` failures. `classify_unresolved_turns.py`'s
+docstring references `junctions.md` and `06_check_junction_alignment.py`, neither of which is
+in the repo -- unclear whether that investigation reached a conclusion.
 
 ---
 
