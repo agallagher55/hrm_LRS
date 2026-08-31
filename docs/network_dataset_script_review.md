@@ -255,6 +255,30 @@ at startup, so every run carries its own evidence.
 copied from the old record, since the old value refers to a different feature and, under
 endpoint connectivity, `0.5` is the canonical position of the single element.
 
+**Follow-up bug found and fixed (2026-08-31, same day).** Run against QA, this integrity
+check came back at 70.9% (846/1194) — well below the 95% gate. Diagnosis
+(`scripts/diagnose_edge1end_disagreement.py`) found 345 of the 348 disagreements shared one
+exact signature: Edge1 and Edge2 tied at 0.0m on **both** possible endpoint pairings
+simultaneously. That happens when two edges are digitised between the same pair of
+cross-street nodes — e.g. the two carriageways of a divided road — and it is a genuine
+structural ambiguity: both ends of Edge1 touch Edge2 equally, so no distance-based tie-break
+can tell them apart. The old fixed "closest candidate" rule resolved every such tie the same
+way regardless of which end a given turn was actually about, and every sampled case showed
+that fixed choice disagreeing with the source's own (correct) value.
+
+The turn record's own `SHAPE` is not ambiguous, though — it is a point placed by whoever
+authored the turn at the real physical junction, already being read into the cursor to copy
+into the output but never used for junction detection. `shared_endpoint()` now takes that
+point as a `hint_pt`: with a single candidate the hint is irrelevant; with candidates tied,
+the one closest to the turn's own recorded point wins. Verified against the exact reported
+pattern (a synthetic couplet reproducing turn 29/30's geometry) — resolves correctly in both
+directions. Not extended to junctions beyond the first (3+ edge turns), since Esri's
+multipoint-per-junction convention for those hasn't been confirmed against real data.
+
+**Not yet re-run against QA** — the fix is committed but the integrity-check percentage this
+produces on the real data is still unconfirmed. Expect it well above 95% given 345 of 348
+disagreements matched this exact signature, but re-run before trusting that.
+
 ### A2. Junction identification is indirect and fragile (FIXED 2026-08-31)
 
 `find_new_oid` locates the turn junction by picking one endpoint of the *old* edge based on

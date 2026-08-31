@@ -40,6 +40,29 @@ against the junction this script derives on the *old* Edge1, and the agreement
 rate is logged. A low agreement rate means the geometric junction detection is
 disagreeing with the authoritative source value and the run should not be trusted.
 
+Divided-road tie-break (fixed 2026-08-31)
+------------------------------------------
+Run against QA, the Edge1End integrity check above came back at 70.9% (846/1194)
+-- well below the swap threshold. Diagnosis (scripts/diagnose_edge1end_disagreement.py)
+found 345 of the 348 disagreements shared one exact signature: Edge1 and Edge2 tied
+at 0.0m on BOTH possible endpoint pairings simultaneously (Edge1.first~Edge2.last
+AND Edge1.last~Edge2.first). That happens when two edges are digitised between the
+same pair of cross-street nodes -- e.g. the two carriageways of a divided road --
+and it is a genuine structural ambiguity, not noise: both ends of Edge1 touch Edge2
+equally, so no distance-based tie-break can tell them apart. A fixed
+closest-candidate rule resolves every such tie the same way regardless of which end
+this specific turn is actually about, and every sampled case showed that fixed
+choice disagreeing with the source's own (correct) Edge1End.
+
+The turn record's own SHAPE is not ambiguous, though -- it is a point placed by
+whoever authored the turn at the real physical junction. shared_endpoint() now
+takes that point as a tie-break hint for the Edge1/Edge2 junction specifically:
+with a single candidate the hint is irrelevant, but when candidates tie, the one
+closest to the turn's own recorded point wins. Not extended to junctions beyond
+the first (3+ edge turns) -- Esri's exact multipoint-per-junction geometry
+convention for those has not been confirmed against real data, so those junctions
+keep the prior (unhinted) behaviour rather than guess at an unverified assumption.
+
 Usage
 -----
 1. Set configuration variables below.
@@ -190,27 +213,48 @@ def build_geometry_lookup(edge_fc):
     return geoms
 
 
-def shared_endpoint(geom_a, geom_b, tolerance):
+def shared_endpoint(geom_a, geom_b, tolerance, hint_pt=None):
     """
     Return the endpoint shared by two polylines -- the turn junction between two
     consecutive edges of a turn -- or None if they do not meet end to end.
 
-    Takes the closest coincident pair when more than one qualifies (two edges
-    forming a loop can share both endpoints).
+    Two edges can share BOTH endpoints -- e.g. the two carriageways of a divided
+    road, each digitised as its own line between the same pair of cross-street
+    nodes. When that happens, a plain closest-candidate tie-break has no
+    geometric basis to prefer one shared endpoint over the other, and resolves
+    every such tie the same way regardless of which end a given turn is
+    actually about. Confirmed 2026-08-31 against real QA data: this exact
+    signature (both pairings tied at 0.0m) accounted for 345 of 348 Edge1End
+    integrity-check disagreements, all resolving to the same wrong answer.
+
+    hint_pt, when given, is the turn's OWN recorded junction point -- placed by
+    whoever authored the turn at the real physical location, so it carries no
+    such ambiguity. With a single candidate it is irrelevant; with more than
+    one tied within tolerance, the candidate closest to hint_pt wins. With no
+    hint, falls back to the closest candidate exactly as before (first
+    encountered on a tie, via Python's stable min()).
     """
     if geom_a is None or geom_b is None:
         return None
 
-    best_pt = None
-    best_dist = None
+    candidates = []
     for pt_a in (geom_a.firstPoint, geom_a.lastPoint):
         for pt_b in (geom_b.firstPoint, geom_b.lastPoint):
             if pt_a is None or pt_b is None:
                 continue
             dist = math.hypot(pt_a.X - pt_b.X, pt_a.Y - pt_b.Y)
-            if dist <= tolerance and (best_dist is None or dist < best_dist):
-                best_pt, best_dist = pt_a, dist
-    return best_pt
+            if dist <= tolerance:
+                candidates.append((pt_a, dist))
+
+    if not candidates:
+        return None
+    if len(candidates) == 1 or hint_pt is None:
+        return min(candidates, key=lambda c: c[1])[0]
+
+    return min(
+        candidates,
+        key=lambda c: math.hypot(c[0].X - hint_pt.X, c[0].Y - hint_pt.Y),
+    )[0]
 
 
 def tangent_at(geom, junction_pt, tolerance):
@@ -565,9 +609,19 @@ def main():
                 skips["missing_old_geometry"].append(turn_oid)
                 continue
 
-            # Junction k is where the turn crosses from edge k to edge k+1.
+            # Junction k is where the turn crosses from edge k to edge k+1. The
+            # turn's own recorded point (shape) breaks ties for the Edge1/Edge2
+            # junction specifically -- see shared_endpoint's docstring and the
+            # "Divided-road tie-break" module note above. Not extended to
+            # junctions beyond the first: Esri's multipoint-per-junction
+            # convention for 3+ edge turns hasn't been confirmed against real
+            # data, so those keep the prior (unhinted) behaviour.
+            edge1_hint = shape.firstPoint if shape is not None else None
             junctions = [
-                shared_endpoint(slot_geoms[k], slot_geoms[k + 1], SNAP_TOLERANCE)
+                shared_endpoint(
+                    slot_geoms[k], slot_geoms[k + 1], SNAP_TOLERANCE,
+                    hint_pt=edge1_hint if k == 0 else None,
+                )
                 for k in range(len(slot_geoms) - 1)
             ]
             if any(pt is None for pt in junctions):
