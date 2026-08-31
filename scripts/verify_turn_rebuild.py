@@ -31,8 +31,23 @@ Checks
     real path through a real intersection.
 9.  Edge1End agrees with the geometry: "Y" iff the junction with Edge2 is at
     Edge1's lastPoint, "N" iff at its firstPoint.
+10. No two records resolve to the identical (Edge{N}FID..., Edge1End) signature.
+    A collision here is what BuildNetwork itself rejects as "Turn element
+    already exists" -- and it is a DIFFERENT problem from checks 1-9: it means
+    two distinct source turn records now describe the same physical maneuver
+    in the new network, most often because LRS resegmentation merged two old
+    street segments into a single new edge (a turn "from segment A onto
+    segment B" becomes "from an edge onto itself"). Reported as a warning, not
+    a failure -- prior investigation (intermediate_results/turn_review_for_mel.csv,
+    intersection_context_check_v2.csv) found this pattern at real intersections
+    and consistent with legacy near-duplicate U-turn records, not a remap bug.
+    Whether to keep one record per collision or drop both is an unresolved
+    domain decision (intermediate_results/degenerate_turns_disambiguated.csv is
+    all UNRESOLVED) -- this check surfaces the current count, it does not decide.
 
 Checks 8 and 9 are the ones that catch a plausible-looking but wrong remap.
+Check 10 catches a different failure mode entirely: correct remaps that
+collide with each other post-resegmentation.
 
 Run from ArcGIS Pro Python environment:
   > python scripts/verify_turn_rebuild.py
@@ -194,6 +209,13 @@ def main():
     bad_edge1end = set()
     no_junction = set()
 
+    # Check 10: signature = ordered Edge{N}FID per populated slot, plus Edge1End
+    # (the only per-slot End field Esri's schema provides). Under endpoint
+    # connectivity Edge{N}Pos carries no discriminating information (it is
+    # written as the constant 0.5 by 05_rebuild_traffic_turns.py), so it is
+    # deliberately excluded here -- including it would hide real collisions.
+    by_signature = {}
+
     with arcpy.da.SearchCursor(TURN_FC, fields) as cur:
         for row in cur:
             total += 1
@@ -227,6 +249,10 @@ def main():
             if len(populated) < 2:
                 too_few_edges.add(oid)
                 continue
+
+            fids_all = [row[slot_idx[i]["FID"]] for i in populated]
+            sig = (tuple(fids_all), row[idx["edge1end"]] if has_edge1end else None)
+            by_signature.setdefault(sig, []).append(oid)
 
             # -- connectivity of consecutive referenced edges -----------------
             fids = [row[slot_idx[i]["FID"]] for i in populated]
@@ -363,6 +389,33 @@ def main():
             f"{len(no_junction)} records where Edge1/Edge2 touch but not at a clean endpoint",
             no_junction,
         )
+
+    duplicate_groups = {sig: oids for sig, oids in by_signature.items() if len(oids) > 1}
+    if duplicate_groups:
+        duplicate_oids = {oid for oids in duplicate_groups.values() for oid in oids}
+        degenerate_groups = {
+            sig: oids for sig, oids in duplicate_groups.items()
+            if len(set(sig[0])) < len(sig[0])   # a repeated FID within one turn's own sequence
+        }
+        logger.info(
+            f"  {len(duplicate_groups)} duplicate signature group(s), "
+            f"{len(duplicate_oids)} record(s) involved "
+            f"({len(degenerate_groups)} group(s) are edge-onto-itself / degenerate)"
+        )
+        for sig, oids in sorted(duplicate_groups.items(), key=lambda kv: -len(kv[1]))[:SAMPLE_SIZE]:
+            logger.info(f"    signature {sig}: OIDs {sorted(oids)}")
+        logger.debug(f"  full duplicate signature map: {duplicate_groups}")
+        results.warn(
+            "10. no duplicate turn signatures",
+            f"{len(duplicate_groups)} signature(s) shared by {len(duplicate_oids)} records "
+            "-- BuildNetwork will keep one per group and reject the rest as 'Turn element "
+            "already exists'. See intermediate_results/turn_review_for_mel.csv and "
+            "degenerate_turns_disambiguated.csv for the prior (unresolved) investigation "
+            "into whether these should be deduplicated before the swap.",
+            duplicate_oids,
+        )
+    else:
+        results.ok("10. no duplicate turn signatures")
 
     logger.info("=" * 60)
     if results.failed:
