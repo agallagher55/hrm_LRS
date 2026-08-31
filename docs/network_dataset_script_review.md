@@ -463,6 +463,9 @@ now actively mislead:
 3. ~~Fix the environment mismatch ([B](#b-environment-config-drift-fixed-2026-08-31)).~~ **Done 2026-08-31** — both
    scripts on QA, orchestrator asserts.
 4. **Run the cycle in QA and actually verify the result.** This is now the top of the list.
+   Step-by-step procedure and the outputs needed to assess it:
+   [`turn_rebuild_qa_test_runbook.md`](turn_rebuild_qa_test_runbook.md).
+   `scripts/verify_turn_rebuild.py` does checks (a)–(c) below mechanically.
    Check, in order: (a) the `Edge1Pos`/`Edge1End` distribution lines in the log; (b) the
    Edge1End agreement rate — below 95% the run is not trustworthy and the script says so;
    (c) the per-reason skip breakdown, which will read higher than the old 2.3% because it is
