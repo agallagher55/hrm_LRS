@@ -91,40 +91,34 @@ stop and re-think rather than swapping anything.
 
 Then set `TURN_FC` back to the staging path for the rest of the run.
 
-### 0.6 Run the junction alignment check (new, read-only)
+### 0.6 Junction alignment check -- DONE (2026-08-31), result: no transform bug, mostly grade separation
 
-`scripts/06_check_junction_alignment.py` (uploaded 2026-08-31) compares `TRNLRS_TRN_STREET`
-edge endpoints against `SDEADM.INT_RouteOnRoute` (independently generated from `LRSN_Route`
-geometry) at every active route intersection. Three hand-picked intersections were already
-found offset "in a similar direction and magnitude" -- the signature of a systematic
-transform issue, not noise. This has never been run city-wide. Run it now, before the turn
-work, since its result changes how to read today's skip counts:
+`scripts/06_check_junction_alignment.py` has already been run against QA. Result: 249 active
+route intersections have no aligned edge endpoint (221 `NO_MATCH` within the 10m search
+radius, 28 matched but offset 0.03m-10m). The offset vectors point in every direction with no
+shared sign or ratio -- this rules out the systematic-transform hypothesis the script was
+written to test. Both `NO_MATCH` and the largest offsets are dominated by highway
+ramps/interchanges (`ALM-A RAMP`, `HIGHWAY 102 ... OFF RAMP`, etc.) -- consistent with this
+network's already-documented lack of elevation modelling: `INT_RouteOnRoute` flags
+grade-separated route crossings as intersections with no awareness that the streets never
+meet at ground level, so `TRNLRS_TRN_STREET` correctly has no edge endpoint there. Full
+analysis: `docs/network_dataset_script_review.md` section A0b.
 
-```
-python 06_check_junction_alignment.py
-```
+**A handful of plain surface-street pairs remain unexplained** -- `HEMLOCK DR`/`HIGH TIMBER
+DR` (8.7m), `WRIGHT AVE`/`COUNTRYVIEW DR` (9.36m), `SKREIA RD`/`SAILVIEW LANE` (6.26m),
+`MASSACHUSETTS AVE`/`LADY HAMMOND RD` (7.44m) -- no grade-separation excuse, worth a manual
+look in Pro before or after today's turn work, not urgently blocking it.
 
-Read-only against source data; writes two new FCs (`TRNLRS_junction_offset_points`,
-`TRNLRS_junction_offset_lines`) into `SDEADM.TRNLRS_network`. No lock or swap risk. Takes the
-summary at the end of the log:
+**Still worth doing, not yet done:** confirm the three intersections that originally motivated
+this script (Blowers/Barrington, Barrington/Salter, Upper Water/Hollis) directly by name --
+none of them turned up in the output, so either they came in aligned or are buried in the
+~200 unprinted `NO_MATCH` rows.
 
-```
-Aligned (<= 0.01m)         : ...
-Misaligned                 : ...
-No edge endpoint within radius: ...
-Mean offset vector (dx, dy)   : (..., ...)
-Std dev of offset (dx, dy)    : (..., ...)
-```
-
-- **Std dev small relative to the mean** → confirms a systematic offset. Send me this output —
-  it likely explains the 23 `Cannot find at junction` failures from the earlier build (see
-  Phase 1.5) and possibly some of today's `unresolved_edge`/`no_shared_endpoint` skips from
-  script 05, if any intersection's offset exceeds `SNAP_TOLERANCE` (0.5m).
-- **Offsets scattered with no consistent direction** → less concerning, likely isolated bad
-  measures rather than a systemic bug; still worth noting the `OVER_5M`/`NO_MATCH` counts.
-
-This does not block anything below -- run it, capture the summary, and move on to Phase 1
-regardless of what it shows. It's context for interpreting today's numbers, not a gate.
+**No action needed before Phase 1** -- this was a context-gathering step, not a gate, and it's
+already answered: expect a small number of `unresolved_edge`/`no_shared_endpoint` skips in
+today's remap near interchanges (correctly unfixable by widening `SNAP_TOLERANCE`, since the
+streets genuinely don't meet there), separate from the plain-street anomalies above which are
+a real, distinct thing to track down.
 
 ---
 
@@ -259,11 +253,12 @@ rewrite works) still needs the dedup decision made first. Do not treat a compara
 duplicate/degenerate count as a new regression -- it is the same open question this project
 already raised with Mel, now caught earlier than a `BuildErrors_<guid>.txt` file.
 
-**The separate `Cannot find at junction` failures (23, in the earlier run)** are not yet
-understood -- `classify_unresolved_turns.py`'s docstring references `junctions.md` and a
-`06_check_junction_alignment.py` script, neither of which is in the repo. If you have them,
-they're worth adding; if not, this is a still-open question, distinct from the duplicate
-pattern above.
+**The separate `Cannot find at junction` failures (23, in the earlier run)** are now largely
+explained: see Phase 0.6 above. `06_check_junction_alignment.py` (since uploaded and run) shows
+most of the city's edge-endpoint/route-intersection mismatches are highway interchanges
+without a street-level junction, consistent with this network's lack of elevation modelling --
+not a bug to fix. `junctions.md` itself is still missing, and a handful of plain-street
+anomalies from that run remain genuinely unexplained (Phase 0.6).
 
 ---
 
@@ -426,8 +421,6 @@ Enough to assess it without a second round trip. In rough priority order:
 
 1. **The full `05_rebuild_traffic_turns` log file** (`logs/<timestamp>_05_*.log`). Not
    excerpts — the DEBUG lines carry the per-reason OID lists and the Edge1End disagreements.
-1b. **The `06_check_junction_alignment` log file** (Phase 0.6) — specifically the band counts
-   and the mean/std-dev offset vector.
 2. **Both `verify_turn_rebuild` runs** — the Phase 0.5 baseline against the current live FC,
    and the Phase 2 run against staging. The baseline is what confirms or refutes the premise
    that QA's turns are broken today.
@@ -450,6 +443,11 @@ Enough to assess it without a second round trip. In rough priority order:
 6. **The turn you tested** and what happened both ways — which intersection, which two
    streets, restriction on vs. off.
 7. **The `03_create_network_dataset` log**, if anything looked odd during the build.
+8. **Junction alignment follow-ups (Phase 0.6), if you get to them**: whether
+   Blowers/Barrington, Barrington/Salter, and Upper Water/Hollis appear anywhere in the full
+   `TRNLRS_junction_offset_points` output by name (a direct query, not yet run), and the
+   interchange-vs-plain-street classification across all 249 rows rather than a 20-row sample.
+   Not urgent — doesn't block anything in Phases 1-4.
 
 **If something fails**
 
