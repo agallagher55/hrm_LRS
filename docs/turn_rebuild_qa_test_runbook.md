@@ -283,9 +283,19 @@ With `TURN_FC` pointing at `..._staging`:
 python verify_turn_rebuild.py
 ```
 
-Nine checks, all mechanical, none requiring a build. It exits `1` on any failure. Checks
-8 (consecutive edges actually meet) and 9 (`Edge1End` matches geometry) are the ones that
-catch a remap that looks plausible but is wrong.
+Ten checks, all mechanical, none requiring a build. It exits `1` on any failure (check 10 is a
+warning, not a failure). Checks 8 (consecutive edges actually meet) and 9 (`Edge1End` matches
+geometry) are the ones that catch a remap that looks plausible but is wrong.
+
+**Update 2026-08-31, same day:** the first run against the real staging FC failed check 9 on
+346 of 1,189 records — not because the remap was wrong (script 05's own integrity check had
+just confirmed 99.7% agreement), but because `verify_turn_rebuild.py`'s `junction_between()`
+had the identical divided-road ambiguity as `shared_endpoint()` in script 05, never patched in
+here when A1 was fixed. Same cause: two edges sharing both endpoints (a divided road), no hint
+to break the tie. Fixed the same way — `SHAPE@` added to the cursor, `junction_between()` now
+takes a `hint_pt`. **Not yet re-run against QA** — if you still see ~346 check-9 failures after
+pulling the latest `verify_turn_rebuild.py`, you're running a stale copy; re-pull before
+re-running.
 
 **Gate: this must exit 0 before you swap anything.**
 
