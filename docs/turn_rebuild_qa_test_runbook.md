@@ -91,6 +91,41 @@ stop and re-think rather than swapping anything.
 
 Then set `TURN_FC` back to the staging path for the rest of the run.
 
+### 0.6 Run the junction alignment check (new, read-only)
+
+`scripts/06_check_junction_alignment.py` (uploaded 2026-08-31) compares `TRNLRS_TRN_STREET`
+edge endpoints against `SDEADM.INT_RouteOnRoute` (independently generated from `LRSN_Route`
+geometry) at every active route intersection. Three hand-picked intersections were already
+found offset "in a similar direction and magnitude" -- the signature of a systematic
+transform issue, not noise. This has never been run city-wide. Run it now, before the turn
+work, since its result changes how to read today's skip counts:
+
+```
+python 06_check_junction_alignment.py
+```
+
+Read-only against source data; writes two new FCs (`TRNLRS_junction_offset_points`,
+`TRNLRS_junction_offset_lines`) into `SDEADM.TRNLRS_network`. No lock or swap risk. Takes the
+summary at the end of the log:
+
+```
+Aligned (<= 0.01m)         : ...
+Misaligned                 : ...
+No edge endpoint within radius: ...
+Mean offset vector (dx, dy)   : (..., ...)
+Std dev of offset (dx, dy)    : (..., ...)
+```
+
+- **Std dev small relative to the mean** → confirms a systematic offset. Send me this output —
+  it likely explains the 23 `Cannot find at junction` failures from the earlier build (see
+  Phase 1.5) and possibly some of today's `unresolved_edge`/`no_shared_endpoint` skips from
+  script 05, if any intersection's offset exceeds `SNAP_TOLERANCE` (0.5m).
+- **Offsets scattered with no consistent direction** → less concerning, likely isolated bad
+  measures rather than a systemic bug; still worth noting the `OVER_5M`/`NO_MATCH` counts.
+
+This does not block anything below -- run it, capture the summary, and move on to Phase 1
+regardless of what it shows. It's context for interpreting today's numbers, not a gate.
+
 ---
 
 ## Phase 1 — Remap (nothing is committed yet)
@@ -391,6 +426,8 @@ Enough to assess it without a second round trip. In rough priority order:
 
 1. **The full `05_rebuild_traffic_turns` log file** (`logs/<timestamp>_05_*.log`). Not
    excerpts — the DEBUG lines carry the per-reason OID lists and the Edge1End disagreements.
+1b. **The `06_check_junction_alignment` log file** (Phase 0.6) — specifically the band counts
+   and the mean/std-dev offset vector.
 2. **Both `verify_turn_rebuild` runs** — the Phase 0.5 baseline against the current live FC,
    and the Phase 2 run against staging. The baseline is what confirms or refutes the premise
    that QA's turns are broken today.

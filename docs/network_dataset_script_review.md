@@ -16,20 +16,27 @@ G are still open.
 
 ## TL;DR
 
-1. **The turn rebuild is almost certainly still broken in Dev and QA.** The status docs say
+1. **`TRNLRS_TRN_STREET` may be systematically offset from where routes actually cross** —
+   the biggest open item, and the likely root cause of several others below. Three hand-picked
+   intersections all showed the edge source shifted from the true crossing point "in a similar
+   direction and magnitude" — the signature of a transform bug in `OverlayEvents`, not random
+   noise. A city-wide diagnostic exists (`06_check_junction_alignment.py`, uploaded
+   2026-08-31) but has not been run yet. See
+   [A0b](#a0b-possible-systematic-geometry-offset-in-trnlrs_trn_street-found-2026-08-31-not-yet-run).
+2. **The turn rebuild is almost certainly still broken in Dev and QA.** The status docs say
    Phase 5a is ✅ complete as of 2026-07-14, but the code comments added on 2026-07-21/22
    record that *every* turn produced by script 05 on that same build failed to resolve, for
    two reasons (wrong `Edge#FCID`, unset `Edge1End`). Fixes for both landed in code on
    2026-07-22 and — as far as the repo shows — **have never been run**. No log, no doc
    update, no status change since. Treat Dev and QA turns as broken until re-verified.
-2. **One of those two fixes was incomplete — now fixed.** Script 05 synthesised `Edge1End`
+3. **One of those two fixes was incomplete — now fixed.** Script 05 synthesised `Edge1End`
    from `Edge1Pos` instead of reading the value on the source turn FC, and derived it from
    the *old* edge rather than the *new* one. See
    [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-fixed-2026-08-31).
-3. **`run_full_network_rebuild.py` was wired to two different environments — now fixed.**
+4. **`run_full_network_rebuild.py` was wired to two different environments — now fixed.**
    Script 05 was set to QA, script 03 to Dev. Both now point at QA and the orchestrator
    refuses to run if they diverge. See [B](#b-environment-config-drift-fixed-2026-08-31).
-4. **The documented rebuild cadence is wrong in a way that will break prod on day one.**
+5. **The documented rebuild cadence is wrong in a way that will break prod on day one.**
    The migration plan states turns don't need rebuilding on each LRS refresh. They do —
    turn references are edge `OBJECTID`s, and the refresh reassigns them. See
    [D](#d-turn-references-do-not-survive-an-lrs-refresh-structural).
@@ -39,7 +46,7 @@ G are still open.
    "segment A onto segment B" restriction into a self-collision after remap. No fix exists;
    `verify_turn_rebuild.py` now surfaces it as a warning. See
    [A0](#a0-duplicate--degenerate-turn-signatures----a-separate-unresolved-problem-found-2026-08-31).
-5. **`LRS_updates.py` will fail on its first prod run** with `ERROR 001395` — the
+7. **`LRS_updates.py` will fail on its first prod run** with `ERROR 001395` — the
    `TruncateTable` fix that landed in script 04 was never ported to it. See [C](#c-lrs_updatespy-will-fail-on-first-prod-run).
 
 ---
@@ -102,8 +109,60 @@ a warning (not a failure, since a collision may be entirely correct output that 
 collides), pointing at the CSVs above for context, but does not decide anything on its own.
 
 **Still open, separately:** the 23 `Cannot find at junction` failures. `classify_unresolved_turns.py`'s
-docstring references `junctions.md` and `06_check_junction_alignment.py`, neither of which is
-in the repo -- unclear whether that investigation reached a conclusion.
+docstring referenced `junctions.md` and `06_check_junction_alignment.py` -- the latter has
+since been uploaded (see [A0b](#a0b-possible-systematic-geometry-offset-in-trnlrs_trn_street-found-2026-08-31-not-yet-run)
+immediately below) and is a strong candidate explanation. `junctions.md` itself is still
+missing.
+
+---
+
+## A0b. Possible systematic geometry offset in `TRNLRS_TRN_STREET` (found 2026-08-31, not yet run)
+
+`scripts/06_check_junction_alignment.py`, uploaded 2026-08-31, is a read-only diagnostic that
+may explain both the 23 `Cannot find at junction` turn failures above and the long-standing
+"Standalone user-defined junction is detected" warnings previously written off in
+`network_traffic_turns.md` as an expected resegmentation artifact.
+
+**What it checks.** `TRNLRS_TRN_STREET` is reconstructed from LRS route measures via
+`OverlayEvents` (see `CLAUDE.md`'s pipeline diagram). `SDEADM.INT_RouteOnRoute` ("Route
+Intersection Class") is generated independently, directly from `LRSN_Route` geometry via
+`GenerateIntersections`. These two should agree on where routes cross. The script's own
+background note: *"Spot checks (Blowers/Barrington, Barrington/Salter, Upper Water/Hollis)
+found the edge source consistently offset from the route intersection point at real
+intersections, all in a similar direction and magnitude."* Three unrelated intersections
+sharing a consistent offset direction and magnitude is the signature of a **systematic
+transform or calibration bug** in the `OverlayEvents`-based reconstruction, not scattered
+digitizing noise. The script checks this city-wide: for every active route intersection, it
+finds the nearest `TRNLRS_TRN_STREET` edge endpoint via `GenerateNearTable`, computes the
+offset vector, bins it into severity bands, and reports the mean and standard deviation of
+the offset vector across the whole city -- a small std-dev relative to the mean is the
+confirming signal for "systematic," not "random."
+
+**Status: not yet run.** The docstring's three examples are anecdotal spot checks that
+motivated writing the script; no city-wide run output has been produced or uploaded (unlike
+`diagnose_turn_remap.py`, whose output was captured to
+`intermediate_results/diagnose_turn_remap_OUT.txt`). The actual scale of this problem --
+how many intersections, what magnitude, whether the offset is truly systematic -- is
+unknown until it's run.
+
+**Why this matters beyond turns.** If confirmed, this is not a turn-remap problem, it is a
+potential geometry-quality problem in the edge source itself, with several downstream
+implications already documented elsewhere in this project:
+- **The 23 `Cannot find at junction` turn failures** ([A0](#a0-duplicate--degenerate-turn-signatures----a-separate-unresolved-problem-found-2026-08-31)) -- if two routes' edges are
+  each pulled slightly differently by this offset, they may no longer meet exactly where a
+  turn expects them to.
+- **`unresolved_edge` and `no_shared_endpoint` skips** that `05_rebuild_traffic_turns.py`
+  reports -- if the offset at some intersections exceeds `SNAP_TOLERANCE` (0.5m, the same
+  tolerance this diagnostic's `ALIGNMENT_TOLERANCE` of 0.01m is far stricter than), a skip
+  attributed to "segment removed by resegmentation" could actually be this offset instead.
+- **The "Standalone user-defined junction" warnings** on `TRNLRS_street_junction` -- these
+  were reasoned through and accepted as harmless in `network_traffic_turns.md`, but that
+  reasoning did not have this diagnostic available at the time.
+
+**Recommendation:** run this before or alongside the Phase 1.5 turn-signature check on the
+next QA cycle -- it is read-only, has no lock or swap risk, and the mean/std-dev output
+directly informs whether `SNAP_TOLERANCE` in script 05 needs to be reconsidered, or whether
+the fix belongs upstream in `LRS_updates.py`'s `OverlayEvents` call instead.
 
 ---
 
