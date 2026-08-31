@@ -293,18 +293,21 @@ just confirmed 99.7% agreement), but because `verify_turn_rebuild.py`'s `junctio
 had the identical divided-road ambiguity as `shared_endpoint()` in script 05, never patched in
 here when A1 was fixed. Same cause: two edges sharing both endpoints (a divided road), no hint
 to break the tie. Fixed the same way — `SHAPE@` added to the cursor, `junction_between()` now
-takes a `hint_pt`. **Not yet re-run against QA** — if you still see ~346 check-9 failures after
-pulling the latest `verify_turn_rebuild.py`, you're running a stale copy; re-pull before
-re-running.
+takes a `hint_pt`.
 
-**Gate: this must exit 0 before you swap anything.**
+**Re-run, same day: PASSED.** All 10 checks clean, including check 10 (zero duplicate
+signatures — see `network_dataset_script_review.md` section A0 for why the earlier-predicted
+duplicate/degenerate pattern from Phase 1.5 didn't recur). Phase 2 is complete.
 
-### 2.2 Spatial spot checks
+**Gate: this must exit 0 before you swap anything.** ✅ Cleared.
+
+### 2.2 Spatial spot checks — do this next
 
 The verifier proves the turn FC is *internally consistent with the edge FC*. It cannot tell
 you a turn landed on the *correct* intersection. Work sections 3, 4 and 5 of
 [`traffic_turn_staging_review_checklist.txt`](traffic_turn_staging_review_checklist.txt) —
-especially the multi-leg intersections, where the bearing tiebreaker is doing the work.
+especially the multi-leg intersections, where the bearing tiebreaker is doing the work — before
+moving to Phase 3.
 
 ---
 
