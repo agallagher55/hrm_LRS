@@ -15,9 +15,11 @@ Two real bugs came out of running this cycle by hand:
 1. 05 used to read the edge source's FCID from a LIVE network dataset, which
    meant it could not run during a clean rebuild (05 needs the FCID, but 03
    needs a remapped turn FC to be worth building). 05 has since been patched
-   to read the FCID from network_template.xml instead, which is deterministic
-   and does not require a network dataset to already exist. This script
-   depends on that fix being in place.
+   to read the FCID from the edge FC's own DSID, which requires no network
+   dataset to exist. (An intermediate fix read it from network_template.xml;
+   that was also wrong -- the template's <ID> is the source's ordering index
+   within the network, not the edge FC's dataset ID. See Section 5 of 05.)
+   This script depends on the DSID fix being in place.
 
 2. The network dataset got built twice in one cycle at least once (likely a
    manual "Build Network" in Pro run in addition to a script-driven build),
@@ -49,6 +51,7 @@ adjust SCRIPTS_DIR below):
 """
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -85,6 +88,44 @@ def load_module(path, module_name):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _same_path(path_a, path_b):
+    """Compare two catalog paths ignoring case and separator differences."""
+    return (os.path.normcase(os.path.normpath(path_a))
+            == os.path.normcase(os.path.normpath(path_b)))
+
+
+def check_environments_agree(mod05, mod03):
+    """Refuse to run if 05 and 03 are pointed at different environments.
+
+    Each script carries its own manually-edited connection constant. This
+    orchestrator takes the turn/edge/network paths from 05 and the feature
+    dataset from 03, so a mismatch would remap turns and delete the network
+    dataset in one environment, then create and build a network dataset in
+    another -- and both halves would appear to succeed, since 03 skips copying
+    source FCs that already exist.
+    """
+    mod05_fd = os.path.join(mod05.SDE, mod05.NETWORK_FD)
+    if not _same_path(mod05_fd, mod03.FEATURE_DATASET):
+        logger.error(
+            "Environment mismatch between the two scripts -- refusing to run.\n"
+            f"  05_rebuild_traffic_turns.py  -> {mod05_fd}\n"
+            f"  03_create_network_dataset.py -> {mod03.FEATURE_DATASET}\n"
+            "Point SDE (in 05) and SDE_CONNECTION_UPDATE (in 03) at the same environment."
+        )
+        sys.exit(1)
+
+    if mod05.AUTO_SWAP_AND_REBUILD:
+        logger.error(
+            "05_rebuild_traffic_turns.py has AUTO_SWAP_AND_REBUILD = True. This "
+            "orchestrator performs the swap itself (step 3); leaving it True in 05 "
+            "makes 05 swap first, after which the staging FC no longer exists and "
+            "this script reports a misleading failure. Set it to False and re-run."
+        )
+        sys.exit(1)
+
+    logger.info(f"Environment confirmed for both scripts: {mod05_fd}")
 
 
 def report_source_counts(network_dataset, edge_fc, junction_fc, turn_fc):
@@ -126,6 +167,7 @@ def main():
     logger.info("Step 1/4: Load scripts 05 and 03 as modules")
     mod05 = load_module(SCRIPT_05_PATH, "rebuild_traffic_turns")
     mod03 = load_module(SCRIPT_03_PATH, "create_network_dataset")
+    check_environments_agree(mod05, mod03)
 
     # Known simplification: this always re-runs the full remap. If you want
     # to review TRNLRS_traffic_turn_staging before swapping it in, run 05

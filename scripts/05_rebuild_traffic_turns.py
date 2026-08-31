@@ -11,22 +11,47 @@ of a feature in the registered edge source FC. TRNLRS_traffic_turn was initially
 by copying TRN_traffic_turn, which referenced OIDs in TRN_street. Those OIDs have no
 meaning in TRNLRS_TRN_STREET, so every turn record fails at BuildNetwork time.
 
-This script resolves the mismatch by matching turn junction points (edge endpoints,
-determined by Edge{N}Pos) to spatially coincident endpoints in TRNLRS_TRN_STREET,
-then writes a new turn FC with corrected OID references.
+This script resolves the mismatch by locating each turn's junction geometrically --
+the endpoint shared by consecutive old edges -- and matching it to coincident
+endpoints in TRNLRS_TRN_STREET, then writing a new turn FC with corrected OID
+references.
+
+How the junction is identified (rewritten 2026-08-31)
+-----------------------------------------------------
+Earlier versions inferred the junction from Edge{N}Pos ("pos < 0.5 means the
+junction is at the old edge's firstPoint"). That reading of Edge{N}Pos is wrong.
+In the Esri turn schema Edge{N}Pos identifies *which edge element* of the edge
+feature the turn uses, expressed as the relative position of that element's
+midpoint along the feature -- an edge feature that is not split into multiple
+elements canonically carries 0.5. It does not encode which end of the edge the
+junction sits at. network_template.xml sets ClassConnectivity = 1 (endpoint), so
+edge features are not split at interior junctions and every Pos collapses to the
+same value, which made the old test degenerate to a constant.
+
+The junction is now derived from geometry alone, which is correct under either
+reading of Edge{N}Pos: for a turn traversing E1 -> E2 -> ... -> En, the junction
+between consecutive edges is the endpoint their geometries share. Edge1End is then
+derived from the *matched new* Edge1 ("Y" if the junction is at its lastPoint,
+"N" if at its firstPoint) rather than from the old edge, because the new LRS
+segment may be digitised in the opposite direction to the old one.
+
+The source Edge1End value is read purely as an integrity check: it is compared
+against the junction this script derives on the *old* Edge1, and the agreement
+rate is logged. A low agreement rate means the geometric junction detection is
+disagreeing with the authoritative source value and the run should not be trusted.
 
 Usage
 -----
 1. Set configuration variables below.
 2. Run from an ArcGIS Pro Python environment (arcpy required).
-3. Review the written/skipped summary printed on completion, and the skipped OID
-   list in the log file if you need to investigate individual turns.
-4. If skipped count is acceptable, run the swap block at the bottom to replace
+3. Review the written/skipped summary printed on completion. Skips are broken out
+   by reason; the per-reason OID lists are in the log file at DEBUG level.
+4. If the skip counts are acceptable, run the swap block at the bottom to replace
    the old turn FC and rebuild the network.
 
 Output
 ------
-Creates TRNLRS_traffic_turn_staging inside SDEADM.TRNLRS. It is created via
+Creates TRNLRS_traffic_turn_staging inside NETWORK_FD. It is created via
 in_template_feature_class (schema copied from the current TRNLRS_traffic_turn),
 NOT in_network_dataset -- passing in_network_dataset to CreateTurnFeatureClass
 actually registers the output as a live turn source of that network dataset,
@@ -39,11 +64,15 @@ optional swap step at the end -- and that step, too, must delete the network
 dataset first, because the CURRENT TRNLRS_traffic_turn is itself a registered
 turn source and subject to the same lock.
 
-See docs/traffic_turns.md for full diagnosis and post-run steps.
+See docs/network_traffic_turns.md for the original diagnosis and post-run steps,
+and docs/network_dataset_script_review.md for the reasoning behind the
+2026-08-31 rewrite of the junction/Edge1End logic.
 """
 
-import arcpy
+import math
 import sys
+
+import arcpy
 
 from log_utils import setup_logger
 
@@ -53,22 +82,20 @@ logger = setup_logger("05_rebuild_traffic_turns")
 # Configuration
 # ------------------------------------------------------------------------------
 
-# Dev: network source FCs live in SDEADM.TRNLRS_network (moved out of
-# SDEADM.TRNLRS by scripts/06_migrate_network_fd.py). Active by default --
-# this is the current FD-separation pilot environment.
-# SDE        = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
+# QA: active. The network source FCs live in SDEADM.TRNLRS_network in both Dev
+# and QA (see docs/network_build_status.md, feature dataset separation).
+# scripts/03_create_network_dataset.py must point at the SAME environment --
+# run_full_network_rebuild.py asserts that before it does anything.
+SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 NETWORK_FD = r"SDEADM.TRNLRS_network"
 
-# QA: network source FCs still live in SDEADM.TRNLRS -- the FD separation
-# pilot has not been applied there yet. Uncomment to point this script at QA
-# instead of Dev.
-SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-# NETWORK_FD = r"SDEADM.TRNLRS"
+# Dev: uncomment to point this script at Dev instead of QA (and change
+# SDE_CONNECTION_UPDATE in 03_create_network_dataset.py to match).
+# SDE        = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 
-# Prod: TRNLRS_TRN_STREET has already been created against this connection;
-# network source FCs still live in SDEADM.TRNLRS -- the FD separation pilot
-# has not been applied there yet. Uncomment to point this script at prod
-# instead of Dev/QA.
+# Prod: network source FCs still live in SDEADM.TRNLRS -- the FD separation
+# pilot has not been applied there yet, and no network dataset has been built
+# there. Do not use until the prod cutover is planned.
 # SDE        = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
 # NETWORK_FD = r"SDEADM.TRNLRS"
 
@@ -79,16 +106,29 @@ NEW_TURN_FC       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn_staging"
 OLD_TURN_FC_FINAL = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn"
 NEW_NETWORK       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_street_network"
 
-# Edge source name, used only in log messages below. The FCID itself is now
-# read directly from the edge FC's own DSID (arcpy.Describe(NEW_EDGE_FC)
-# .DSID), not looked up by name from a template or a live network's source
-# list -- see the comment at Section 5 for why those approaches were wrong.
+# Edge source name, used only in log messages below. The FCID itself is read
+# directly from the edge FC's own DSID (arcpy.Describe(NEW_EDGE_FC).DSID), not
+# looked up by name from a template or a live network's source list -- see the
+# comment at Section 5 for why those approaches were wrong.
 EDGE_SOURCE_NAME = "TRNLRS_TRN_STREET"
 
 # Snap tolerance in map units (metres). Turn junctions must fall within this
 # distance of a new edge endpoint to be matched. Widen if skipped count is
 # unexpectedly high; tighten if intersections are very closely spaced.
 SNAP_TOLERANCE = 0.5
+
+# Edge{N}Pos written to every resolved slot. Under endpoint connectivity
+# (ClassConnectivity = 1 in network_template.xml) an edge feature is never split
+# into multiple edge elements, so the single element's midpoint -- 0.5 -- is the
+# canonical position. The old record's Pos value refers to a different feature
+# and is deliberately NOT carried across. If the network is ever changed to
+# any-vertex connectivity this needs revisiting.
+NEW_EDGE_POS = 0.5
+
+# Below this agreement rate between the source Edge1End value and the junction
+# this script derives on the old Edge1, the run is treated as untrustworthy and
+# the automatic swap is refused. See the module docstring.
+MIN_EDGE1END_AGREEMENT = 0.95
 
 # Set to True to delete OLD_TURN_FC_FINAL, rename NEW_TURN_FC, and rebuild the
 # network automatically after a successful remap. Set to False to review the
@@ -97,7 +137,7 @@ AUTO_SWAP_AND_REBUILD = False
 
 
 # ------------------------------------------------------------------------------
-# Helpers
+# Geometry helpers
 # ------------------------------------------------------------------------------
 
 def point_key(pt, tolerance):
@@ -109,6 +149,13 @@ def point_key(pt, tolerance):
         round(pt.X / tolerance) * tolerance,
         round(pt.Y / tolerance) * tolerance,
     )
+
+
+def points_equal(pt_a, pt_b, tolerance):
+    """True if two points are within tolerance of each other."""
+    if pt_a is None or pt_b is None:
+        return False
+    return math.hypot(pt_a.X - pt_b.X, pt_a.Y - pt_b.Y) <= tolerance
 
 
 def build_endpoint_index(edge_fc, tolerance):
@@ -143,91 +190,178 @@ def build_geometry_lookup(edge_fc):
     return geoms
 
 
-def find_new_oid(old_oid, pos, old_geoms, new_endpoint_index, tolerance):
+def shared_endpoint(geom_a, geom_b, tolerance):
     """
-    Resolve an old edge reference (OID + 0-to-1 position along edge) to the
-    ObjectID of the spatially coincident new edge.
+    Return the endpoint shared by two polylines -- the turn junction between two
+    consecutive edges of a turn -- or None if they do not meet end to end.
 
-    pos < 0.5 means the turn junction is near the start of the old edge
-    (firstPoint); pos >= 0.5 means it is near the end (lastPoint).
-
-    Returns the new OID (int) if a match is found, else None.
+    Takes the closest coincident pair when more than one qualifies (two edges
+    forming a loop can share both endpoints).
     """
-    shape = old_geoms.get(old_oid)
-    if shape is None:
+    if geom_a is None or geom_b is None:
         return None
 
-    pt = shape.firstPoint if pos < 0.5 else shape.lastPoint
-    if pt is None:
+    best_pt = None
+    best_dist = None
+    for pt_a in (geom_a.firstPoint, geom_a.lastPoint):
+        for pt_b in (geom_b.firstPoint, geom_b.lastPoint):
+            if pt_a is None or pt_b is None:
+                continue
+            dist = math.hypot(pt_a.X - pt_b.X, pt_a.Y - pt_b.Y)
+            if dist <= tolerance and (best_dist is None or dist < best_dist):
+                best_pt, best_dist = pt_a, dist
+    return best_pt
+
+
+def tangent_at(geom, junction_pt, tolerance):
+    """
+    Bearing in radians from junction_pt into geom, measured to the first vertex
+    more than `tolerance` away from the junction.
+
+    This is the local direction of the street at the intersection. It replaces
+    the previous whole-edge chord bearing (firstPoint -> lastPoint), which is a
+    poor proxy on curved or long streets -- and LRS resegmentation makes the new
+    edges much shorter than the old ones, so the two are not comparable.
+
+    Returns None if neither end of geom is at junction_pt.
+    """
+    if geom is None:
         return None
 
-    key = point_key(pt, tolerance)
-    candidates = new_endpoint_index.get(key, [])
+    pts = [pt for part in geom for pt in part if pt is not None]
+    if len(pts) < 2:
+        return None
 
+    if points_equal(pts[0], junction_pt, tolerance):
+        sequence = pts
+    elif points_equal(pts[-1], junction_pt, tolerance):
+        sequence = list(reversed(pts))
+    else:
+        return None
+
+    origin = sequence[0]
+    for pt in sequence[1:]:
+        if math.hypot(pt.X - origin.X, pt.Y - origin.Y) > tolerance:
+            return math.atan2(pt.Y - origin.Y, pt.X - origin.X)
+    return None
+
+
+def candidate_edges_at(junction_pt, endpoint_index, new_geoms, tolerance):
+    """
+    Return the OIDs of new edges with an endpoint at junction_pt.
+
+    Checks the 3x3 neighbourhood of grid cells around the junction rather than
+    the single cell it rounds into -- a junction landing near a cell boundary
+    can otherwise round away from an edge endpoint that is well within
+    tolerance, producing a false skip. Candidates are then filtered by true
+    distance, so widening the cell search does not loosen the match.
+    """
+    base_x, base_y = point_key(junction_pt, tolerance)
+    seen = set()
+    candidates = []
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            key = (base_x + dx * tolerance, base_y + dy * tolerance)
+            for oid in endpoint_index.get(key, []):
+                if oid in seen:
+                    continue
+                seen.add(oid)
+                geom = new_geoms.get(oid)
+                if geom is None:
+                    continue
+                if (points_equal(geom.firstPoint, junction_pt, tolerance)
+                        or points_equal(geom.lastPoint, junction_pt, tolerance)):
+                    candidates.append(oid)
+    return candidates
+
+
+def resolve_new_edge(junction_pt, old_geom, endpoint_index, new_geoms, tolerance):
+    """
+    Find the new edge that carries the turn through junction_pt, matching the
+    direction the old edge ran at that junction.
+
+    Returns the new edge OID, or None if nothing coincides with the junction.
+    """
+    candidates = candidate_edges_at(junction_pt, endpoint_index, new_geoms, tolerance)
     if not candidates:
         return None
-
-    # If there is only one candidate, return it directly.
     if len(candidates) == 1:
         return candidates[0]
 
-    # Multiple candidates share this endpoint (multi-leg intersection).
-    # Prefer the candidate whose geometry most closely aligns with the old edge
-    # by comparing the direction vector from the junction point to each edge's
-    # other endpoint against the direction of the old edge at the junction.
-    # This is a best-effort tiebreaker; complex intersections may still require
-    # manual review.
-    import math
+    # Multiple candidates share this endpoint (multi-leg intersection). Compare
+    # the local bearing of each candidate against the local bearing of the old
+    # edge at the same junction. Best effort -- very complex intersections may
+    # still need manual review (see docs/traffic_turn_staging_review_checklist.txt).
+    old_angle = tangent_at(old_geom, junction_pt, tolerance)
+    if old_angle is None:
+        return candidates[0]
 
-    def angle(from_pt, to_pt):
-        dx = to_pt.X - from_pt.X
-        dy = to_pt.Y - from_pt.Y
-        return math.atan2(dy, dx)
-
-    # Direction of old edge departing from the junction
-    if pos < 0.5:
-        old_junction_pt = shape.firstPoint
-        old_other_pt    = shape.lastPoint
-    else:
-        old_junction_pt = shape.lastPoint
-        old_other_pt    = shape.firstPoint
-
-    old_angle = angle(old_junction_pt, old_other_pt)
-
-    # Re-build geometry lookup on demand (passed in via closure below)
-    best_oid  = candidates[0]
-    best_diff = math.pi  # worst possible angular difference
-
-    for cand_oid in candidates:
-        cand_shape = _new_geoms.get(cand_oid)
-        if cand_shape is None:
+    best_oid = None
+    best_diff = None
+    for oid in candidates:
+        cand_angle = tangent_at(new_geoms.get(oid), junction_pt, tolerance)
+        if cand_angle is None:
             continue
-        # Determine which end of the candidate is at the junction
-        fp = cand_shape.firstPoint
-        lp = cand_shape.lastPoint
-        fp_key = point_key(fp, tolerance) if fp else None
-        jkey   = point_key(old_junction_pt, tolerance)
-        if fp_key == jkey:
-            other = lp
-        else:
-            other = fp
-        if other is None:
-            continue
-        cand_angle = angle(old_junction_pt, other)
         diff = abs(math.atan2(
             math.sin(cand_angle - old_angle),
-            math.cos(cand_angle - old_angle)
+            math.cos(cand_angle - old_angle),
         ))
-        if diff < best_diff:
-            best_diff = diff
-            best_oid  = cand_oid
+        if best_diff is None or diff < best_diff:
+            best_oid, best_diff = oid, diff
 
-    return best_oid
+    return best_oid if best_oid is not None else candidates[0]
 
 
-# Module-level new geometry lookup, populated in main() and referenced by
-# find_new_oid's tiebreaker closure.
-_new_geoms = {}
+def edge_end_flag(new_geom, junction_pt, tolerance):
+    """
+    Esri Edge1End for the matched new Edge1: "Y" if the turn passes through the
+    end (lastPoint) of the edge, "N" if through the beginning (firstPoint).
+
+    Derived from the NEW edge, not the old one -- the new LRS segment may be
+    digitised in the opposite direction to the old edge it replaces, which would
+    invert the flag. Returns None if the junction is at neither end.
+    """
+    if new_geom is None:
+        return None
+    if points_equal(new_geom.lastPoint, junction_pt, tolerance):
+        return "Y"
+    if points_equal(new_geom.firstPoint, junction_pt, tolerance):
+        return "N"
+    return None
+
+
+# ------------------------------------------------------------------------------
+# Diagnostics
+# ------------------------------------------------------------------------------
+
+def log_source_edge1_distribution(turn_fc, fld_map):
+    """
+    Log the distribution of Edge1Pos and Edge1End on the source turn FC.
+
+    This is the evidence for why the junction is derived from geometry rather
+    than from Edge1Pos: if Edge1Pos is a single repeated value (0.5 is the
+    canonical position for an unsplit edge feature), it carries no information
+    about which end of the edge the junction is at.
+    """
+    fields = []
+    if "EDGE1POS" in fld_map:
+        fields.append(fld_map["EDGE1POS"])
+    if "EDGE1END" in fld_map:
+        fields.append(fld_map["EDGE1END"])
+    if not fields:
+        logger.warning("Source turn FC has neither Edge1Pos nor Edge1End -- skipping distribution check.")
+        return
+
+    counts = [{} for _ in fields]
+    with arcpy.da.SearchCursor(turn_fc, fields) as cur:
+        for row in cur:
+            for i, value in enumerate(row):
+                key = round(value, 3) if isinstance(value, float) else value
+                counts[i][key] = counts[i].get(key, 0) + 1
+
+    for name, tally in zip(fields, counts):
+        top = sorted(tally.items(), key=lambda kv: -kv[1])[:10]
+        logger.info(f"  {name} distribution (top {len(top)}): {top}")
 
 
 # ------------------------------------------------------------------------------
@@ -235,14 +369,9 @@ _new_geoms = {}
 # ------------------------------------------------------------------------------
 
 def main():
-    global _new_geoms
-
-    # Validate inputs. NEW_NETWORK is intentionally NOT required here --
-    # the FCID lookup now reads from network_template.xml (see Section 5
-    # below) specifically so this script can run during a clean rebuild,
-    # before any network dataset exists. If NEW_NETWORK does happen to
-    # exist, Section 5 still cross-checks its live FCID against the
-    # template as a safety net.
+    # Validate inputs. NEW_NETWORK is intentionally NOT required here -- the
+    # FCID is read from the edge FC's own DSID (Section 5), so this script can
+    # run during a clean rebuild, before any network dataset exists.
     for path, label in [
         (OLD_TURN_FC,       "Old turn FC"),
         (OLD_EDGE_FC,       "Old edge FC"),
@@ -257,6 +386,9 @@ def main():
         logger.error(f"Output FC already exists: {NEW_TURN_FC}. Delete or rename it before running.")
         sys.exit(1)
 
+    logger.info(f"Environment: {SDE}")
+    logger.info(f"Network feature dataset: {NETWORK_FD}")
+
     # ------------------------------------------------------------------
     # 1. Index new edge endpoints
     # ------------------------------------------------------------------
@@ -266,11 +398,11 @@ def main():
     logger.info(f"  {new_edge_count} endpoint entries indexed (snap tolerance: {SNAP_TOLERANCE}m)")
 
     # ------------------------------------------------------------------
-    # 2. Build new edge geometry lookup (used by tiebreaker)
+    # 2. Build new edge geometry lookup
     # ------------------------------------------------------------------
     logger.info("Loading new edge geometries...")
-    _new_geoms = build_geometry_lookup(NEW_EDGE_FC)
-    logger.info(f"  {len(_new_geoms)} new edge features loaded")
+    new_geoms = build_geometry_lookup(NEW_EDGE_FC)
+    logger.info(f"  {len(new_geoms)} new edge features loaded")
 
     # ------------------------------------------------------------------
     # 3. Build old edge geometry lookup
@@ -284,16 +416,25 @@ def main():
     # ------------------------------------------------------------------
     # Build a case-insensitive map (UPPER -> actual name) so field detection
     # works regardless of whether ArcGIS returns EDGE1FID or Edge1FID.
-    _fld_map = {f.name.upper(): f.name for f in arcpy.ListFields(OLD_TURN_FC)}
-    turn_field_names = list(_fld_map.values())
+    fld_map = {f.name.upper(): f.name for f in arcpy.ListFields(OLD_TURN_FC)}
+    turn_field_names = list(fld_map.values())
 
-    edge_slots = [i for i in range(1, 6) if f"EDGE{i}FID" in _fld_map]
+    edge_slots = [i for i in range(1, 6) if f"EDGE{i}FID" in fld_map]
     if not edge_slots:
         logger.error(f"No Edge{{N}}FID fields found in old turn FC. Available fields: {turn_field_names}")
         sys.exit(1)
     logger.info(f"  Edge slots detected: {edge_slots}")
 
-    has_node = "NODE_" in _fld_map
+    has_node = "NODE_" in fld_map
+    has_edge1end = "EDGE1END" in fld_map
+    if not has_edge1end:
+        logger.warning(
+            "Source turn FC has no Edge1End field -- the integrity check comparing it "
+            "against the geometrically derived junction will be skipped."
+        )
+
+    logger.info("Source Edge1Pos / Edge1End distribution:")
+    log_source_edge1_distribution(OLD_TURN_FC, fld_map)
 
     # ------------------------------------------------------------------
     # 5. Get FCID of new edge source
@@ -314,12 +455,12 @@ def main():
     # Confirmed directly: a turn created natively in Pro's turn-editing
     # tool at a live intersection resolved correctly with FCID=39618 (the
     # edge FC's actual DSID at the time), while every 05-produced turn on
-    # the same build used FCID=2 and failed uniformly. DSID is a property
-    # of the edge FC itself, so this still requires no live network
-    # dataset to exist, keeping the earlier fix (05 runnable before a
-    # network dataset exists) intact. See traffic_turns.md for the full
-    # diagnosis, including the multipart-geometry and edge-coincidence
-    # checks that were run and ruled out before this was found.
+    # the same build used FCID=2 and failed uniformly.
+    #
+    # NOTE: DSID changes whenever TRNLRS_TRN_STREET is deleted and recreated
+    # (script 03's fallback copy, script 06's move, any manual drop). Re-run
+    # this script after anything that recreates the edge FC, not just after
+    # its geometry changes.
     logger.info(f"Reading edge source FCID (DSID) from: {NEW_EDGE_FC}")
     new_edge_fcid = arcpy.Describe(NEW_EDGE_FC).DSID
     logger.info(f"  {EDGE_SOURCE_NAME} DSID: {new_edge_fcid}")
@@ -349,107 +490,147 @@ def main():
     # ------------------------------------------------------------------
     # 7. Build cursor field lists
     # ------------------------------------------------------------------
-    # Read fields: SHAPE@, [NODE_,] Edge1FCID, Edge1FID, Edge1Pos, ..., OID@
-    # Use actual field names from _fld_map so casing matches what ArcGIS expects.
-    # OID@ is appended last (rather than inserted after SHAPE@) so it doesn't
-    # shift the offsets used to walk the edge slot data below.
-    read_fields = ["SHAPE@"]
-    if has_node:
-        read_fields.append(_fld_map["NODE_"])
-    for i in edge_slots:
-        read_fields += [
-            _fld_map.get(f"EDGE{i}FCID", f"Edge{i}FCID"),
-            _fld_map.get(f"EDGE{i}FID",  f"Edge{i}FID"),
-            _fld_map.get(f"EDGE{i}POS",  f"Edge{i}Pos"),
-        ]
-    read_fields.append("OID@")
-    oid_idx = len(read_fields) - 1
+    # Read fields are indexed by name rather than by arithmetic offset, so
+    # adding or reordering a field cannot silently shift the edge slot reads.
+    # Edge{N}FCID is not read: the old FCID is discarded and replaced with the
+    # new edge FC's DSID. Edge{N}Pos is read only for the distribution check
+    # and is not carried across (see NEW_EDGE_POS).
+    read_fields = ["OID@", "SHAPE@"]
+    read_idx = {"oid": 0, "shape": 1}
 
-    # Insert fields match read fields
-    # Edge1End is present on every turn feature class (per Esri schema) and
-    # must be set correctly -- "Y" if the turn passes through the end of
-    # Edge1 (Edge1Pos >= 0.5), "N" if it passes through the beginning.
-    # Leaving it unset takes the schema default ("N"), which is wrong for
-    # roughly 90% of turns in practice and was the confirmed root cause of
-    # a total build failure (every remapped turn failing to resolve).
-    # See traffic_turns.md for the full diagnosis.
+    if has_node:
+        read_idx["node"] = len(read_fields)
+        read_fields.append(fld_map["NODE_"])
+    if has_edge1end:
+        read_idx["edge1end"] = len(read_fields)
+        read_fields.append(fld_map["EDGE1END"])
+
+    slot_fid_idx = {}
+    for i in edge_slots:
+        slot_fid_idx[i] = len(read_fields)
+        read_fields.append(fld_map[f"EDGE{i}FID"])
+
+    # Insert fields, in the order new_row is assembled below.
     insert_fields = ["SHAPE@", "Edge1End"]
     for i in edge_slots:
         insert_fields += [f"Edge{i}FCID", f"Edge{i}FID", f"Edge{i}Pos"]
     if has_node:
         insert_fields.append("NODE_")
 
-    # Offset into row where edge slot data begins (after SHAPE@ and optional NODE_)
-    edge_data_offset = 2 if has_node else 1
-
     # ------------------------------------------------------------------
     # 8. Remap turns
     # ------------------------------------------------------------------
     logger.info("Remapping turn edge references...")
 
-    written  = 0
-    skipped  = 0
-    no_match = []  # OIDs of turns that could not be remapped
+    written = 0
+    # Every rejection reason is counted and its OIDs recorded. Previously only
+    # an Edge1 miss counted as a skip: a miss on Edge2..5 wrote NULLs into that
+    # slot and carried on, producing one-edge turns and gapped edge sequences
+    # that are invalid at build time but were reported as successfully written.
+    skips = {
+        "too_few_edges":        [],  # fewer than 2 populated edge slots in the source
+        "missing_old_geometry": [],  # referenced old edge OID has no geometry
+        "no_shared_endpoint":   [],  # consecutive old edges do not meet end to end
+        "unresolved_edge":      [],  # no new edge coincides with the junction
+        "new_edge_not_spanning": [],  # matched middle edge does not reach both junctions
+        "edge1end_undetermined": [],  # junction is at neither end of the matched new Edge1
+    }
+    edge1end_agree = 0
+    edge1end_checked = 0
 
     with arcpy.da.SearchCursor(OLD_TURN_FC, read_fields) as read_cur, \
          arcpy.da.InsertCursor(NEW_TURN_FC, insert_fields) as ins_cur:
 
         for row in read_cur:
-            row      = list(row)
-            shape    = row[0]
-            node_val = row[1] if has_node else None
-            turn_oid = row[oid_idx]
+            turn_oid = row[read_idx["oid"]]
+            shape    = row[read_idx["shape"]]
+            node_val = row[read_idx["node"]] if has_node else None
+            src_end  = row[read_idx["edge1end"]] if has_edge1end else None
 
-            new_row = [shape]
-            edge1_end = None  # computed once Edge1's new position is known
-            valid   = True
+            # Collect the populated edge slots, stopping at the first empty one
+            # so a gap in the source is never carried into the output.
+            slot_fids = []
+            for i in edge_slots:
+                fid = row[slot_fid_idx[i]]
+                if fid is None or fid == 0:
+                    break
+                slot_fids.append(fid)
 
-            for idx, i in enumerate(edge_slots):
-                base      = edge_data_offset + idx * 3
-                old_fid   = row[base + 1]
-                old_pos   = row[base + 2]
-
-                # No more edges in this turn record
-                if old_fid is None or old_fid == 0:
-                    new_row += [None, None, None]
-                    continue
-
-                new_fid = find_new_oid(
-                    old_fid, old_pos, old_geoms, new_endpoint_index, SNAP_TOLERANCE
-                )
-
-                if new_fid is None:
-                    if i == 1:
-                        # First edge is required; cannot write this turn
-                        valid = False
-                        break
-                    else:
-                        # Subsequent edge unresolved -- write None and continue
-                        new_row += [None, None, None]
-                        continue
-
-                new_row += [new_edge_fcid, new_fid, old_pos]
-
-                if i == 1:
-                    # old_pos is preserved unchanged onto the new edge (the
-                    # remap does not alter position along the edge, only
-                    # which edge OID it refers to), so it is still valid
-                    # here for deriving Edge1End. Per Esri's schema: "Y"
-                    # means the turn passes through the end of Edge1,
-                    # "N" means the beginning.
-                    edge1_end = "Y" if old_pos is not None and old_pos >= 0.5 else "N"
-
-            if not valid:
-                skipped += 1
-                no_match.append(turn_oid)
+            if len(slot_fids) < 2:
+                skips["too_few_edges"].append(turn_oid)
                 continue
 
-            # Insert Edge1End right after SHAPE@ (index 1), matching the
-            # insert_fields order set in Section 7. Fall back to "N" only
-            # if edge1_end was never set, which should not happen for a
-            # valid row since Edge1 (i == 1) is always required.
-            new_row.insert(1, edge1_end if edge1_end is not None else "N")
+            slot_geoms = [old_geoms.get(fid) for fid in slot_fids]
+            if any(geom is None for geom in slot_geoms):
+                skips["missing_old_geometry"].append(turn_oid)
+                continue
 
+            # Junction k is where the turn crosses from edge k to edge k+1.
+            junctions = [
+                shared_endpoint(slot_geoms[k], slot_geoms[k + 1], SNAP_TOLERANCE)
+                for k in range(len(slot_geoms) - 1)
+            ]
+            if any(pt is None for pt in junctions):
+                skips["no_shared_endpoint"].append(turn_oid)
+                continue
+
+            # Integrity check: does the source Edge1End agree with the junction
+            # this script found on the OLD Edge1? (Compared on the old edge --
+            # the value written to the output is derived from the new edge.)
+            if has_edge1end and src_end in ("Y", "N"):
+                derived_old_end = edge_end_flag(slot_geoms[0], junctions[0], SNAP_TOLERANCE)
+                if derived_old_end is not None:
+                    edge1end_checked += 1
+                    if derived_old_end == src_end:
+                        edge1end_agree += 1
+                    else:
+                        logger.debug(
+                            f"Turn {turn_oid}: source Edge1End={src_end} but the shared "
+                            f"endpoint with Edge2 is at the old edge's "
+                            f"{'end' if derived_old_end == 'Y' else 'start'}."
+                        )
+
+            # Resolve each old edge to a new one, anchored at the junction where
+            # the turn enters that edge (the exit junction for Edge1).
+            new_fids = []
+            failure = None
+            for k, old_geom in enumerate(slot_geoms):
+                anchor = junctions[0] if k == 0 else junctions[k - 1]
+                new_fid = resolve_new_edge(
+                    anchor, old_geom, new_endpoint_index, new_geoms, SNAP_TOLERANCE
+                )
+                if new_fid is None:
+                    failure = "unresolved_edge"
+                    break
+
+                # A middle edge must reach both of its junctions -- if LRS
+                # resegmentation split the old edge between them, no single new
+                # edge carries the turn and the record cannot be represented.
+                if 0 < k < len(slot_geoms) - 1:
+                    exit_pt = junctions[k]
+                    cand_geom = new_geoms.get(new_fid)
+                    if not (points_equal(cand_geom.firstPoint, exit_pt, SNAP_TOLERANCE)
+                            or points_equal(cand_geom.lastPoint, exit_pt, SNAP_TOLERANCE)):
+                        failure = "new_edge_not_spanning"
+                        break
+
+                new_fids.append(new_fid)
+
+            if failure:
+                skips[failure].append(turn_oid)
+                continue
+
+            edge1_end = edge_end_flag(new_geoms.get(new_fids[0]), junctions[0], SNAP_TOLERANCE)
+            if edge1_end is None:
+                skips["edge1end_undetermined"].append(turn_oid)
+                continue
+
+            new_row = [shape, edge1_end]
+            for k, i in enumerate(edge_slots):
+                if k < len(new_fids):
+                    new_row += [new_edge_fcid, new_fids[k], NEW_EDGE_POS]
+                else:
+                    new_row += [None, None, None]
             if has_node:
                 new_row.append(node_val)
 
@@ -459,6 +640,7 @@ def main():
     # ------------------------------------------------------------------
     # 9. Summary
     # ------------------------------------------------------------------
+    skipped = sum(len(oids) for oids in skips.values())
     total = written + skipped
     skip_pct = (skipped / total * 100) if total > 0 else 0
 
@@ -467,15 +649,34 @@ def main():
     logger.info(f"  Total input turns : {total}")
     logger.info(f"  Written           : {written}")
     logger.info(f"  Skipped           : {skipped} ({skip_pct:.1f}%)")
+    for reason, oids in skips.items():
+        if oids:
+            logger.info(f"    {reason:22s}: {len(oids)}")
+            logger.debug(f"    {reason} old turn OIDs (from {OLD_TURN_FC}): {oids}")
     logger.info("=" * 50)
-    if no_match:
-        logger.debug(f"Skipped old turn OIDs (from {OLD_TURN_FC}): {no_match}")
+
+    if edge1end_checked:
+        agreement = edge1end_agree / edge1end_checked
+        logger.info(
+            f"Edge1End integrity check: {edge1end_agree}/{edge1end_checked} "
+            f"({agreement:.1%}) of source Edge1End values agree with the junction "
+            "derived from geometry."
+        )
+        if agreement < MIN_EDGE1END_AGREEMENT:
+            logger.warning(
+                f"Edge1End agreement is below {MIN_EDGE1END_AGREEMENT:.0%}. The geometric "
+                "junction detection is disagreeing with the source's own Edge1End values "
+                "-- do NOT swap this output in until that is understood. Disagreeing turn "
+                "OIDs are in the log file at debug level."
+            )
+    else:
+        logger.warning("Edge1End integrity check did not run (no comparable source values).")
 
     if skip_pct > 5:
         logger.warning(
             "Skipped rate exceeds 5%. Consider widening SNAP_TOLERANCE "
             "or inspecting skipped turns manually before proceeding. "
-            "Skipped OID list is in the log file (debug level)."
+            "Per-reason OID lists are in the log file (debug level)."
         )
 
     # ------------------------------------------------------------------
@@ -493,8 +694,14 @@ def main():
     # which is idempotent and will just recreate + rebuild the network
     # dataset since the three source FCs already exist).
     if AUTO_SWAP_AND_REBUILD:
-        if skipped / total > 0.05:
+        if total == 0:
+            logger.warning("No input turns were read -- aborting auto swap.")
+            return
+        if skip_pct > 5:
             logger.warning("Skipped rate > 5% -- aborting auto swap. Review output first.")
+            return
+        if edge1end_checked and (edge1end_agree / edge1end_checked) < MIN_EDGE1END_AGREEMENT:
+            logger.warning("Edge1End agreement below threshold -- aborting auto swap.")
             return
 
         logger.info("AUTO_SWAP_AND_REBUILD is True -- swapping turn FCs...")
