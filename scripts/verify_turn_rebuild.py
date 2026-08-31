@@ -138,15 +138,45 @@ def shares_endpoint(geom_a, geom_b, tolerance):
     return False
 
 
-def junction_between(geom_a, geom_b, tolerance):
-    """The endpoint two polylines share, or None."""
+def junction_between(geom_a, geom_b, tolerance, hint_pt=None):
+    """
+    The endpoint two polylines share, or None if they do not meet end to end.
+
+    Two edges can share BOTH endpoints -- e.g. the two carriageways of a
+    divided road -- in which case there is no geometric basis to prefer one
+    shared endpoint over the other; a fixed "first candidate" pick resolves
+    every such tie the same way regardless of which one a given turn is
+    actually about. This is the identical ambiguity fixed in
+    05_rebuild_traffic_turns.py's shared_endpoint() on 2026-08-31 (found via
+    a 70.9% Edge1End agreement rate on the OLD side of the remap) -- mirrored
+    here independently rather than imported, since this verifier is deliberately
+    not sharing logic with the writer (see module docstring). Confirmed
+    necessary the same day: without it, this check flagged 346 of 1,189
+    records that 05's own integrity check (comparing old geometry, where the
+    bug had already been fixed) had accepted as correct.
+
+    hint_pt, when given, is the turn's own recorded point -- carried through
+    unchanged from the old turn record into the new one, so it still
+    coincides with the NEW edges wherever old and new geometry are spatially
+    close, which is the entire premise the remap's tolerance relies on. With
+    a single candidate the hint is irrelevant; with candidates tied, the one
+    closest to hint_pt wins.
+    """
     if geom_a is None or geom_b is None:
         return None
+
+    candidates = []
     for pt_a in (geom_a.firstPoint, geom_a.lastPoint):
         for pt_b in (geom_b.firstPoint, geom_b.lastPoint):
             if points_equal(pt_a, pt_b, tolerance):
-                return pt_a
-    return None
+                candidates.append(pt_a)
+
+    if not candidates:
+        return None
+    if len(candidates) == 1 or hint_pt is None:
+        return candidates[0]
+
+    return min(candidates, key=lambda p: math.hypot(p.X - hint_pt.X, p.Y - hint_pt.Y))
 
 
 def main():
@@ -181,8 +211,8 @@ def main():
 
     has_edge1end = "EDGE1END" in fld_map
 
-    fields = ["OID@"]
-    idx = {"oid": 0}
+    fields = ["OID@", "SHAPE@"]
+    idx = {"oid": 0, "shape": 1}
     if has_edge1end:
         idx["edge1end"] = len(fields)
         fields.append(fld_map["EDGE1END"])
@@ -220,6 +250,7 @@ def main():
         for row in cur:
             total += 1
             oid = row[idx["oid"]]
+            shape = row[idx["shape"]]
 
             populated = []
             gap_seen = False
@@ -265,7 +296,8 @@ def main():
 
             # -- Edge1End vs geometry ----------------------------------------
             if has_edge1end and oid not in not_connected:
-                junction = junction_between(edge_geoms[fids[0]], edge_geoms[fids[1]], TOLERANCE)
+                hint_pt = shape.firstPoint if shape is not None else None
+                junction = junction_between(edge_geoms[fids[0]], edge_geoms[fids[1]], TOLERANCE, hint_pt)
                 if junction is None:
                     no_junction.add(oid)
                 else:

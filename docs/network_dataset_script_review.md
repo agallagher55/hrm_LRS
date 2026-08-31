@@ -26,15 +26,17 @@ G are still open.
    match). A handful of plain surface-street pairs (e.g. `HEMLOCK DR`/`HIGH TIMBER DR`,
    9m offset) are NOT explained by that and are real candidates for investigation. See
    [A0b](#a0b-junction-alignment-check-run-2026-08-31----grade-separation-not-a-transform-bug-a-handful-of-real-anomalies).
-2. **The turn rebuild was broken in Dev and QA for over a month — confirmed fixed in QA
-   2026-08-31.** The status docs said Phase 5a was ✅ complete as of 2026-07-14, but the code
-   comments added on 2026-07-21/22 recorded that *every* turn produced by script 05 on that
-   same build had actually failed to resolve. Those 2026-07-22 fixes were themselves
-   incomplete (see item 3) and were never re-run until today. The rewritten script now shows
-   99.7% Edge1End agreement and a healthy 4.0% skip rate against QA — the remap itself is
-   confirmed correct. Still open: verifying the staging FC (Phase 2) and swapping it in
-   (Phase 3) haven't happened yet, so QA's live network dataset still has the old, broken
-   turn FC.
+2. **The turn rebuild was broken in Dev and QA for over a month — the remap itself is now
+   confirmed fixed in QA (2026-08-31), verification is not yet done.** The status docs said
+   Phase 5a was ✅ complete as of 2026-07-14, but the code comments added on 2026-07-21/22
+   recorded that *every* turn produced by script 05 on that same build had actually failed to
+   resolve. Those 2026-07-22 fixes were themselves incomplete (see item 3) and were never
+   re-run until today. The rewritten script now shows 99.7% Edge1End agreement and a healthy
+   4.0% skip rate against QA. Running the verifier against the output then found a second,
+   independent bug — in the verifier itself, not the remap (see [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-fixed-2026-08-31)'s
+   final update) — now also fixed but not yet re-run. Still open: re-verifying (Phase 2) and
+   swapping in (Phase 3) haven't happened, so QA's live network dataset still has the old,
+   broken turn FC.
 3. **One of those two fixes was incomplete — now fixed.** Script 05 synthesised `Edge1End`
    from `Edge1Pos` instead of reading the value on the source turn FC, and derived it from
    the *old* edge rather than the *new* one. See
@@ -65,7 +67,7 @@ G are still open.
 | Phase 2 — schema comparison | ⚠️ Ran, but the evaluator half never executed — see [E](#e-script-02s-evaluator-cross-check-has-never-actually-run) |
 | Phase 3 — XML template edits | ✅ Done (elevation cleared, sources renamed); stale `ClassID`s remain — see [F](#f-template-hygiene) |
 | Phase 4 — create + build ND | ✅ Dev and QA built (last rebuilt 2026-07-14) |
-| Phase 5a — traffic turns | 🔄 **Remap confirmed correct (2026-08-31)** — 99.7% Edge1End agreement (1190/1194), 4.0% skip rate, correct DSID. Staging FC not yet verified (`verify_turn_rebuild.py` Phase 2) or swapped in — network dataset still has the old, broken turn FC until that completes. |
+| Phase 5a — traffic turns | 🔄 **Remap confirmed correct (2026-08-31)** — 99.7% Edge1End agreement (1190/1194), 4.0% skip rate, correct DSID. First verifier run (Phase 2) found 346/1,189 check-9 failures caused by an unfixed bug in the verifier itself (same divided-road ambiguity as A1, never patched into `verify_turn_rebuild.py`) — fixed same day, **not yet re-run**. Swap (Phase 3) still pending — network dataset has the old, broken turn FC until both complete. |
 | Phase 5 — solve tests | 🔄 Properties ✅ (06-26); 50 km service area ✅ (Robbie, 06-29); route / one-way / turn-restriction / address-range solves **not done** |
 | SQL grants | QA ✅ (2026-07-14, `N_3_*` + `ND_38726_*` + 4 source tables + editor writes); **Dev pending**; prod N/A |
 | FD separation (`TRNLRS_network`) | ⚠️ Dev + QA populated by script 03's *fallback copy*, not by script 06. Script 06 has never been run anywhere. Duplicate FCs still sitting in `SDEADM.TRNLRS` in both environments. |
@@ -282,8 +284,17 @@ multipoint-per-junction convention for those hasn't been confirmed against real 
 **99.7% (1190/1194)** — well above the 95% gate. Only 4 residual disagreements remain (turn
 OIDs 417, 693, 3948, 3968), a small enough number to be consistent with genuine legacy
 `Edge1End` data errors rather than a remaining algorithmic issue. Skip counts unchanged (49,
-same breakdown), DSID correct (`39618`). Gate cleared — proceed to Phase 2
-(`verify_turn_rebuild.py` against the staging FC).
+same breakdown), DSID correct (`39618`). Gate cleared.
+
+**The independent verifier caught the same bug, unfixed, in itself.** `verify_turn_rebuild.py`
+was deliberately never fixed alongside script 05 (Phase 2 hadn't run yet when A1-A4 landed).
+Run against the staging FC, its check 9 failed 346 of 1,189 records — because
+`junction_between()` has the identical divided-road ambiguity `shared_endpoint()` had, and had
+never read the turn's own `SHAPE` to resolve it. Fixed the same way: `SHAPE@` added to the
+cursor, `junction_between()` takes an optional `hint_pt`, wired in at the check 9 call site.
+Verified against the same divided-road pattern (both digitizing orders, confirming the hint
+actually overrides the default rather than coincidentally agreeing with it) and the full
+existing test suite (no regression). Not yet re-run against QA.
 
 ### A2. Junction identification is indirect and fragile (FIXED 2026-08-31)
 
