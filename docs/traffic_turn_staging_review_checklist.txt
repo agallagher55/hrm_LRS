@@ -26,6 +26,19 @@ Run number: 2026-07-13 18:46 run (log:
 Result: 1209 written / 29 skipped (2.3%) -- under the script's 5% warning
 threshold, so no automatic warning fired.
 
+*** SUPERSEDED (2026-08-31) ***
+Script 05 was rewritten on 2026-08-31 (junction detection, Edge1End, and skip
+accounting -- see docs/network_dataset_script_review.md sections A1-A4). The
+2026-07-13 numbers above no longer describe what the script produces, and the
+1209/29 split in particular understated the failures: only an Edge1 miss was
+counted as a skip, so turns whose Edge2..5 did not resolve were written out as
+one-edge or gapped records and counted as successes. Expect the new run to
+report a HIGHER skip count. That is the real number, not a regression.
+
+Re-run 05 and record the new run below before working this checklist.
+Run number: ____________________
+Result:     ____ written / ____ skipped (____%)
+
 --------------------------------------------------------------------------
 1. Record count sanity check
 --------------------------------------------------------------------------
@@ -41,12 +54,27 @@ threshold, so no automatic warning fired.
 - Fields match the template (Edge1FCID/FID/Pos ... up to the max edge slot
   detected, NODE_ if present) -- compare against TRNLRS_traffic_turn's
   current schema.
-- Spot check a handful of records: Edge1FCID should equal the FCID logged
-  during the run (2, for TRNLRS_TRN_STREET). Any other value, or nulls in
-  Edge1FID, is a bug.
-- Confirm Edge{N}Pos values were carried over unchanged from the old turn
-  records (the script assumes position-along-edge is meaningful across
-  both edge sources).
+- Spot check a handful of records: Edge1FCID should equal the DSID logged
+  during the run ("TRNLRS_TRN_STREET DSID: <n>"), which is the edge FC's real
+  dataset ID. A value of 2 is the 2026-07-21 bug (that is the edge source's
+  ordering index within the network, not its dataset ID) and means the FC is
+  broken. Nulls in Edge1FID are also a bug.
+- Confirm Edge{N}Pos is 0.5 on every resolved slot. Pos is NOT carried over
+  from the old records any more: it identifies which edge ELEMENT of the
+  feature the turn uses, and under endpoint connectivity each new edge
+  feature is a single element whose canonical position is 0.5. The old
+  value referred to a different feature.
+- New in this run: read the two "Edge1Pos / Edge1End distribution" lines the
+  script logs at startup, and the "Edge1End integrity check" line near the
+  end. Agreement below 95% means the geometric junction detection disagrees
+  with the source's own Edge1End values -- stop and investigate rather than
+  swapping.
+- New in this run: the skip summary is broken out by reason
+  (too_few_edges / missing_old_geometry / no_shared_endpoint /
+  unresolved_edge / new_edge_not_spanning / edge1end_undetermined). Read the
+  breakdown, not just the total -- new_edge_not_spanning in particular means
+  LRS resegmentation split a middle edge and the turn genuinely cannot be
+  represented, which is different from a tolerance problem.
 
 --------------------------------------------------------------------------
 3. Visual / spatial spot check

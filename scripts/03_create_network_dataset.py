@@ -59,9 +59,15 @@ logger = setup_logger("03_create_network_dataset")
 # ---------------------------------------------------------------------------
 # Environment that will receive the new network dataset (and the FD copies of
 # the edge/junction/turn sources it needs).
-SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
-# QA: uncomment to point this script at QA instead of Dev.
-# SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+# QA: active. scripts/05_rebuild_traffic_turns.py must point at the SAME
+# environment -- run_full_network_rebuild.py asserts that before it does
+# anything, since it takes the turn/edge paths from 05 and the feature dataset
+# from here, and a mismatch would remap turns in one environment and build the
+# network dataset in another.
+SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+# Dev: uncomment to point this script at Dev instead of QA (and change SDE in
+# 05_rebuild_traffic_turns.py to match).
+# SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 
 # Prod is always the read source for the edge FC: TRNLRS_TRN_STREET_VW (the
 # authoritative standalone FC refreshed by LRS_updates.py) only exists in prod,

@@ -6,8 +6,11 @@ data: scripts `01`–`06`, `run_full_network_rebuild.py`, `log_utils.py`, the
 the four docs in `docs/`.
 
 Findings are split into **Confirmed** (readable directly from the repo) and **Needs
-verification** (requires an arcpy/SDE session, which this review did not have). Nothing in
-the repo was changed by this review other than adding this file.
+verification** (requires an arcpy/SDE session, which this review did not have).
+
+**Update 2026-08-31:** findings A1–A4 and B have since been fixed in code, against **QA**.
+Each section below is marked accordingly and records what changed. Findings C, D, E, F and
+G are still open.
 
 ---
 
@@ -19,13 +22,13 @@ the repo was changed by this review other than adding this file.
    two reasons (wrong `Edge#FCID`, unset `Edge1End`). Fixes for both landed in code on
    2026-07-22 and — as far as the repo shows — **have never been run**. No log, no doc
    update, no status change since. Treat Dev and QA turns as broken until re-verified.
-2. **One of those two fixes looks incomplete.** Script 05 synthesises `Edge1End` from
-   `Edge1Pos` instead of reading the `Edge1End` value that already exists on the source turn
-   FC, and derives it from the *old* edge's geometry rather than the *new* one. See
-   [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-blocking).
-3. **`run_full_network_rebuild.py` is currently wired to two different environments.**
-   Script 05 is set to QA, script 03 is set to Dev. Running the orchestrator as committed
-   remaps QA's turns and then builds Dev's network dataset. See [B](#b-environment-config-drift).
+2. **One of those two fixes was incomplete — now fixed.** Script 05 synthesised `Edge1End`
+   from `Edge1Pos` instead of reading the value on the source turn FC, and derived it from
+   the *old* edge rather than the *new* one. See
+   [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-fixed-2026-08-31).
+3. **`run_full_network_rebuild.py` was wired to two different environments — now fixed.**
+   Script 05 was set to QA, script 03 to Dev. Both now point at QA and the orchestrator
+   refuses to run if they diverge. See [B](#b-environment-config-drift-fixed-2026-08-31).
 4. **The documented rebuild cadence is wrong in a way that will break prod on day one.**
    The migration plan states turns don't need rebuilding on each LRS refresh. They do —
    turn references are edge `OBJECTID`s, and the refresh reassigns them. See
@@ -43,7 +46,7 @@ the repo was changed by this review other than adding this file.
 | Phase 2 — schema comparison | ⚠️ Ran, but the evaluator half never executed — see [E](#e-script-02s-evaluator-cross-check-has-never-actually-run) |
 | Phase 3 — XML template edits | ✅ Done (elevation cleared, sources renamed); stale `ClassID`s remain — see [F](#f-template-hygiene) |
 | Phase 4 — create + build ND | ✅ Dev and QA built (last rebuilt 2026-07-14) |
-| Phase 5a — traffic turns | ❌ **Not complete.** Docs say ✅ (2026-07-14); code comments dated 2026-07-21 say that build's turns all failed. Fixes uncommitted-to-reality since 2026-07-22. |
+| Phase 5a — traffic turns | ❌ **Not complete.** Docs say ✅ (2026-07-14); code comments dated 2026-07-21 say that build's turns all failed. Script 05 rewritten 2026-08-31 (A1–A4) but **not yet run** — QA needs a fresh remap + rebuild + verification. |
 | Phase 5 — solve tests | 🔄 Properties ✅ (06-26); 50 km service area ✅ (Robbie, 06-29); route / one-way / turn-restriction / address-range solves **not done** |
 | SQL grants | QA ✅ (2026-07-14, `N_3_*` + `ND_38726_*` + 4 source tables + editor writes); **Dev pending**; prod N/A |
 | FD separation (`TRNLRS_network`) | ⚠️ Dev + QA populated by script 03's *fallback copy*, not by script 06. Script 06 has never been run anywhere. Duplicate FCs still sitting in `SDEADM.TRNLRS` in both environments. |
@@ -60,7 +63,7 @@ cold, into a state where the docs and the code disagree about whether the last s
 
 This is the script the whole migration is blocked on, so it gets the most attention.
 
-### A1. `Edge1End` is synthesised from `Edge1Pos` rather than read (BLOCKING)
+### A1. `Edge1End` is synthesised from `Edge1Pos` rather than read (FIXED 2026-08-31)
 
 **Confirmed from code.** Section 7 builds `read_fields` from the old turn FC as
 `SHAPE@`, optional `NODE_`, then `Edge{i}FCID/FID/Pos` per slot, then `OID@`. `Edge1End` is
@@ -118,7 +121,22 @@ print("(Pos, End) pairs      :", combo.most_common(10))
 
 Either way, **read `Edge1End` from the source turn FC** — it is authoritative and free.
 
-### A2. Junction identification is indirect and fragile (recommended rework)
+**Fix applied (2026-08-31).** `Edge1Pos` is no longer used to locate anything. The junction
+is derived from geometry (see [A2](#a2-junction-identification-is-indirect-and-fragile-fixed-2026-08-31)),
+and `Edge1End` is computed from the **matched new** Edge1 via `edge_end_flag()` — `"Y"` if
+the junction is at its `lastPoint`, `"N"` if at its `firstPoint` — so a new segment digitised
+opposite to the old one gets the correct flag. The source `Edge1End` is now read, but as an
+*integrity check*: it is compared against the junction the script derives on the **old**
+Edge1, and the agreement rate is logged. Below `MIN_EDGE1END_AGREEMENT` (95%) the script
+warns loudly and refuses the automatic swap. The diagnostic above is also folded into the
+run itself — `log_source_edge1_distribution()` logs the `Edge1Pos`/`Edge1End` distributions
+at startup, so every run carries its own evidence.
+
+`Edge{N}Pos` on the output is written as the constant `NEW_EDGE_POS = 0.5` rather than
+copied from the old record, since the old value refers to a different feature and, under
+endpoint connectivity, `0.5` is the canonical position of the single element.
+
+### A2. Junction identification is indirect and fragile (FIXED 2026-08-31)
 
 `find_new_oid` locates the turn junction by picking one endpoint of the *old* edge based on
 `Pos`. A version that does not depend on `Pos` semantics at all:
@@ -134,7 +152,17 @@ Either way, **read `Edge1End` from the source turn FC** — it is authoritative 
 This removes both failure modes in A1 and makes the result independent of how the old FC
 happened to encode position.
 
-### A3. Partially-resolved turns are written as valid (BLOCKING, silent)
+**Fix applied (2026-08-31).** Implemented as described. `shared_endpoint()` finds the
+junction between consecutive old edges; each old edge is resolved to a new one anchored at
+the junction where the turn enters it (the exit junction for Edge1); `Edge{N}Pos` is set to
+`NEW_EDGE_POS`; `Edge1End` comes from the matched new Edge1. A turn whose consecutive old
+edges do not meet end to end is now skipped as `no_shared_endpoint` rather than being
+guessed at. `candidate_edges_at()` also searches the 3×3 neighbourhood of grid cells around
+the junction and then filters by true distance — a junction landing near a cell boundary
+could previously round away from an edge endpoint well within tolerance, producing a false
+skip and inflating the skip count the go/no-go decision reads.
+
+### A3. Partially-resolved turns are written as valid (FIXED 2026-08-31)
 
 **Confirmed from code.** In Section 8, only an Edge1 miss sets `valid = False`. A miss on
 Edge2–Edge5 writes `[None, None, None]` and continues:
@@ -161,7 +189,24 @@ Neither increments `skipped`, so both are invisible to the "1,209 written / 29 s
 warning threshold. **The real skip rate is unknown.** Fix: treat a miss on any slot that was
 populated in the source as a skip, and count/report per-slot misses separately.
 
-### A4. Angle tiebreaker uses the old edge's chord, not its local tangent (accuracy)
+**Fix applied (2026-08-31).** A turn is written only when *every* populated source slot
+resolves. Skips are counted by reason and each reason's OID list is logged at DEBUG:
+
+| Reason | Meaning |
+|---|---|
+| `too_few_edges` | fewer than 2 populated edge slots in the source (a turn needs at least 2) |
+| `missing_old_geometry` | a referenced old edge OID has no geometry |
+| `no_shared_endpoint` | consecutive old edges do not meet end to end |
+| `unresolved_edge` | no new edge coincides with the junction |
+| `new_edge_not_spanning` | a matched *middle* edge does not reach both of its junctions — LRS resegmentation split the old edge between them, so no single new edge carries the turn |
+| `edge1end_undetermined` | the junction is at neither end of the matched new Edge1 |
+
+Source slots are also read up to the first empty one, so a gap in the source is never
+carried into the output. **Expect the reported skip count to rise** relative to the 2.3%
+from 2026-07-13 — that number was measuring only Edge1 misses. The new number is the real
+one, and the per-reason breakdown says whether it is tolerable.
+
+### A4. Angle tiebreaker uses the old edge's chord, not its local tangent (FIXED 2026-08-31)
 
 The multi-candidate tiebreaker compares the direction `junction → other endpoint` of the
 *whole old edge* against the same for each candidate new edge. LRS resegmentation makes new
@@ -171,22 +216,27 @@ candidate can be the wrong leg. Using the first/last **vertex pair** (i.e. the t
 the junction) on both sides would compare like with like. Flagged in the staging checklist
 as "highest-risk area" — this is why.
 
+**Fix applied (2026-08-31), alongside A2.** `tangent_at()` returns the bearing from the
+junction to the first vertex more than `SNAP_TOLERANCE` away, on both the old and the
+candidate new edge, so like is compared with like. This came with A2 rather than separately:
+resolving an edge at a junction needs a candidate-selection rule regardless, and the chord
+version was not fit for it.
+
 ### A5. Minor
 
-- `ZeroDivisionError` if `total == 0` at `if skipped / total > 0.05` in the
-  `AUTO_SWAP_AND_REBUILD` block (Section 10). The Section 9 summary guards this; Section 10
-  does not.
-- The header comment says the Dev config is "Active by default" and QA is commented out.
-  Since 2026-07-22 the opposite is true — QA is the live line. Comment and code disagree in
-  the config block a reader trusts most.
-- The Section 4 validation comment still says *"the FCID lookup now reads from
-  network_template.xml (see Section 5 below)"*. Section 5 was rewritten in the same commit to
-  read `Describe(NEW_EDGE_FC).DSID`, and explains at length why the template approach was
-  wrong. Stale comment sitting directly above the corrected one.
+- ~~`ZeroDivisionError` if `total == 0` at `if skipped / total > 0.05` in the
+  `AUTO_SWAP_AND_REBUILD` block (Section 10).~~ **Fixed 2026-08-31** — the swap block now
+  guards `total == 0`, and additionally refuses to swap when the Edge1End agreement rate is
+  below threshold.
+- ~~The header comment says the Dev config is "Active by default" and QA is commented out.~~
+  **Fixed 2026-08-31** — the config block now labels QA as active, matching the code.
+- ~~The Section 4 validation comment still says *"the FCID lookup now reads from
+  network_template.xml"*.~~ **Fixed 2026-08-31** — that comment and the matching claim in
+  `run_full_network_rebuild.py`'s docstring now describe the DSID approach.
 
 ---
 
-## B. Environment config drift
+## B. Environment config drift (FIXED 2026-08-31)
 
 **Confirmed from code.** Every script carries its own manually-edited connection constant,
 and they currently disagree:
@@ -208,14 +258,25 @@ also silently succeed, because script 03 skips copying source FCs that already e
 
 This has been on the open-questions list since 2026-07-07 ("consider replacing the manually
 edit the active connection constant pattern with an `--env` flag"). The orchestrator turns
-it from a papercut into a data-integrity hazard. Recommend a single `env.py` (or
-`ConfigParser` section, matching `LRS_updates.py`) that all six scripts import, with the
-orchestrator asserting `mod05.SDE == mod03.SDE_CONNECTION_UPDATE` before it does anything.
+it from a papercut into a data-integrity hazard.
 
 Related: `run_full_network_rebuild.py` also assumes `mod05.AUTO_SWAP_AND_REBUILD is False`.
 If someone leaves it `True`, script 05 performs its own swap, the orchestrator then finds no
 staging FC, and reports *"05 did not complete successfully"* — misleading, though it does
-fail safe. An explicit assert with a clear message would be better.
+fail safe.
+
+**Fix applied (2026-08-31).** Script 03's `SDE_CONNECTION_UPDATE` now points at **QA**,
+matching script 05, and both config blocks say so with a cross-reference to the other
+script. `run_full_network_rebuild.py` gained `check_environments_agree()`, called
+immediately after both modules load and before any work: it compares
+`os.path.join(mod05.SDE, mod05.NETWORK_FD)` against `mod03.FEATURE_DATASET` (normalised for
+case and separators) and exits with both paths printed if they differ, and it also refuses
+to run when `mod05.AUTO_SWAP_AND_REBUILD` is `True`.
+
+Scripts 01, 02 and 06 keep their own constants and are unchanged — none of them is invoked
+by the orchestrator, so they cannot produce the split-environment failure. The broader fix
+(a single shared env module or an `--env` flag) is still worth doing and remains on the
+list; this closes the hazard the orchestrator created.
 
 ---
 
@@ -382,7 +443,7 @@ now actively mislead:
 | `docs/traffic_turns.md` | **Does not exist.** Referenced from `05_rebuild_traffic_turns.py` (twice, including *"See traffic_turns.md for the full diagnosis"* of the DSID and `Edge1End` findings) and from `run_full_network_rebuild.py`. The actual file is `docs/network_traffic_turns.md` — which does **not** contain that diagnosis. |
 | `network_review.md` | **Does not exist.** Referenced from `network_dataset_migration_plan.md` for the full QA review notes. Never committed. |
 | The 2026-07-21/22 work | The two most consequential fixes in the project (FCID→DSID, `Edge1End`) exist only as inline comments. No doc, no status-table update, no log. |
-| `traffic_turn_staging_review_checklist.txt` §2 | Says *"Edge1FCID should equal the FCID logged during the run (2, for TRNLRS_TRN_STREET). Any other value ... is a bug."* Now exactly inverted — `2` **is** the bug; the DSID is correct. Anyone following this checklist would sign off a broken FC. |
+| `traffic_turn_staging_review_checklist.txt` §2 | ~~Says *"Edge1FCID should equal the FCID logged during the run (2, for TRNLRS_TRN_STREET)"* — now exactly inverted.~~ **Fixed 2026-08-31**, along with the `Edge{N}Pos` carry-over check, which the rewrite also invalidated. The rest of the checklist (counts, spatial spot checks, skipped-turn assessment, ETAs) still stands. |
 | `network_build_status.md` Phase 5a | `✅ Complete (2026-07-14)`. The 07-21 finding says that build's turns all failed. Should be walked back to ⚠️. |
 | `run_full_network_rebuild.py` docstring | *"05 has since been patched to read the FCID from network_template.xml"* — superseded by the DSID fix committed 27 minutes earlier. |
 | Solve-test status | `network_dataset_migration_plan.md` records a service area solve ✅ (06-29); `network_build_status.md` lists all solve tests as pending. Reconcile. |
@@ -393,17 +454,22 @@ now actively mislead:
 
 ## H. Recommended next steps, in order
 
-1. **Run the `Edge1Pos`/`Edge1End` diagnostic in [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-blocking) against QA.** ~15 minutes, and
-   it decides whether the turn remap needs another fix before it can possibly work. Nothing
-   else should happen first.
-2. **Fix script 05** — read `Edge1End` from source, re-derive against the matched new edge,
-   count partial-resolution failures as skips ([A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-blocking)–[A3](#a3-partially-resolved-turns-are-written-as-valid-blocking-silent)).
-3. **Fix the environment mismatch ([B](#b-environment-config-drift))** before running `run_full_network_rebuild.py` again.
-   Point both scripts at QA, and add the assert.
-4. **Re-run the cycle in QA and actually verify the result:** `BuildErrors_<guid>.txt`
-   contains zero turn errors *and* the GUID matches this run; Sources tab shows a nonzero
-   Turns count; a Route solve through a known prohibited turn is refused. Only then is
-   Phase 5a complete. Repeat in Dev.
+1. ~~Run the `Edge1Pos`/`Edge1End` diagnostic against QA.~~ **Done differently
+   (2026-08-31)** — folded into script 05 itself as `log_source_edge1_distribution()`, so
+   the first run produces the evidence. Read those two lines in the log before trusting
+   anything else in the run.
+2. ~~Fix script 05 ([A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-fixed-2026-08-31)–[A3](#a3-partially-resolved-turns-are-written-as-valid-fixed-2026-08-31)).~~
+   **Done 2026-08-31.** Not yet run.
+3. ~~Fix the environment mismatch ([B](#b-environment-config-drift-fixed-2026-08-31)).~~ **Done 2026-08-31** — both
+   scripts on QA, orchestrator asserts.
+4. **Run the cycle in QA and actually verify the result.** This is now the top of the list.
+   Check, in order: (a) the `Edge1Pos`/`Edge1End` distribution lines in the log; (b) the
+   Edge1End agreement rate — below 95% the run is not trustworthy and the script says so;
+   (c) the per-reason skip breakdown, which will read higher than the old 2.3% because it is
+   now counting failures the old version wrote out as successes; (d) `BuildErrors_<guid>.txt`
+   contains zero turn errors *and* its GUID matches this run; (e) the Sources tab shows a
+   nonzero Turns count; (f) a Route solve through a known prohibited turn is refused. Only
+   then is Phase 5a complete. Repeat in Dev afterwards.
 5. **Re-apply Dev's SQL grants** (still pending since 07-14) using the procedure in
    `network_dataset_sql_permissions.md`.
 6. **Decide the OID-stability question ([D](#d-turn-references-do-not-survive-an-lrs-refresh-structural))** — it changes what `04` and
