@@ -392,6 +392,30 @@ Expected contents:
   `TRNLRS_street_junction`. **Expected and harmless** — LRS resegmentation moved edge
   endpoints, so some manually-placed junctions no longer coincide with one. Count them, but
   they are not a failure.
+- **New, confirmed 2026-09-01 against the interactively-rebuilt QA network:** a small number
+  of `Source table [SDEADM.TRNLRS_traffic_turn], Object ID [N]: Cannot find at junction.`
+  lines — 9 out of 1,189 written turns (0.76%) on the first rebuild. Diagnosed directly
+  against the live data (do not assume this is the `no_shared_endpoint` skip category —
+  it is not, since these turns already passed the remap and the verifier's checks). Two
+  causes, confirmed by measuring the true minimum distance across all four
+  first/last endpoint combinations between each turn's consecutive edges (the same method
+  `shared_endpoint()` uses — do not assume which end of `Edge2+` matters, since only `Edge1`
+  carries an `End` flag; guessing `firstPoint` for the rest produces false "gaps" of 30–150m
+  that evaporate once all four combinations are checked):
+  - **7 of 9**: a real small gap (0.006m–0.41m) between two edges in `TRNLRS_TRN_STREET`
+    that script 05 correctly identified as the adjacent pair — `SNAP_TOLERANCE = 0.5` in
+    `05_rebuild_traffic_turns.py` is deliberately looser than the network's actual
+    build-time XY tolerance (0.001m), so a match the remap accepts can still be too far
+    apart for Build Network to snap into one junction. Not a remap logic bug; a genuine
+    pre-existing digitizing gap in the edge source.
+  - **2 of 9**: an exact 0.0000m coincidence that still failed — unexplained. Worth checking
+    whether a third, different turn also references the same shared edge before spending
+    more time on it (Build Network's error attribution during turn-element creation may not
+    be 1:1 reliable), but not chased further yet given the small impact.
+  - **Practical impact**: at most 9 of 1,189 turn restrictions (0.76%) go unenforced in
+    solves; every edge and every other turn built correctly. Decide separately whether this
+    is worth a targeted geometry snap on the 7 real-gap locations, or acceptable as a known
+    residual gap — it does not block Phase 4.
 
 ---
 
