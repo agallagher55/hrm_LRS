@@ -348,6 +348,32 @@ overwritten by the next LRS refresh sync.
    from QA's numbers above.
 3. Run against prod once `TRNLRS_street_network` is built there.
 
+## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-09-01)
+
+**Supersedes the 2026-07-14 entry above.** `TRNLRS_street_network` was deleted and rebuilt
+again on 2026-09-01 as part of the VBScript-evaluator migration (interactive rebuild with
+Python evaluators -- see [`network_dataset_script_review.md` §F2](network_dataset_script_review.md#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01)),
+which drops and reassigns these tables again regardless of what was granted before.
+
+| Table set | Status |
+|---|---|
+| `N_1_*` | Unrelated geometric network (10 tables). Not touched. |
+| `N_2_*` | Legacy `TRN_street_network`. Already fully granted. Not touched. |
+| `N_3_*` | `TRNLRS_street_network`. **Same ID number reused** across this delete+recreate (consistent with the docs' note that `N_<id>` sometimes gets reused as the next free slot). Confirmed via the [2b audit query](#2b-faster-combined-audit-list-ids--grant-status-in-one-query) returning `0 / 6`, then **granted** (all 6 tables). |
+| `ND_7293_*` | Confirmed (again) to belong to the legacy `TRN_street_network`, not this one -- already fully granted, untouched, consistent with the 2026-07-14 finding. |
+| `ND_12010_*`, `ND_21268_*`, `ND_38752_*`, `ND_39207_*`, `ND_396_*` | Single-table orphans (`DIRTYOBJECTS` only, no matching `DIRTYAREAS`) from earlier deleted/recreated network datasets. Not touched. |
+| `ND_40171_*` | `TRNLRS_street_network`'s new dirty-area tracking ID -- replaces the 2026-07-14 build's `ND_38726` (no longer exists after this rebuild). Identified by elimination (the only complete `DIRTYAREAS`/`DIRTYOBJECTS` pair besides the already-confirmed-legacy `ND_7293`) and corroborated by proximity to the `Object Class ID: 40170` Pro's Properties dialog reported for `TRNLRS_street_network_Junctions` on this same build -- registration IDs assigned during the same build tend to land near each other. Audit query showed `1 / 2` (`DIRTYAREAS` already had a `PUBLIC SELECT` grant for an unknown reason, `DIRTYOBJECTS` did not) -- **granted** `DIRTYOBJECTS` (and re-ran the `DIRTYAREAS` grant as a harmless no-op). |
+
+**Confirmed working (2026-09-01):** an OS-auth login (`HRM\GALLAGA`, not the `SDEADM` admin
+login) added `TRNLRS_street_network` to a fresh map successfully -- edges rendered, Dirty
+Areas layer present. This confirms both the `N_3`/`ND_40171` registration grants and all four
+source-table `SELECT` grants (the source tables' permissions were not reset by this rebuild,
+since deleting the network dataset does not drop the source feature classes themselves).
+
+**Still open:** Route/Service Area solve test (step 6, part 2) -- add-to-map alone does not
+confirm the source feature class grants under solve, only browsing. Run against Dev and prod
+once each is rebuilt there.
+
 ## Historical status (QA, 2026-07-13, superseded above)
 
 | Table set | Status |
