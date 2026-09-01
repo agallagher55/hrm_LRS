@@ -477,6 +477,21 @@ on Edge1 before the junction and a stop on Edge2 after it, then:
 Different results between the two = turn restrictions are enforced. Identical results =
 they are not, regardless of what the Turns count says.
 
+**Confirmed 2026-09-01, and a real gotcha worth flagging for whoever does this next.** First
+attempt against turn OID 2 (`QUINPOOL RD -> ROBIE ST`, a genuine cross-street prohibited
+turn) went straight through — 51 ft, no detour, restriction silently ignored. This was **not**
+a network-build defect: the Route layer's **Travel Mode** did not have `TrafficTurn` or
+`OneWay` checked under its own Restrictions tab. Defining a restriction attribute on the
+network dataset (Travel Attributes → Restrictions, per [F2](network_dataset_script_review.md#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01))
+does not mean any given solve honors it — that is controlled per Travel Mode, and a freshly
+created Route layer's default travel mode does not automatically pick up custom restrictions.
+Checking both boxes (Route layer → Travel Mode → Edit → Restrictions tab) immediately fixed
+it: the same stops then produced a 411 ft loop-around detour via Robie St and back onto
+Quinpool, correctly avoiding the prohibited movement. **Anyone building a Route/Service Area
+layer against this network dataset -- or configuring a published routing service from it --
+must explicitly enable `TrafficTurn` and `OneWay` in whatever Travel Mode is used, or turn
+and one-way restrictions will be silently ignored with no error.**
+
 While you have a Route open, the other two outstanding Phase 5 tests are cheap:
 
 - **One-way**: route both directions along a known one-way street; the wrong-way direction

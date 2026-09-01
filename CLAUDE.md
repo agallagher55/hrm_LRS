@@ -53,6 +53,30 @@ be deleted to release the lock, then recreated (`CreateNetworkDatasetFromTemplat
   — it's a normal edit operation and IS supported on controller-dataset members (slower than
   `TruncateTable` on large tables, but doesn't require deleting the network dataset).
 
+### VBScript network evaluators lock the network dataset read-only (ArcGIS Pro 3.4+)
+A network dataset whose `Length`/other evaluators are still VBScript Field/Element Script
+(the legacy authoring language) opens in Properties as **permanently read-only** starting in
+Pro 3.4 — not just the evaluators, everything — with no in-place fix, because the only
+documented remediation (convert to Python via Properties → Travel Attributes) requires the
+exact dialog that's locked. Confirmed against Esri KB 000034955 / FAQ 000034321; ruled out
+lock/session state, Pro client version, and network dataset schema version as causes before
+landing on this (see `docs/network_dataset_script_review.md` §F2 for the full diagnosis). Fix:
+rebuild the network dataset from scratch with Python evaluators (interactive New Network
+Dataset wizard, not `CreateNetworkDatasetFromTemplate` against an old VBScript-bearing
+template — that reproduces `ERROR 030386`), then re-export the template via
+`CreateTemplateFromNetworkDataset`.
+
+### Restriction attributes do nothing unless the Travel Mode enables them
+Defining a restriction attribute (e.g. `OneWay`, `TrafficTurn`) on the network dataset's
+Travel Attributes tab does not mean any given solve honors it. Enforcement is controlled
+per **Travel Mode** — Route/Service Area layer → Travel Mode → Edit → Restrictions tab — and
+a freshly created Route layer's default travel mode does not automatically pick up custom
+restrictions. A solve will silently route straight through a real prohibited turn or the
+wrong way down a one-way street, with no error, if the restriction isn't checked there.
+Confirmed 2026-09-01 against QA: a known-prohibited turn (`QUINPOOL RD -> ROBIE ST`) was
+solved straight through until `TrafficTurn`/`OneWay` were checked in the travel mode, after
+which the same stops correctly produced a detour.
+
 ## Project Purpose
 
 This repository holds all data, scripts, and documentation for the **Halifax Regional Municipality (HRM) Linear Referencing System (LRS)** — a system for locating assets and events along road/route networks using route identifiers and measure values (e.g., kilometre points) rather than X/Y coordinates.
