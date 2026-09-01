@@ -61,6 +61,7 @@ G are still open.
    for why, and what's still worth a light follow-up.
 7. **`LRS_updates.py` will fail on its first prod run** with `ERROR 001395` — the
    `TruncateTable` fix that landed in script 04 was never ported to it. See [C](#c-lrs_updatespy-will-fail-on-first-prod-run).
+8. **QA's network dataset must be rebuilt from scratch, not from `data/network_template.xml` — confirmed 2026-09-01.** After the swap (Phase 3), `CreateNetworkDatasetFromTemplate` failed with `ERROR 030386`: the template's `Length`/`OneWay` evaluators are VBScript, which ArcGIS Pro 3.5 refuses to build from. Attempting the Esri-documented fix (convert the evaluators to Python in Properties) hit a second wall: Dev's existing network dataset shows "Read-only network dataset" in Properties, and this is confirmed to be Esri's deliberate, one-way behavior for any network dataset with VBScript evaluators opened in Pro 3.4+ — not a lock, Pro-version, project-state, or schema-version issue (all four tested and disproven). There is no documented in-place fix. See [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01).
 
 ---
 
@@ -71,8 +72,8 @@ G are still open.
 | Phase 1 — extract old config | ✅ Done (`network_config.json`, `network_template.xml`) |
 | Phase 2 — schema comparison | ⚠️ Ran, but the evaluator half never executed — see [E](#e-script-02s-evaluator-cross-check-has-never-actually-run) |
 | Phase 3 — XML template edits | ✅ Done (elevation cleared, sources renamed); stale `ClassID`s remain — see [F](#f-template-hygiene) |
-| Phase 4 — create + build ND | ✅ Dev and QA built (last rebuilt 2026-07-14) |
-| Phase 5a — traffic turns | 🔄 **Remap confirmed correct, staging FC verified clean (2026-08-31)** — 99.7% Edge1End agreement, 4.0% skip rate, correct DSID, all 10 verifier checks pass including check 10 (zero duplicate signatures — see A0 update). Spatial spot checks and the swap (Phase 3) still pending — network dataset has the old, broken turn FC until those complete. |
+| Phase 4 — create + build ND | ❌ **QA's `TRNLRS_street_network` is currently deleted.** Remap verified clean, spot checks passed, the FC swap (Phase 3.1) succeeded — but recreating the ND from `data/network_template.xml` failed with `ERROR 030386` (VBScript evaluators). See [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01). Dev's ND still exists but is stuck read-only for the same reason. |
+| Phase 5a — traffic turns | 🔄 **Remap confirmed correct, staging FC verified clean, spatial spot checks passed (2026-08-31/09-01)** — 99.7% Edge1End agreement, 4.0% skip rate, correct DSID, all 10 verifier checks pass including check 10 (zero duplicate signatures — see A0 update), 5 manual spot checks correct including the highest-risk multi-leg intersection. The turn FC itself is proven correct and already swapped into place; **blocked on Phase 4** (no network dataset currently exists in QA to attach it to). |
 | Phase 5 — solve tests | 🔄 Properties ✅ (06-26); 50 km service area ✅ (Robbie, 06-29); route / one-way / turn-restriction / address-range solves **not done** |
 | SQL grants | QA ✅ (2026-07-14, `N_3_*` + `ND_38726_*` + 4 source tables + editor writes); **Dev pending**; prod N/A |
 | FD separation (`TRNLRS_network`) | ⚠️ Dev + QA populated by script 03's *fallback copy*, not by script 06. Script 06 has never been run anywhere. Duplicate FCs still sitting in `SDEADM.TRNLRS` in both environments. |
@@ -614,6 +615,80 @@ field_refs = re.findall(r"\[([A-Za-z0-9_.()]+)\]", ev.get("data") or "")
   are correct in the template (`StreetNameFieldName=STR_NAME`, `SuffixTypeFieldName=STR_TYPE`,
   `FullNameFieldName=FULL_NAME`) and the 06-26 properties check verified them in Pro.
   Cosmetic, but the JSON is the thing people grep.
+
+---
+
+## F2. ERROR 030386 — VBScript evaluators make the network dataset permanently read-only; QA's ND must be rebuilt from scratch, not from this template (confirmed 2026-09-01)
+
+**What happened:** after the turn FC swap (Phase 3.1) succeeded on QA, `03_create_network_dataset.py`
+failed at `CreateNetworkDatasetFromTemplate` with `ERROR 030386` ("Cannot create a network
+dataset from a template that uses ... evaluators configured with VBScript"). Trying the
+Esri-documented fix — convert the evaluators to Python via Properties → Travel Attributes,
+rebuild, re-export the template — hit a second, harder wall on Dev's *existing* (still-built)
+`TRNLRS_street_network`: Properties opens showing "Read-only network dataset." with no
+Evaluators tab, on every environment tried.
+
+**Root cause, read directly out of `data/network_template.xml`:** only two attributes actually
+use a scripted (VBScript) evaluator — `NetworkEvaluatorCLSID {68055FC4-37D5-4BD0-81A5-CD177A29759C}`
+(Field Script). Everything else (junction/edge/turn defaults, `TrafficTurn`) uses the Constant
+evaluator (`{318C4B91-F5D2-467A-996C-0AB51B0D8FF2}`), which is not VBScript and is not affected.
+The two real ones, exact current content:
+
+| Attribute | Direction | Expression | PreLogic |
+|---|---|---|---|
+| `Length` | Along Digitized | `[SHAPE.STLength()]` | *(empty)* |
+| `Length` | Against Digitized | `[SHAPE.STLength()]` | *(empty)* |
+| `OneWay` | Along Digitized | `restricted` | `restricted = False` |
+| `OneWay` | Against Digitized | `restricted` | `restricted = False` |
+
+**Side finding, not fixed here:** `OneWay`'s PreLogic unconditionally sets `restricted = False`
+and never references `STR_DIR`. As written, the live network today does not actually enforce
+one-way restrictions at all — CLAUDE.md's description of `STR_DIR` as "driv[ing] the network
+restriction evaluator" describes intent, not current behavior. Worth a decision (see below),
+not assumed.
+
+**Why Dev's ND is read-only — confirmed against Esri's own documentation, not a guess:**
+`support.esri.com` knowledge base 000034955 ("Deprecation: VBScript Evaluators in ArcGIS
+Network Analyst") and FAQ 000034321 state that **starting in ArcGIS Pro 3.4, a network dataset
+carrying VBScript-based Field/Element Script evaluators becomes permanently non-editable
+through Properties — not just the evaluators, anything — until the evaluators are converted to
+Python.** This is a deliberate one-way gate Esri built when deprecating VBScript, and it
+explains every symptom observed, which is why four different hypotheses tried in sequence
+during this session were each tested and confirmed wrong:
+
+| Hypothesis | Test | Result |
+|---|---|---|
+| Stale lock / session | Restarted Pro, closed PyCharm; checked Geodatabase Administration → Locks | Disproven — 0 of 192 locks |
+| Pro-version-specific (3.5 only) | Reproduced on a Pro 3.3 client against the same SDE instance | Disproven — identical behavior |
+| Network dataset/layer loaded elsewhere in the project | Retried from a fresh, blank project | Disproven — still read-only |
+| Old schema version | Ran `arcpy.management.UpgradeDataset` | Disproven — `ERROR 001266: The dataset is already upgraded` |
+
+**There is no documented in-place fix.** The only remediation Esri publishes for `ERROR 030386`
+is to convert the evaluators to Python and rebuild — but that requires Properties, which the
+existing VBScript content has already locked. Esri's support content does not describe an
+escape hatch for a network dataset that reached Pro 3.4+ already carrying VBScript evaluators
+beyond building a new one.
+
+**Path forward (not yet executed):**
+1. Do not keep trying to unlock Dev's existing ND — treat the read-only state as permanent.
+2. Since QA's ND is already deleted, build its replacement via Pro's **New Network Dataset**
+   wizard (interactive), not `CreateNetworkDatasetFromTemplate` against the current XML —
+   that would immediately reproduce `ERROR 030386`.
+3. In the wizard, assign `Length` and `OneWay` as **Python** Field Script evaluators. For a
+   like-for-like rebuild, translate the table above literally (VBScript `[Field]` bracket
+   syntax → Python `!field!` syntax): `Length` → `!shape.length!` (returns meters, matching
+   `[SHAPE.STLength()]` under this network's meter-based spatial reference); `OneWay` →
+   Expression `restricted`, PreLogic `restricted = False` (preserves the current no-op — see
+   the side finding above; decide separately whether to wire in `STR_DIR` while rebuilding
+   from scratch, rather than silently changing routing behavior as a side effect of a VBScript
+   migration).
+4. Match sources (`TRNLRS_TRN_STREET` edge, `TRNLRS_street_junction` junction,
+   `TRNLRS_traffic_turn` turn) and connectivity settings to the values already recorded in
+   `data/network_template.xml`.
+5. `BuildNetwork`, then export the corrected template with `CreateTemplateFromNetworkDataset`
+   and commit it over `data/network_template.xml`, so `03_create_network_dataset.py` can
+   reproduce this network going forward without ever touching VBScript again.
+6. Resume the runbook at Phase 4 (post-build) — the turn FC itself needs no further work.
 
 ---
 
