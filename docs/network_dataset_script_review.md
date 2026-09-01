@@ -26,17 +26,19 @@ G are still open.
    match). A handful of plain surface-street pairs (e.g. `HEMLOCK DR`/`HIGH TIMBER DR`,
    9m offset) are NOT explained by that and are real candidates for investigation. See
    [A0b](#a0b-junction-alignment-check-run-2026-08-31----grade-separation-not-a-transform-bug-a-handful-of-real-anomalies).
-2. **The turn rebuild was broken in Dev and QA for over a month — the remap itself is now
-   confirmed fixed in QA (2026-08-31), verification is not yet done.** The status docs said
-   Phase 5a was ✅ complete as of 2026-07-14, but the code comments added on 2026-07-21/22
-   recorded that *every* turn produced by script 05 on that same build had actually failed to
-   resolve. Those 2026-07-22 fixes were themselves incomplete (see item 3) and were never
-   re-run until today. The rewritten script now shows 99.7% Edge1End agreement and a healthy
-   4.0% skip rate against QA. Running the verifier against the output then found a second,
-   independent bug — in the verifier itself, not the remap (see [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-fixed-2026-08-31)'s
-   final update) — now also fixed but not yet re-run. Still open: re-verifying (Phase 2) and
-   swapping in (Phase 3) haven't happened, so QA's live network dataset still has the old,
-   broken turn FC.
+2. **The turn rebuild was broken in Dev and QA for over a month — the remap is now confirmed
+   correct and its staging output passes every mechanical check (2026-08-31).** The status
+   docs said Phase 5a was ✅ complete as of 2026-07-14, but the code comments added on
+   2026-07-21/22 recorded that *every* turn produced by script 05 on that same build had
+   actually failed to resolve. Those 2026-07-22 fixes were themselves incomplete (see item 3)
+   and were never re-run until today. The rewritten script shows 99.7% Edge1End agreement and
+   a healthy 4.0% skip rate against QA; the verifier itself needed the same fix (see
+   [A1](#a1-edge1end-is-synthesised-from-edge1pos-rather-than-read-fixed-2026-08-31)'s final
+   update) before it could confirm this, but once fixed, all 10 checks on the staging FC pass
+   clean — including the previously-flagged duplicate-signature problem (see item 6), which
+   turned out not to recur under the rewritten matching logic. Still open: the spatial spot
+   checks in `traffic_turn_staging_review_checklist.txt` and the swap (Phase 3) haven't
+   happened, so QA's live network dataset still has the old, broken turn FC.
 3. **One of those two fixes was incomplete — now fixed.** Script 05 synthesised `Edge1End`
    from `Edge1Pos` instead of reading the value on the source turn FC, and derived it from
    the *old* edge rather than the *new* one. See
@@ -48,14 +50,18 @@ G are still open.
    The migration plan states turns don't need rebuilding on each LRS refresh. They do —
    turn references are edge `OBJECTID`s, and the refresh reassigns them. See
    [D](#d-turn-references-do-not-survive-an-lrs-refresh-structural).
-6. **Duplicate/degenerate turn signatures are a separate, still-open problem** —
-   independent of A1-A4, discovered via locally-held diagnostic scripts uploaded 2026-08-31.
-   LRS resegmentation merges some old street segments into one new edge, turning a legacy
-   "segment A onto segment B" restriction into a self-collision after remap. No fix exists;
-   `verify_turn_rebuild.py` now surfaces it as a warning. See
-   [A0](#a0-duplicate--degenerate-turn-signatures----a-separate-unresolved-problem-found-2026-08-31).
+6. **Duplicate/degenerate turn signatures — flagged as a still-open problem, then found not
+   to recur under the rewritten script (2026-08-31).** Discovered via locally-held diagnostic
+   scripts uploaded the same day: an *older* version of the remap script was collapsing both
+   carriageways of a divided road onto a single new edge, turning a legacy "segment A onto
+   segment B" restriction into a self-collision. `verify_turn_rebuild.py`'s check 10 was added
+   to surface this as a warning. Once run against the *rewritten* script's actual output,
+   check 10 came back clean — zero duplicate signatures across 1,189 records. See
+   [A0](#a0-duplicate--degenerate-turn-signatures----found-not-to-recur-under-the-rewritten-script-2026-08-31)
+   for why, and what's still worth a light follow-up.
 7. **`LRS_updates.py` will fail on its first prod run** with `ERROR 001395` — the
    `TruncateTable` fix that landed in script 04 was never ported to it. See [C](#c-lrs_updatespy-will-fail-on-first-prod-run).
+8. **QA's network dataset must be rebuilt from scratch, not from `data/network_template.xml` — confirmed 2026-09-01.** After the swap (Phase 3), `CreateNetworkDatasetFromTemplate` failed with `ERROR 030386`: the template's `Length`/`OneWay` evaluators are VBScript, which ArcGIS Pro 3.5 refuses to build from. Attempting the Esri-documented fix (convert the evaluators to Python in Properties) hit a second wall: Dev's existing network dataset shows "Read-only network dataset" in Properties, and this is confirmed to be Esri's deliberate, one-way behavior for any network dataset with VBScript evaluators opened in Pro 3.4+ — not a lock, Pro-version, project-state, or schema-version issue (all four tested and disproven). There is no documented in-place fix. See [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01).
 
 ---
 
@@ -66,8 +72,8 @@ G are still open.
 | Phase 1 — extract old config | ✅ Done (`network_config.json`, `network_template.xml`) |
 | Phase 2 — schema comparison | ⚠️ Ran, but the evaluator half never executed — see [E](#e-script-02s-evaluator-cross-check-has-never-actually-run) |
 | Phase 3 — XML template edits | ✅ Done (elevation cleared, sources renamed); stale `ClassID`s remain — see [F](#f-template-hygiene) |
-| Phase 4 — create + build ND | ✅ Dev and QA built (last rebuilt 2026-07-14) |
-| Phase 5a — traffic turns | 🔄 **Remap confirmed correct (2026-08-31)** — 99.7% Edge1End agreement (1190/1194), 4.0% skip rate, correct DSID. First verifier run (Phase 2) found 346/1,189 check-9 failures caused by an unfixed bug in the verifier itself (same divided-road ambiguity as A1, never patched into `verify_turn_rebuild.py`) — fixed same day, **not yet re-run**. Swap (Phase 3) still pending — network dataset has the old, broken turn FC until both complete. |
+| Phase 4 — create + build ND | ❌ **QA's `TRNLRS_street_network` is currently deleted.** Remap verified clean, spot checks passed, the FC swap (Phase 3.1) succeeded — but recreating the ND from `data/network_template.xml` failed with `ERROR 030386` (VBScript evaluators). See [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01). Dev's ND still exists but is stuck read-only for the same reason. |
+| Phase 5a — traffic turns | 🔄 **Remap confirmed correct, staging FC verified clean, spatial spot checks passed (2026-08-31/09-01)** — 99.7% Edge1End agreement, 4.0% skip rate, correct DSID, all 10 verifier checks pass including check 10 (zero duplicate signatures — see A0 update), 5 manual spot checks correct including the highest-risk multi-leg intersection. The turn FC itself is proven correct and already swapped into place; **blocked on Phase 4** (no network dataset currently exists in QA to attach it to). |
 | Phase 5 — solve tests | 🔄 Properties ✅ (06-26); 50 km service area ✅ (Robbie, 06-29); route / one-way / turn-restriction / address-range solves **not done** |
 | SQL grants | QA ✅ (2026-07-14, `N_3_*` + `ND_38726_*` + 4 source tables + editor writes); **Dev pending**; prod N/A |
 | FD separation (`TRNLRS_network`) | ⚠️ Dev + QA populated by script 03's *fallback copy*, not by script 06. Script 06 has never been run anywhere. Duplicate FCs still sitting in `SDEADM.TRNLRS` in both environments. |
@@ -80,7 +86,7 @@ cold, into a state where the docs and the code disagree about whether the last s
 
 ---
 
-## A0. Duplicate / degenerate turn signatures -- a separate, unresolved problem (found 2026-08-31)
+## A0. Duplicate / degenerate turn signatures -- found not to recur under the rewritten script (2026-08-31)
 
 Discovered via diagnostic scripts (`scripts/08_find_duplicate_siblings.py`,
 `09_classify_origin_duplicate.py`, `classify_unresolved_turns.py`) and their outputs
@@ -104,17 +110,33 @@ every row is `UNRESOLVED`. This is a domain question (does the restriction mean 
 movement across the old segment break", now meaningless, or "no U-turn here", still
 meaningful?), not something a script should decide unilaterally.
 
-**Why this affects today's test regardless of A1-A4:** the cause (resegmentation merging
-segments) is a property of the *data*, not of which script produced the remap. The rewritten
-script 05 should rediscover a comparable pattern -- expect check 10 in `verify_turn_rebuild.py`
-(added the same day this was found) to report it before the swap, rather than it turning up
-again in a `BuildErrors_<guid>.txt` file after the fact.
+**Expected this to recur under the rewritten script -- it didn't.** The reasoning at the time
+was that the cause (resegmentation merging segments) is a property of the *data*, not of which
+script produced the remap, so check 10 in `verify_turn_rebuild.py` (added the same day this was
+found) was expected to report a comparable pattern. Run against the actual rewritten script 05's
+output (1,189 records, post the divided-road junction fix -- see A1's final update), check 10
+came back with **zero duplicate signatures**.
 
-**Fix status: not fixed, and not something A1-A4 should have fixed.** `05_rebuild_traffic_turns.py`
-still has no deduplication step -- adding one requires the domain decision above, which remains
-open. `verify_turn_rebuild.py`'s check 10 surfaces the count and the edge-onto-itself subset as
-a warning (not a failure, since a collision may be entirely correct output that legitimately
-collides), pointing at the CSVs above for context, but does not decide anything on its own.
+**Why, on reflection:** the earlier evidence (165 collisions, `duplicate_turn_siblings.csv`)
+was gathered against an *older* version of the remap logic -- one with a materially weaker
+candidate-selection method than the current script's tangent-based tie-break, combined
+independently with today's divided-road junction fix. Both of those problems shared a root
+cause: a poor tie-break when a junction has more than one legitimate nearby candidate. It's
+reasonable that fixing that root cause for Edge1End also fixed it for edge selection generally
+-- each old edge (e.g. one carriageway of a divided road) is now correctly resolved to its own
+distinct new edge, rather than both carriageways collapsing onto the same one. This is direct,
+real evidence for this run, not a general proof; `05_rebuild_traffic_turns.py` still has no
+explicit deduplication step, so a future dataset or edge case could still produce a collision --
+check 10 stays in place to catch it if so.
+
+**Still worth a light follow-up, not blocking:** the domain question in
+`degenerate_turns_disambiguated.csv` (whether a restriction spanning a since-removed segment
+break should still be represented, e.g. as a self-turn) may now be moot for this dataset if the
+rewritten script is correctly splitting those old segments onto distinct new edges -- but the
+specific pairs listed in that CSV haven't been individually re-checked against the current
+output to confirm that's what's actually happening, as opposed to, say, both simply landing in
+one of the 49 skip categories instead. Worth a spot check before fully closing this thread,
+but it does not block today's swap decision.
 
 **Still open, separately:** the 23 `Cannot find at junction` failures. `classify_unresolved_turns.py`'s
 docstring referenced `junctions.md` and `06_check_junction_alignment.py` -- the latter has
@@ -294,7 +316,10 @@ never read the turn's own `SHAPE` to resolve it. Fixed the same way: `SHAPE@` ad
 cursor, `junction_between()` takes an optional `hint_pt`, wired in at the check 9 call site.
 Verified against the same divided-road pattern (both digitizing orders, confirming the hint
 actually overrides the default rather than coincidentally agreeing with it) and the full
-existing test suite (no regression). Not yet re-run against QA.
+existing test suite (no regression).
+
+**Confirmed 2026-08-31, re-run against QA.** All 10 checks pass clean, including check 9
+(346/1,189 → 0). Phase 2 (staging FC verification) is complete.
 
 ### A2. Junction identification is indirect and fragile (FIXED 2026-08-31)
 
@@ -590,6 +615,80 @@ field_refs = re.findall(r"\[([A-Za-z0-9_.()]+)\]", ev.get("data") or "")
   are correct in the template (`StreetNameFieldName=STR_NAME`, `SuffixTypeFieldName=STR_TYPE`,
   `FullNameFieldName=FULL_NAME`) and the 06-26 properties check verified them in Pro.
   Cosmetic, but the JSON is the thing people grep.
+
+---
+
+## F2. ERROR 030386 — VBScript evaluators make the network dataset permanently read-only; QA's ND must be rebuilt from scratch, not from this template (confirmed 2026-09-01)
+
+**What happened:** after the turn FC swap (Phase 3.1) succeeded on QA, `03_create_network_dataset.py`
+failed at `CreateNetworkDatasetFromTemplate` with `ERROR 030386` ("Cannot create a network
+dataset from a template that uses ... evaluators configured with VBScript"). Trying the
+Esri-documented fix — convert the evaluators to Python via Properties → Travel Attributes,
+rebuild, re-export the template — hit a second, harder wall on Dev's *existing* (still-built)
+`TRNLRS_street_network`: Properties opens showing "Read-only network dataset." with no
+Evaluators tab, on every environment tried.
+
+**Root cause, read directly out of `data/network_template.xml`:** only two attributes actually
+use a scripted (VBScript) evaluator — `NetworkEvaluatorCLSID {68055FC4-37D5-4BD0-81A5-CD177A29759C}`
+(Field Script). Everything else (junction/edge/turn defaults, `TrafficTurn`) uses the Constant
+evaluator (`{318C4B91-F5D2-467A-996C-0AB51B0D8FF2}`), which is not VBScript and is not affected.
+The two real ones, exact current content:
+
+| Attribute | Direction | Expression | PreLogic |
+|---|---|---|---|
+| `Length` | Along Digitized | `[SHAPE.STLength()]` | *(empty)* |
+| `Length` | Against Digitized | `[SHAPE.STLength()]` | *(empty)* |
+| `OneWay` | Along Digitized | `restricted` | `restricted = False` |
+| `OneWay` | Against Digitized | `restricted` | `restricted = False` |
+
+**Side finding, not fixed here:** `OneWay`'s PreLogic unconditionally sets `restricted = False`
+and never references `STR_DIR`. As written, the live network today does not actually enforce
+one-way restrictions at all — CLAUDE.md's description of `STR_DIR` as "driv[ing] the network
+restriction evaluator" describes intent, not current behavior. Worth a decision (see below),
+not assumed.
+
+**Why Dev's ND is read-only — confirmed against Esri's own documentation, not a guess:**
+`support.esri.com` knowledge base 000034955 ("Deprecation: VBScript Evaluators in ArcGIS
+Network Analyst") and FAQ 000034321 state that **starting in ArcGIS Pro 3.4, a network dataset
+carrying VBScript-based Field/Element Script evaluators becomes permanently non-editable
+through Properties — not just the evaluators, anything — until the evaluators are converted to
+Python.** This is a deliberate one-way gate Esri built when deprecating VBScript, and it
+explains every symptom observed, which is why four different hypotheses tried in sequence
+during this session were each tested and confirmed wrong:
+
+| Hypothesis | Test | Result |
+|---|---|---|
+| Stale lock / session | Restarted Pro, closed PyCharm; checked Geodatabase Administration → Locks | Disproven — 0 of 192 locks |
+| Pro-version-specific (3.5 only) | Reproduced on a Pro 3.3 client against the same SDE instance | Disproven — identical behavior |
+| Network dataset/layer loaded elsewhere in the project | Retried from a fresh, blank project | Disproven — still read-only |
+| Old schema version | Ran `arcpy.management.UpgradeDataset` | Disproven — `ERROR 001266: The dataset is already upgraded` |
+
+**There is no documented in-place fix.** The only remediation Esri publishes for `ERROR 030386`
+is to convert the evaluators to Python and rebuild — but that requires Properties, which the
+existing VBScript content has already locked. Esri's support content does not describe an
+escape hatch for a network dataset that reached Pro 3.4+ already carrying VBScript evaluators
+beyond building a new one.
+
+**Path forward (not yet executed):**
+1. Do not keep trying to unlock Dev's existing ND — treat the read-only state as permanent.
+2. Since QA's ND is already deleted, build its replacement via Pro's **New Network Dataset**
+   wizard (interactive), not `CreateNetworkDatasetFromTemplate` against the current XML —
+   that would immediately reproduce `ERROR 030386`.
+3. In the wizard, assign `Length` and `OneWay` as **Python** Field Script evaluators. For a
+   like-for-like rebuild, translate the table above literally (VBScript `[Field]` bracket
+   syntax → Python `!field!` syntax): `Length` → `!shape.length!` (returns meters, matching
+   `[SHAPE.STLength()]` under this network's meter-based spatial reference); `OneWay` →
+   Expression `restricted`, PreLogic `restricted = False` (preserves the current no-op — see
+   the side finding above; decide separately whether to wire in `STR_DIR` while rebuilding
+   from scratch, rather than silently changing routing behavior as a side effect of a VBScript
+   migration).
+4. Match sources (`TRNLRS_TRN_STREET` edge, `TRNLRS_street_junction` junction,
+   `TRNLRS_traffic_turn` turn) and connectivity settings to the values already recorded in
+   `data/network_template.xml`.
+5. `BuildNetwork`, then export the corrected template with `CreateTemplateFromNetworkDataset`
+   and commit it over `data/network_template.xml`, so `03_create_network_dataset.py` can
+   reproduce this network going forward without ever touching VBScript again.
+6. Resume the runbook at Phase 4 (post-build) — the turn FC itself needs no further work.
 
 ---
 

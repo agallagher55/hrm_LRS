@@ -293,18 +293,25 @@ just confirmed 99.7% agreement), but because `verify_turn_rebuild.py`'s `junctio
 had the identical divided-road ambiguity as `shared_endpoint()` in script 05, never patched in
 here when A1 was fixed. Same cause: two edges sharing both endpoints (a divided road), no hint
 to break the tie. Fixed the same way — `SHAPE@` added to the cursor, `junction_between()` now
-takes a `hint_pt`. **Not yet re-run against QA** — if you still see ~346 check-9 failures after
-pulling the latest `verify_turn_rebuild.py`, you're running a stale copy; re-pull before
-re-running.
+takes a `hint_pt`.
 
-**Gate: this must exit 0 before you swap anything.**
+**Re-run, same day: PASSED.** All 10 checks clean, including check 10 (zero duplicate
+signatures — see `network_dataset_script_review.md` section A0 for why the earlier-predicted
+duplicate/degenerate pattern from Phase 1.5 didn't recur). Phase 2 is complete.
 
-### 2.2 Spatial spot checks
+**Gate: this must exit 0 before you swap anything.** ✅ Cleared.
 
-The verifier proves the turn FC is *internally consistent with the edge FC*. It cannot tell
-you a turn landed on the *correct* intersection. Work sections 3, 4 and 5 of
-[`traffic_turn_staging_review_checklist.txt`](traffic_turn_staging_review_checklist.txt) —
-especially the multi-leg intersections, where the bearing tiebreaker is doing the work.
+### 2.2 Spatial spot checks — DONE (2026-08-31), all good
+
+Confirmed visually in Pro against `SDEADM.TRNLRS_TRN_STREET`: simple crossings (Robie/North,
+Agricola/North), bends along a single named street (University/South Park/Morris,
+Inglis/Young), and — the highest-risk case — the multi-leg Robie/Quinpool/Cogswell/Bell
+intersection, where the turn geometry correctly radiates out to the distinct named legs
+rather than jumping to an unrelated edge. That's the strongest available evidence the
+bearing-based tiebreaker (used when more than one candidate edge converges at a junction) is
+resolving correctly, not just that the output is internally consistent.
+
+Phase 2 complete. Proceed to Phase 3.
 
 ---
 
@@ -326,22 +333,45 @@ arcpy.management.Delete(fd + r"\SDEADM.TRNLRS_traffic_turn")
 arcpy.management.Rename(fd + r"\SDEADM.TRNLRS_traffic_turn_staging", "TRNLRS_traffic_turn")
 ```
 
-### 3.2 Recreate and build
+### 3.2 Recreate and build — BLOCKED as written (found 2026-09-01), see replacement procedure below
 
 ```
 python 03_create_network_dataset.py
 ```
 
-It skips re-copying the three source FCs (they exist) and goes straight to
-`CreateNetworkDatasetFromTemplate` + `BuildNetwork`. **Watch the log for
-`Copying into feature dataset` on the turn FC** — that would mean it did *not* find your
-swapped FC and has re-copied the raw unremapped `TRN_traffic_turn`, which is the
-2026-07-07 / 2026-07-14 regression. It should say `Already present ... skipping` for all
-three.
+**This fails with `ERROR 030386`.** `data/network_template.xml`'s `Length` and `OneWay`
+evaluators are VBScript, which ArcGIS Pro 3.5 refuses to build a network dataset from at all.
+Do not chase this by trying to edit the evaluators on an already-built network dataset in
+Properties — Dev's existing ND was tried and is permanently "Read-only network dataset" for
+the same VBScript reason, with no documented in-place fix. Full diagnosis, the exact evaluator
+content, and why four other explanations (locks, Pro version, project state, schema version)
+were each tested and ruled out:
+[`network_dataset_script_review.md` §F2](network_dataset_script_review.md#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01).
 
-Run `BuildNetwork` exactly once. Do not also click Build Network in Pro — a double build
-stacks two generations of system junctions (the 16,334 junctions / 37,728 edges seen
-earlier).
+**Replacement procedure — build interactively instead of from the template:**
+
+1. In Pro, right-click the `SDEADM.TRNLRS_network` feature dataset in QA → **New → Network
+   Dataset**. Do *not* use `CreateNetworkDatasetFromTemplate` / the saved `.xml` — that
+   reproduces `ERROR 030386`.
+2. Add `TRNLRS_TRN_STREET` as the edge source, `TRNLRS_street_junction` as the junction
+   source, `TRNLRS_traffic_turn` as the turn source. Match the connectivity settings recorded
+   in `data/network_template.xml` (edge and junction both: Version 1, one connectivity group).
+3. Define network attributes `Length`, `OneWay`, `TrafficTurn` matching
+   `data/network_template.xml`'s `EvaluatedNetworkAttributes` (units, data type, usage type,
+   restriction parameters — see the XML or §F2 for the exact values).
+4. Assign evaluators. `TrafficTurn` and the Junction/Edge/Turn defaults for `Length`/`OneWay`
+   are plain Constant evaluators — copy the constant values straight from the XML. For the
+   two edge-source Field Script evaluators, choose **Python** (VBScript is not an option going
+   forward) and enter, for both Along Digitized and Against Digitized:
+   - `Length`: Expression `!shape.length!`, no PreLogic.
+   - `OneWay`: Expression `restricted`, PreLogic `restricted = False`. This reproduces
+     *current* (no-op) behavior exactly — §F2 flags that this never actually reads `STR_DIR`,
+     so decide with the team before changing it, rather than silently fixing it here.
+5. `BuildNetwork` exactly once. Do not also click Build Network in Pro — a double build stacks
+   two generations of system junctions (the 16,334 junctions / 37,728 edges seen earlier).
+6. Once built and verified, export the template: `arcpy.na.CreateTemplateFromNetworkDataset`
+   → commit the result over `data/network_template.xml`, so future refreshes can go back to
+   running `03_create_network_dataset.py` unattended instead of repeating this by hand.
 
 ### 3.3 Find and read the build errors file
 
