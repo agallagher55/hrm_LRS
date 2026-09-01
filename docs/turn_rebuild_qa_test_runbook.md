@@ -301,13 +301,17 @@ duplicate/degenerate pattern from Phase 1.5 didn't recur). Phase 2 is complete.
 
 **Gate: this must exit 0 before you swap anything.** ✅ Cleared.
 
-### 2.2 Spatial spot checks — do this next
+### 2.2 Spatial spot checks — DONE (2026-08-31), all good
 
-The verifier proves the turn FC is *internally consistent with the edge FC*. It cannot tell
-you a turn landed on the *correct* intersection. Work sections 3, 4 and 5 of
-[`traffic_turn_staging_review_checklist.txt`](traffic_turn_staging_review_checklist.txt) —
-especially the multi-leg intersections, where the bearing tiebreaker is doing the work — before
-moving to Phase 3.
+Confirmed visually in Pro against `SDEADM.TRNLRS_TRN_STREET`: simple crossings (Robie/North,
+Agricola/North), bends along a single named street (University/South Park/Morris,
+Inglis/Young), and — the highest-risk case — the multi-leg Robie/Quinpool/Cogswell/Bell
+intersection, where the turn geometry correctly radiates out to the distinct named legs
+rather than jumping to an unrelated edge. That's the strongest available evidence the
+bearing-based tiebreaker (used when more than one candidate edge converges at a junction) is
+resolving correctly, not just that the output is internally consistent.
+
+Phase 2 complete. Proceed to Phase 3.
 
 ---
 
