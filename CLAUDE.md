@@ -77,6 +77,28 @@ Confirmed 2026-09-01 against QA: a known-prohibited turn (`QUINPOOL RD -> ROBIE 
 solved straight through until `TrafficTurn`/`OneWay` were checked in the travel mode, after
 which the same stops correctly produced a detour.
 
+### Python Field Script evaluators: `!FIELD!` only substitutes in Value, not the Code Block
+In the Field Script Evaluator Properties dialog, the **Value** line is where `!FIELD!` tokens
+get substituted; the **Code Block** is a plain Python function body that must *receive* fields
+as parameters. Writing `!STR_DIR!` inline inside the Code Block does not work — and worse, it
+fails **silently**: the network builds without error and the evaluator simply never enforces
+anything. Confirmed 2026-09-01 (an eastbound solve on a `FOTD`-coded one-way segment ran
+straight through). Correct shape:
+
+```python
+# Code Block
+def oneway_restricted(str_dir):
+    return (str_dir or "").upper() in ("N", "FDTO", "T")
+
+# Value
+oneway_restricted(!STR_DIR!)
+```
+
+Note this differs from the legacy VBScript convention, where `[FIELD]` bracket tokens *are*
+substituted inside the PreLogic block — so a literal VBScript→Python transcription of an
+existing evaluator will look right and behave wrong. Always verify a restriction evaluator
+with a real two-direction solve rather than trusting a clean build.
+
 ## Project Purpose
 
 This repository holds all data, scripts, and documentation for the **Halifax Regional Municipality (HRM) Linear Referencing System (LRS)** — a system for locating assets and events along road/route networks using route identifiers and measure values (e.g., kilometre points) rather than X/Y coordinates.
@@ -125,7 +147,7 @@ The feature class is **truncated and repopulated on every LRS refresh run**, so 
 | `FDMID` | Long | Primary street identifier; links to address range and other event tables |
 | `ROUTE_ID` | Text(255) | LRS route identifier |
 | `STR_NAME` / `STR_TYPE` / `FULL_NAME` | Text | Street name components; `FULL_NAME` sourced from `ROUTENAME` |
-| `STR_DIR` | Text(4) | One-way direction; drives network restriction evaluator |
+| `STR_DIR` | Text(4) | One-way direction; drives the `OneWay` network restriction evaluator. Known codes (recovered 2026-09-01 from the live network's evaluator, see below): `FDTO` blocks travel **along** the digitized direction, `FOTD` blocks travel **against** it, `N` and `T` block **both** (fully closed segment). Any other value (including blank) is unrestricted in both directions. The full domain has never been enumerated — these four are simply the values the evaluator tests for. |
 | `STR_STATUS` | Text(4) | Domain `SNF_street_status` |
 | `ST_CLASS` | Text(40) | Street class; domain `SNF_pst_class`; drives hierarchy evaluator |
 | `FROM_LEFT/TO_LEFT/FROM_RIGHT/TO_RIGHT` | Long | Address ranges for geocoding |

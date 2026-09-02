@@ -48,14 +48,46 @@ changed for Dev/QA, that's called out inline.
 
 ## Current Status
 
+**⚠️ Everything below dated 2026-07-14 or earlier describing Phase 4/5a as complete has been
+superseded by the 2026-09-01 rebuild — see [the 2026-09-01 update](#update-2026-09-01--qa-network-dataset-rebuilt-from-scratch) immediately below this table.**
+
 | Phase | Description | Status |
 |---|---|---|
-| 1 | Extract old network configuration | ✅ Complete |
+| 1 | Extract old network configuration | ✅ Complete — but `data/network_template.xml` is **stale**, see 2026-09-01 update |
 | 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
-| 4 | Create & build new network dataset | ✅ Complete — Dev and QA built (2026-06-26) |
-| 5 | Validation | 🔄 In progress — properties check passed; solve tests pending |
-| 5a | Traffic turn rebuild | ✅ Complete (2026-07-14) -- Dev and QA both re-remapped and swapped in; solve test to confirm turn restrictions still pending; see note below Step 3 |
+| 4 | Create & build new network dataset | ✅ **QA rebuilt from scratch 2026-09-01** (interactive wizard, Python evaluators). Dev still on its original 2026-06-26 build — VBScript, permanently read-only, not rebuilt. Prod: nothing built. |
+| 5 | Validation | 🔄 Properties ✅; service area ✅; **turn-restriction solve ✅ (2026-09-01)**; **one-way solve ❌ blocked — `OneWay` evaluator is broken in QA's rebuild**; route comparison / address-range pending |
+| 5a | Traffic turn rebuild | ✅ **Re-verified 2026-09-01** — 1,189 turns written, 99.7% Edge1End agreement, all 10 verifier checks clean, 5 spatial spot checks correct, **1,180 built as live turn elements** (9 rejected at build, see the 2026-09-01 update) |
+
+### Update 2026-09-01 — QA network dataset rebuilt from scratch
+
+QA's `TRNLRS_street_network` was **deleted and rebuilt from scratch** on 2026-09-01. This was
+not a routine rebuild — the delete happened as part of the normal turn-FC swap, and then
+recreating it from `data/network_template.xml` proved **impossible**: `ERROR 030386`, because
+that template's `Length`/`OneWay` evaluators are VBScript, which ArcGIS Pro 3.5 refuses to
+build from. The documented fix (convert evaluators to Python via Properties) is itself blocked,
+because a network dataset carrying VBScript evaluators opens **permanently read-only** in Pro
+3.4+ by design. Full diagnosis, including the four hypotheses tested and ruled out:
+[`network_dataset_script_review.md` §F2](network_dataset_script_review.md#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01).
+
+What this means for the state of each environment:
+
+| Environment | Network dataset | Evaluator language | Editable? |
+|---|---|---|---|
+| **QA** | Rebuilt 2026-09-01, built, 1,180 turns | **Python** | ✅ Yes |
+| **Dev** | Original 2026-06-26 build, still functional for solves | VBScript | ❌ **Permanently read-only.** Cannot be edited or rebuilt. Will need the same from-scratch rebuild treatment. |
+| **Prod** | Not built | n/a | n/a |
+
+**`data/network_template.xml` is stale and must not be trusted.** Beyond the VBScript problem,
+it was found to be missing logic that the live networks actually had: its `OneWay` evaluator is
+a hardcoded no-op (`restricted = False`, never reads `STR_DIR`), while Dev's *live* network
+carries a real `STR_DIR`-driven `Select Case`. The template was evidently captured in Phase 1
+before someone fixed `OneWay` directly in Pro's Properties dialog, and was never re-exported
+afterward. The real logic was recovered on 2026-09-01 by running
+`CreateTemplateFromNetworkDataset` against Dev (which succeeded on a Pro 3.5.8 machine despite
+Esri's KB claiming that operation fails on VBScript-bearing networks — a documented inaccuracy
+worth knowing). See [Step 6](#step-6--rebuild-and-re-export-the-network-template-2026-09-01).
 
 ## Confirmed Prerequisites
 
@@ -214,10 +246,12 @@ AND (name LIKE 'N\_%' ESCAPE '\' OR name LIKE 'ND\_%' ESCAPE '\')
 ORDER BY name;
 ```
 
-**QA: done (2026-07-14).** New IDs identified and granted: `N_3` (same number as the
-original build, but its grant had been dropped by the delete+recreate) and `ND_38726`
-(replacing the original `ND_37029`). Full disambiguation trail in
-`network_dataset_sql_permissions.md`.
+**QA: superseded — re-done 2026-09-01.** The 2026-09-01 rebuild dropped and reassigned these
+tables again. Current IDs: **`N_3`** (reused the same number a third time) and **`ND_40171`**
+(replacing `ND_38726`, which no longer exists). Both granted and confirmed working via an
+OS-auth add-to-map test. Full trail in `network_dataset_sql_permissions.md`.
+
+*Historical (2026-07-14, now stale):* `N_3` + `ND_38726`, replacing the original `ND_37029`.
 
 **Dev: still pending.** Dev's `TRNLRS_street_network` went through the same swap, so its
 `N_<id>`/`ND_<id>` need to be looked up fresh -- run the same procedure there; the IDs will
@@ -330,12 +364,25 @@ See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diag
 | TrafficTurn restriction | Prohibited; turn source assigned — correct |
 | Directions field mappings | `Base Name → STR_NAME`, `Suffix Type → STR_TYPE`, `Full Name → FULL_NAME` — correct |
 
-**Solve tests — pending**
+**Solve tests — updated 2026-09-01 (against QA's rebuilt network)**
 
 - [ ] Solve a **Route** between two known endpoints; compare path and cost against `TRN_street_network`
-- [ ] Solve a **Service Area** (e.g. 5-minute drive) from a known origin; compare coverage
-- [ ] Confirm **one-way restriction** is enforced (test a one-way street in both directions)
-- [ ] Confirm **turn restriction** logic works against `TRNLRS_traffic_turn` (rebuilt -- see Step 3)
+- [x] Solve a **Service Area** (e.g. 5-minute drive) from a known origin; compare coverage — 50km service area, Robbie Evans, 2026-06-29
+- [ ] ❌ **Confirm one-way restriction is enforced — BLOCKED, currently failing.** Tested 2026-09-01
+      against Bishop St (`STR_DIR = 'FOTD'`, geometry confirms Along Digitized = west, so
+      *eastbound* should be prohibited). Eastbound solved straight through, 253 ft, no detour.
+      Root cause: the Python `OneWay` evaluator entered during the rebuild uses `!STR_DIR!`
+      inline inside the **Code Block**, which is not valid — field-token substitution only
+      applies to the single-line **Value** expression; the Code Block must be a plain function
+      that *receives* the field as a parameter. Corrected form (not yet applied or verified):
+      Code Block `def oneway_restricted(str_dir): ...` and Value `oneway_restricted(!STR_DIR!)`.
+      See the runbook's §4.4 and [`network_dataset_script_review.md` §F2](network_dataset_script_review.md#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01).
+- [x] ✅ **Confirm turn restriction logic works** against `TRNLRS_traffic_turn` — 2026-09-01.
+      Turn OID 2 (`QUINPOOL RD → ROBIE ST`, a genuine prohibited movement) solved straight
+      through at first (51 ft) because the Route layer's **Travel Mode** did not have
+      `TrafficTurn`/`OneWay` checked. After enabling both, the same stops produced a correct
+      411 ft loop-around detour. **Restriction attributes do nothing unless the Travel Mode
+      enables them** — now recorded in `CLAUDE.md`.
 - [ ] Check address range fields (`FROM_LEFT`, `TO_LEFT`, `FROM_RIGHT`, `TO_RIGHT`) for geocoding
 
 ---
@@ -371,6 +418,76 @@ hasn't caused a live failure -- but prod's FCs must be moved into
 `SDEADM.TRNLRS_network` (mirroring the Dev pilot) before this deploys,
 otherwise the sync step will fail to find `TRNLRS_TRN_STREET` at its new
 expected path.
+
+---
+
+### Step 6 — Rebuild and re-export the network template (2026-09-01)
+
+The VBScript deprecation (see [the 2026-09-01 update](#update-2026-09-01--qa-network-dataset-rebuilt-from-scratch))
+means the template-driven rebuild path in `scripts/03_create_network_dataset.py` is broken
+until a **Python-evaluator template** replaces `data/network_template.xml`. Until then, any
+rebuild of this network dataset requires the manual wizard procedure documented in the
+[runbook's Phase 3.2](turn_rebuild_qa_test_runbook.md).
+
+**What QA's rebuilt network was configured with** (matching the original, except evaluator
+language, and except the `OneWay` bug noted below):
+
+| Attribute | Type | Assignment |
+|---|---|---|
+| `Length` | Cost, Meters, double | Field Script (Python), `!Shape!` on Along/Against; Constant 0 for Junction/Edge/Turn defaults |
+| `OneWay` | Restriction, Prohibited (`-1`) | Field Script (Python) on Along/Against; Constant False for all defaults. **Currently broken — see below.** |
+| `TrafficTurn` | Restriction, Prohibited (`-1`) | Constant `True` on the `TRNLRS_traffic_turn` source; Constant `False` on all defaults |
+
+**The recovered `OneWay` logic** (from Dev's live network via `CreateTemplateFromNetworkDataset`,
+2026-09-01 — this is the authoritative original, which `data/network_template.xml` never had):
+
+```vbscript
+' Along Digitized
+restricted = False
+Select Case UCase([STR_DIR])
+  Case "N", "FDTO", "T": restricted = True
+End Select
+
+' Against Digitized -- note FOTD, not FDTO
+restricted = False
+Select Case UCase([STR_DIR])
+  Case "N", "FOTD", "T": restricted = True
+End Select
+```
+
+So: `FDTO` blocks travel *along* the digitized direction, `FOTD` blocks travel *against* it,
+and `N` or `T` block **both** directions (a fully closed segment). Anything else is
+unrestricted both ways.
+
+**Correct Python translation** (the version entered on 2026-09-01 was wrong — it put
+`!STR_DIR!` inline inside the Code Block, which does not work; field tokens are only
+substituted in the Value expression):
+
+```python
+# Code Block
+def oneway_restricted(str_dir):
+    restricted = False
+    if (str_dir or "").upper() in ("N", "FDTO", "T"):   # FOTD for Against Digitized
+        restricted = True
+    return restricted
+
+# Value
+oneway_restricted(!STR_DIR!)
+```
+
+**Checklist:**
+
+- [x] Rebuild QA's network dataset with Python evaluators (interactive wizard)
+- [x] Recover the authoritative `OneWay` logic from Dev before it becomes unrecoverable
+- [ ] **Apply the corrected `OneWay` Python evaluator to QA and re-run Build Network**
+- [ ] **Re-run the one-way solve test** (eastbound Bishop St must detour or fail to solve)
+- [ ] Export the corrected template via `CreateTemplateFromNetworkDataset` and commit it over
+      `data/network_template.xml` — **only after `OneWay` is verified working**, otherwise the
+      committed template bakes in the broken evaluator
+- [ ] Confirm `scripts/03_create_network_dataset.py` can rebuild from that new template
+      (`CreateNetworkDatasetFromTemplate` with Python evaluators is untested in this project)
+- [ ] Apply the same from-scratch rebuild to **Dev** (still VBScript, still read-only)
+- [ ] Apply to **prod** as part of cutover
 
 ---
 
