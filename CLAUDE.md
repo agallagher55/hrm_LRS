@@ -77,13 +77,31 @@ Confirmed 2026-09-01 against QA: a known-prohibited turn (`QUINPOOL RD -> ROBIE 
 solved straight through until `TrafficTurn`/`OneWay` were checked in the travel mode, after
 which the same stops correctly produced a detour.
 
-### Python Field Script evaluators: `!FIELD!` only substitutes in Value, not the Code Block
-In the Field Script Evaluator Properties dialog, the **Value** line is where `!FIELD!` tokens
-get substituted; the **Code Block** is a plain Python function body that must *receive* fields
-as parameters. Writing `!STR_DIR!` inline inside the Code Block does not work — and worse, it
-fails **silently**: the network builds without error and the evaluator simply never enforces
-anything. Confirmed 2026-09-01 (an eastbound solve on a `FOTD`-coded one-way segment ran
-straight through). Correct shape:
+### Editing a Field Script evaluator's Code Block requires Force Full Build — otherwise the change silently does nothing
+**This is the confirmed root cause behind a full day (2026-09-01/02) of `OneWay` appearing broken.**
+`Build Network` on an *existing* network dataset stores precomputed per-edge attribute values in
+internal weight tables (e.g. `N_<id>_EDGEWEIGHT` — see `network_dataset_sql_permissions.md`).
+When only an evaluator's *definition* changes (the script text), not the underlying source
+data, an incremental (non-forced) `Build Network` can leave those precomputed values stale —
+the evaluator now reads correctly, but the solver keeps using old cached values as if nothing
+changed. This fails **completely silently**: no build error, no warning, a clean "Build
+succeeded" message, and the restriction just never fires. Diagnosed by hardcoding a Field
+Script evaluator to unconditionally `return True` (should prohibit every edge in that
+direction, network-wide) and observing zero effect on any solve — then re-running with **Force
+Full Build** checked, which immediately made the same hardcoded evaluator produce
+`ERROR 030212: Solve did not find a solution` as expected.
+
+**Whenever you edit a Field Script (or any) evaluator's script content on an existing network
+dataset, check "Force Full Build" before running Build Network, or the edit will not take
+effect and there will be no indication anything is wrong.** A full rebuild of a
+network this size (~37,700 edges) normally completes in under two minutes — if a forced build
+runs far longer than that, it is very likely blocked on a lock from another session, not doing
+legitimate work (see "Long-running Build Network = check for a blocking SQL session" below).
+
+Separately, also confirmed while chasing this: `!FIELD!` token substitution works fine when the
+whole evaluator is written as a function in the **Code Block** and called from the **Value**
+line (`Value = oneway_restricted(!STR_DIR!)`), which is the standard ArcGIS Calculate-Field-style
+convention and the form to use by default:
 
 ```python
 # Code Block
@@ -94,10 +112,30 @@ def oneway_restricted(str_dir):
 oneway_restricted(!STR_DIR!)
 ```
 
-Note this differs from the legacy VBScript convention, where `[FIELD]` bracket tokens *are*
-substituted inside the PreLogic block — so a literal VBScript→Python transcription of an
-existing evaluator will look right and behave wrong. Always verify a restriction evaluator
-with a real two-direction solve rather than trusting a clean build.
+Whether `!STR_DIR!` written inline directly inside the Code Block (without the function/Value
+split) *also* works once Force Full Build is used was never isolated — both changes were made
+together. Use the function/Value form regardless; it's the documented pattern. Note it differs
+from the legacy VBScript convention, where `[FIELD]` bracket tokens are substituted directly
+inside the PreLogic block — a literal VBScript→Python transcription will look right and can
+still behave wrong. **Always verify a restriction evaluator with a real two-direction solve
+after a Force Full Build — never trust a clean build message alone.**
+
+### Long-running Build Network = check for a blocking SQL session, don't just wait
+A `Force Full Build` against this network (enterprise geodatabase, SQL Server) should complete
+in under two minutes. If it runs for hours, Pro will still show it as "running" with no error —
+it does not detect or surface a server-side block on its own, and Task Manager will show the
+ArcGIS Pro process near-idle (~1-5% CPU), not churning. Confirmed 2026-09-02/03: a Force Full
+Build was silently blocked server-side, ran for 18 hours, and was eventually killed by a DBA
+directly on SQL Server (a `blocking session` alert, running an `UPDATE .SDE.GDB_ITEMS ...`
+statement under the `SDEADM` login) — Pro's own dialog never reported anything wrong and had to
+be cancelled manually client-side afterward, since it was left waiting on a session that no
+longer existed. If a build is running far longer than its usual time: check Task Manager CPU
+first (near-idle = stuck, not working), then check with whoever administers the SQL Server
+instance for a blocking session before assuming it will eventually finish. Note that `Build
+Status` in Network Dataset Properties can show a *successful* `Build Time` from earlier in the
+same stuck session — the core rebuild may have already committed successfully in normal time,
+with only a trailing client-side step left hanging, so check Properties before assuming a long
+hang means total failure.
 
 ## Project Purpose
 

@@ -57,7 +57,7 @@ superseded by the 2026-09-01 rebuild — see [the 2026-09-01 update](#update-202
 | 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ **QA rebuilt from scratch 2026-09-01** (interactive wizard, Python evaluators). Dev still on its original 2026-06-26 build — VBScript, permanently read-only, not rebuilt. Prod: nothing built. |
-| 5 | Validation | 🔄 Properties ✅; service area ✅; **turn-restriction solve ✅ (2026-09-01)**; **one-way solve ❌ blocked — `OneWay` evaluator is broken in QA's rebuild**; route comparison / address-range pending |
+| 5 | Validation | 🔄 Properties ✅; service area ✅; **turn-restriction solve ✅ (2026-09-01)**; **one-way solve ✅ (2026-09-02/03, after a real multi-day debugging saga — see below)**; route comparison / address-range pending |
 | 5a | Traffic turn rebuild | ✅ **Re-verified 2026-09-01** — 1,189 turns written, 99.7% Edge1End agreement, all 10 verifier checks clean, 5 spatial spot checks correct, **1,180 built as live turn elements** (9 rejected at build, see the 2026-09-01 update) |
 
 ### Update 2026-09-01 — QA network dataset rebuilt from scratch
@@ -459,9 +459,7 @@ So: `FDTO` blocks travel *along* the digitized direction, `FOTD` blocks travel *
 and `N` or `T` block **both** directions (a fully closed segment). Anything else is
 unrestricted both ways.
 
-**Correct Python translation** (the version entered on 2026-09-01 was wrong — it put
-`!STR_DIR!` inline inside the Code Block, which does not work; field tokens are only
-substituted in the Value expression):
+**Correct, confirmed-working Python translation:**
 
 ```python
 # Code Block
@@ -475,18 +473,52 @@ def oneway_restricted(str_dir):
 oneway_restricted(!STR_DIR!)
 ```
 
+**`OneWay` confirmed working 2026-09-02/03 — full debugging trail, worth reading before touching
+this evaluator again:**
+
+1. First attempt put `!STR_DIR!` inline inside the Code Block (no function). Build succeeded,
+   no errors, but the restriction never fired in either direction.
+2. Found via a fresh `CreateTemplateFromNetworkDataset` export that the *Against Digitized*
+   evaluator had a copy-paste typo — it tested for `FDTO` (the Along code) instead of `FOTD`.
+   Fixed the typo, same inline structure, rebuilt: **still no effect at all**, exact same
+   symptom, which ruled out the typo alone as sufficient explanation.
+3. Restructured to the function-in-Code-Block/call-from-Value form above. Still no effect —
+   even a version hardcoded to unconditionally `return True` (which should prohibit *every*
+   edge network-wide in that direction) produced zero change in any solve.
+4. Confirmed the Route layer's Travel Mode had `OneWay`/`TrafficTurn` checked (it did) — ruled
+   that out too.
+5. **Root cause: `Force Full Build` was not checked.** Editing an evaluator's script content
+   without a forced rebuild leaves the network's precomputed per-edge weight tables
+   (`N_<id>_EDGEWEIGHT`) stale — the solver was reading old cached values the whole time,
+   regardless of how correct or hardcoded the evaluator itself was. See the new `CLAUDE.md`
+   gotcha ("Editing a Field Script evaluator's Code Block requires Force Full Build"). With
+   Force Full Build checked, the hardcoded `return True` immediately produced
+   `ERROR 030212: Solve did not find a solution` as expected.
+6. That forced rebuild then hung for **18 hours** — a genuine blocking session on the shared
+   QA SQL Server, killed by a DBA the next morning (see the new `CLAUDE.md` gotcha
+   "Long-running Build Network = check for a blocking SQL session"). Properties showed the
+   actual rebuild had committed successfully in the normal ~90 seconds; only a trailing
+   client-side step was left hanging on the now-nonexistent session and had to be cancelled
+   manually.
+7. Reverted the evaluator to the real `STR_DIR` logic (function form, correct `FDTO`/`FOTD`
+   per direction), re-ran Force Full Build (normal duration this time), and confirmed on
+   `TRNLRS_TRN_STREET` OID 12002 (`STR_DIR='FOTD'`): Along Digitized (west) solves clean;
+   Against Digitized (east) correctly returns `ERROR 030212: Solve did not find a solution`.
+
 **Checklist:**
 
 - [x] Rebuild QA's network dataset with Python evaluators (interactive wizard)
 - [x] Recover the authoritative `OneWay` logic from Dev before it becomes unrecoverable
-- [ ] **Apply the corrected `OneWay` Python evaluator to QA and re-run Build Network**
-- [ ] **Re-run the one-way solve test** (eastbound Bishop St must detour or fail to solve)
+- [x] Apply the corrected `OneWay` Python evaluator to QA and re-run Build Network (with Force
+      Full Build — required, see above)
+- [x] Re-run the one-way solve test — confirmed working 2026-09-03
 - [ ] Export the corrected template via `CreateTemplateFromNetworkDataset` and commit it over
-      `data/network_template.xml` — **only after `OneWay` is verified working**, otherwise the
-      committed template bakes in the broken evaluator
+      `data/network_template.xml` — now unblocked
 - [ ] Confirm `scripts/03_create_network_dataset.py` can rebuild from that new template
       (`CreateNetworkDatasetFromTemplate` with Python evaluators is untested in this project)
 - [ ] Apply the same from-scratch rebuild to **Dev** (still VBScript, still read-only)
+- [ ] Reply to the DBA (Sylvie Blanchard) who killed the blocking session, confirming it was
+      this ArcGIS Pro Build Network operation and not a rogue process
 - [ ] Apply to **prod** as part of cutover
 
 ---

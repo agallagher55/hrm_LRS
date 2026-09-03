@@ -75,7 +75,7 @@ G are still open.
 | Phase 3 — XML template edits | ✅ Done (elevation cleared, sources renamed); stale `ClassID`s remain — see [F](#f-template-hygiene) |
 | Phase 4 — create + build ND | ✅ **Rebuilt 2026-09-01** via the interactive Python-evaluator wizard procedure in [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01) — Build Network succeeded with warnings (expected junction warnings + a small known turn-junction gap, see the runbook's Phase 3.3). `data/network_template.xml` still needs to be regenerated from this build via `CreateTemplateFromNetworkDataset` and committed. Dev's ND is untouched and still stuck read-only for the VBScript reason — not part of this fix. |
 | Phase 5a — traffic turns | 🔄 **Remap confirmed correct, staging FC verified clean, spatial spot checks passed (2026-08-31/09-01)** — 99.7% Edge1End agreement, 4.0% skip rate, correct DSID, all 10 verifier checks pass including check 10 (zero duplicate signatures — see A0 update), 5 manual spot checks correct including the highest-risk multi-leg intersection. The turn FC itself is proven correct and already swapped into place; **blocked on Phase 4** (no network dataset currently exists in QA to attach it to). |
-| Phase 5 — solve tests | 🔄 Properties ✅ (06-26); 50 km service area ✅ (Robbie, 06-29); **turn-restriction solve ✅ (2026-09-01)** — see the runbook's §4.4 for the Travel Mode gotcha this surfaced; **one-way solve ❌ failing (2026-09-01)** — QA's `OneWay` Python evaluator is malformed (`!STR_DIR!` inline in the Code Block); corrected form in F2, not yet applied; route-comparison / address-range solves **not done** |
+| Phase 5 — solve tests | 🔄 Properties ✅ (06-26); 50 km service area ✅ (Robbie, 06-29); **turn-restriction solve ✅ (2026-09-01)** — see the runbook's §4.4 for the Travel Mode gotcha this surfaced; **one-way solve ✅ (2026-09-02/03)** — root cause was `Force Full Build` not being checked after evaluator edits, which left precomputed weight tables stale regardless of how correct the evaluator was; see `CLAUDE.md` and `network_build_status.md`'s Step 6 for the full trail, including an 18-hour blocking-session incident on QA's SQL Server; route-comparison / address-range solves **not done** |
 | SQL grants | QA ✅ (2026-07-14, `N_3_*` + `ND_38726_*` + 4 source tables + editor writes); **Dev pending**; prod N/A |
 | FD separation (`TRNLRS_network`) | ⚠️ Dev + QA populated by script 03's *fallback copy*, not by script 06. Script 06 has never been run anywhere. Duplicate FCs still sitting in `SDEADM.TRNLRS` in both environments. |
 | Prod | Nothing built. `TRNLRS_TRN_STREET` exists (created 2026-07-07); no `TRNLRS_network` FD, no ND, no grants, `LRS_updates.py` not deployed. |
@@ -715,16 +715,24 @@ beyond building a new one.
    oneway_restricted(!STR_DIR!)
    ```
 
-   **Do not put `!STR_DIR!` inline inside the Code Block** — field-token substitution only
-   applies to the Value expression. Doing so on 2026-09-01 produced a network that built
-   without complaint but silently never enforced one-way at all (confirmed by an eastbound
-   solve on a `FOTD` segment going straight through). Verify with a real two-direction solve
-   before trusting it, per the runbook's §4.4.
+   Use the function/Value form above rather than `!STR_DIR!` written inline directly inside the
+   Code Block — the function/Value split is the standard, documented ArcGIS pattern. **More
+   important than the exact syntax: after editing this evaluator, `Build Network` must be run
+   with "Force Full Build" checked.** Without it, the network's precomputed per-edge weight
+   tables stay stale and the edit has zero effect — with no build error and no warning of any
+   kind. This was the actual root cause of a full day (2026-09-01/02) where `OneWay` appeared
+   completely broken regardless of how the evaluator was written, including a version
+   hardcoded to unconditionally `return True` that still produced no restriction anywhere
+   until Force Full Build was used. Full trail in `CLAUDE.md` and
+   `network_build_status.md`'s Step 6. **Always verify a restriction evaluator with a real
+   two-direction solve after a Force Full Build** — never trust a clean build message alone,
+   per the runbook's §4.4.
 4. Match sources (`TRNLRS_TRN_STREET` edge, `TRNLRS_street_junction` junction,
    `TRNLRS_traffic_turn` turn) and connectivity settings to the values already recorded in
    `data/network_template.xml`.
-5. `BuildNetwork`, then export the corrected template with `CreateTemplateFromNetworkDataset`
-   and commit it over `data/network_template.xml`, so `03_create_network_dataset.py` can
+5. `BuildNetwork` (Force Full Build), then export the corrected template with
+   `CreateTemplateFromNetworkDataset` and commit it over `data/network_template.xml`, so
+   `03_create_network_dataset.py` can
    reproduce this network going forward without ever touching VBScript again.
 6. Resume the runbook at Phase 4 (post-build) — the turn FC itself needs no further work.
 
