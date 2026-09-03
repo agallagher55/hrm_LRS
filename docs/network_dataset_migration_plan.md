@@ -136,6 +136,22 @@ Script expressions (`[SHAPE.STLength()]` for Length; `[STR_DIR]` inside a Select
 OneWay) rather than direct field evaluators. `STR_DIR` is present and unchanged in the new
 source, so no evaluator changes are needed.
 
+> **⚠️ Superseded 2026-09-01.** "No evaluator changes are needed" was true of the *field
+> mappings*, but is now wrong about the evaluators themselves. VBScript evaluators are
+> deprecated and **must** be converted to Python: ArcGIS Pro 3.5 refuses to build a network
+> dataset from a VBScript-bearing template (`ERROR 030386`), and Pro 3.4+ opens any
+> VBScript-bearing network dataset as permanently read-only. QA's network dataset was rebuilt
+> from scratch with Python evaluators on 2026-09-01; Dev is still VBScript and still locked.
+> See [`network_build_status.md`](network_build_status.md#update-2026-09-01--qa-network-dataset-rebuilt-from-scratch)
+> and [`network_dataset_script_review.md` §F2](network_dataset_script_review.md#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01).
+>
+> Also note this section's own description of the `OneWay` evaluator (`[STR_DIR]` inside a
+> Select Case) is **correct about the live network but not about `data/network_template.xml`**,
+> whose `OneWay` evaluator is a hardcoded no-op that never reads `STR_DIR`. The template is
+> stale relative to what was actually running. The real logic was recovered from Dev on
+> 2026-09-01 and is transcribed in
+> [`network_build_status.md` Step 6](network_build_status.md#step-6--rebuild-and-re-export-the-network-template-2026-09-01).
+
 #### Fields only in old source -- impact assessment
 
 | Field | Impact |

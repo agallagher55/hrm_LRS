@@ -362,16 +362,40 @@ were each tested and ruled out:
 4. Assign evaluators. `TrafficTurn` and the Junction/Edge/Turn defaults for `Length`/`OneWay`
    are plain Constant evaluators — copy the constant values straight from the XML. For the
    two edge-source Field Script evaluators, choose **Python** (VBScript is not an option going
-   forward) and enter, for both Along Digitized and Against Digitized:
-   - `Length`: Expression `!shape.length!`, no PreLogic.
-   - `OneWay`: Expression `restricted`, PreLogic `restricted = False`. This reproduces
-     *current* (no-op) behavior exactly — §F2 flags that this never actually reads `STR_DIR`,
-     so decide with the team before changing it, rather than silently fixing it here.
-5. `BuildNetwork` exactly once. Do not also click Build Network in Pro — a double build stacks
-   two generations of system junctions (the 16,334 junctions / 37,728 edges seen earlier).
-6. Once built and verified, export the template: `arcpy.na.CreateTemplateFromNetworkDataset`
-   → commit the result over `data/network_template.xml`, so future refreshes can go back to
-   running `03_create_network_dataset.py` unattended instead of repeating this by hand.
+   forward) and enter:
+   - `Length` — Value `!Shape!`, no Code Block, for both Along Digitized and Against Digitized.
+   - `OneWay` — **do not reproduce the template's no-op.** The template's `OneWay` (`restricted
+     = False`, never reading `STR_DIR`) is stale relative to what the live networks actually
+     ran — see §F2. Use the recovered, confirmed-working logic instead:
+     ```python
+     # Along Digitized -- Code Block
+     def oneway_restricted(str_dir):
+         return (str_dir or "").upper() in ("N", "FDTO", "T")
+     # Value
+     oneway_restricted(!STR_DIR!)
+     ```
+     ```python
+     # Against Digitized -- Code Block (note FOTD, not FDTO)
+     def oneway_restricted(str_dir):
+         return (str_dir or "").upper() in ("N", "FOTD", "T")
+     # Value
+     oneway_restricted(!STR_DIR!)
+     ```
+5. `BuildNetwork` with **Force Full Build checked.** This is not optional for a fresh build,
+   and it matters even more for any *later* edit to this evaluator: editing a Field Script's
+   content without Force Full Build leaves the network's precomputed per-edge weight tables
+   stale, silently, with zero build error — see `CLAUDE.md`'s "Editing a Field Script
+   evaluator's Code Block requires Force Full Build" gotcha, which cost most of a day to
+   diagnose on 2026-09-01/02. Do not also click Build Network in Pro afterward — a double
+   build stacks two generations of system junctions (the 16,334 junctions / 37,728 edges seen
+   earlier). If a forced build runs far longer than ~2 minutes, see the same file's
+   "Long-running Build Network" gotcha before assuming it will finish on its own.
+6. **Verify `OneWay` and `TrafficTurn` with a real two-direction solve before trusting the
+   build.** A clean "Build succeeded" message does not confirm restrictions are actually
+   enforced — see §4.4 below. Only once verified, export the template:
+   `arcpy.na.CreateTemplateFromNetworkDataset` → commit the result over
+   `data/network_template.xml`, so future refreshes can go back to running
+   `03_create_network_dataset.py` unattended instead of repeating this by hand.
 
 ### 3.3 Find and read the build errors file
 
@@ -392,6 +416,30 @@ Expected contents:
   `TRNLRS_street_junction`. **Expected and harmless** — LRS resegmentation moved edge
   endpoints, so some manually-placed junctions no longer coincide with one. Count them, but
   they are not a failure.
+- **New, confirmed 2026-09-01 against the interactively-rebuilt QA network:** a small number
+  of `Source table [SDEADM.TRNLRS_traffic_turn], Object ID [N]: Cannot find at junction.`
+  lines — 9 out of 1,189 written turns (0.76%) on the first rebuild. Diagnosed directly
+  against the live data (do not assume this is the `no_shared_endpoint` skip category —
+  it is not, since these turns already passed the remap and the verifier's checks). Two
+  causes, confirmed by measuring the true minimum distance across all four
+  first/last endpoint combinations between each turn's consecutive edges (the same method
+  `shared_endpoint()` uses — do not assume which end of `Edge2+` matters, since only `Edge1`
+  carries an `End` flag; guessing `firstPoint` for the rest produces false "gaps" of 30–150m
+  that evaporate once all four combinations are checked):
+  - **7 of 9**: a real small gap (0.006m–0.41m) between two edges in `TRNLRS_TRN_STREET`
+    that script 05 correctly identified as the adjacent pair — `SNAP_TOLERANCE = 0.5` in
+    `05_rebuild_traffic_turns.py` is deliberately looser than the network's actual
+    build-time XY tolerance (0.001m), so a match the remap accepts can still be too far
+    apart for Build Network to snap into one junction. Not a remap logic bug; a genuine
+    pre-existing digitizing gap in the edge source.
+  - **2 of 9**: an exact 0.0000m coincidence that still failed — unexplained. Worth checking
+    whether a third, different turn also references the same shared edge before spending
+    more time on it (Build Network's error attribution during turn-element creation may not
+    be 1:1 reliable), but not chased further yet given the small impact.
+  - **Practical impact**: at most 9 of 1,189 turn restrictions (0.76%) go unenforced in
+    solves; every edge and every other turn built correctly. Decide separately whether this
+    is worth a targeted geometry snap on the 7 real-gap locations, or acceptable as a known
+    residual gap — it does not block Phase 4.
 
 ---
 
@@ -453,14 +501,38 @@ on Edge1 before the junction and a stop on Edge2 after it, then:
 Different results between the two = turn restrictions are enforced. Identical results =
 they are not, regardless of what the Turns count says.
 
-While you have a Route open, the other two outstanding Phase 5 tests are cheap:
+**Confirmed 2026-09-01, and a real gotcha worth flagging for whoever does this next.** First
+attempt against turn OID 2 (`QUINPOOL RD -> ROBIE ST`, a genuine cross-street prohibited
+turn) went straight through — 51 ft, no detour, restriction silently ignored. This was **not**
+a network-build defect: the Route layer's **Travel Mode** did not have `TrafficTurn` or
+`OneWay` checked under its own Restrictions tab. Defining a restriction attribute on the
+network dataset (Travel Attributes → Restrictions, per [F2](network_dataset_script_review.md#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01))
+does not mean any given solve honors it — that is controlled per Travel Mode, and a freshly
+created Route layer's default travel mode does not automatically pick up custom restrictions.
+Checking both boxes (Route layer → Travel Mode → Edit → Restrictions tab) immediately fixed
+it: the same stops then produced a 411 ft loop-around detour via Robie St and back onto
+Quinpool, correctly avoiding the prohibited movement. **Anyone building a Route/Service Area
+layer against this network dataset -- or configuring a published routing service from it --
+must explicitly enable `TrafficTurn` and `OneWay` in whatever Travel Mode is used, or turn
+and one-way restrictions will be silently ignored with no error.**
 
-- **One-way**: route both directions along a known one-way street; the wrong-way direction
-  must detour.
+While you have a Route open, one more Phase 5 test is cheap:
+
 - **Route comparison**: same two endpoints on `TRNLRS_street_network` and the legacy
   `TRN_street_network`; compare path and length. Pay attention to bridges and underpasses —
   the new network has no elevation modelling, so grade separations are the expected place
   for it to differ.
+
+**One-way — ✅ confirmed 2026-09-02/03**, after its own multi-day debugging saga. Route both
+directions along a street coded `STR_DIR='FOTD'` in `TRNLRS_TRN_STREET` — the wrong-way
+direction (Against Digitized) must detour or fail to solve; the allowed direction (Along
+Digitized) must stay clean. Confirmed on OID 12002 (Bishop St, `FOTD`): westbound (Along)
+solved clean at 157–228 ft depending on stop placement; eastbound (Against) correctly returned
+`ERROR 030212: Solve did not find a solution`. The root cause of the earlier failures was not
+the evaluator logic itself but **`Force Full Build` not being checked** after editing the
+evaluator — see `CLAUDE.md`'s Force Full Build gotcha and
+[`network_build_status.md` Step 6](network_build_status.md#step-6--rebuild-and-re-export-the-network-template-2026-09-01)
+for the full trail before touching this evaluator again.
 
 ---
 
