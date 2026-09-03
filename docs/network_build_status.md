@@ -504,6 +504,29 @@ this evaluator again:**
    per direction), re-ran Force Full Build (normal duration this time), and confirmed on
    `TRNLRS_TRN_STREET` OID 12002 (`STR_DIR='FOTD'`): Along Digitized (west) solves clean;
    Against Digitized (east) correctly returns `ERROR 030212: Solve did not find a solution`.
+8. **The exported template still had the bug — caught before committing, not after.** A fresh
+   `CreateTemplateFromNetworkDataset` export, read directly rather than trusted from the solve
+   test alone, showed `Against Digitized`'s Code Block was still `return True` unconditionally
+   — the isolation-test hardcode from step 5/6 had never actually been reverted to the real
+   `FOTD` check. The OID 12002 solve test in step 7 could not have caught this: `FOTD` is one
+   of the values `return True` also blocks, so a "no solution" result there is consistent with
+   either the correct logic or the still-broken hardcode. Fixed the Code Block for real this
+   time, Force Full Build again.
+9. **Real-world cross-check surfaced a second, unrelated finding.** Testing the corrected
+   network against Bishop St (`STR_DIR='FOTD'`) showed westbound allowed / eastbound blocked —
+   the *opposite* of the real-world sign. Confirmed with HRM's GIS team: **this specific
+   edge's line geometry is digitized backwards** (a pre-existing data issue, unrelated to this
+   evaluator work) — `STR_DIR`/the evaluator logic are both correct, but "Along Digitized" and
+   "Against Digitized" map to the wrong real-world compass direction on this one edge because
+   the underlying line runs the wrong way. Not something to fix in the network dataset; a data
+   quality item to track separately (see the note under `STR_DIR` in `CLAUDE.md`).
+10. **Final, decisive verification: a discriminating two-way-street test.** Testing a one-way
+    street alone (Hollis St) could not distinguish "the real `FOTD`/`FDTO` logic is working"
+    from "Against Digitized is still hardcoded to always restrict" — both predict the same
+    result on a street that's genuinely one-way. Tested Barrington St (ordinary two-way)
+    instead: solved cleanly at 272 ft in **both** directions, no restriction either way. This
+    is the result that actually rules out the hardcoded-`True` bug, and it passed. `OneWay` is
+    confirmed correctly implemented as of 2026-09-03.
 
 **Checklist:**
 
@@ -511,15 +534,22 @@ this evaluator again:**
 - [x] Recover the authoritative `OneWay` logic from Dev before it becomes unrecoverable
 - [x] Apply the corrected `OneWay` Python evaluator to QA and re-run Build Network (with Force
       Full Build — required, see above)
-- [x] Re-run the one-way solve test — confirmed working 2026-09-03
-- [ ] Export the corrected template via `CreateTemplateFromNetworkDataset` and commit it over
-      `data/network_template.xml` — now unblocked
+- [x] Re-run the one-way solve test — confirmed working 2026-09-03, including the
+      discriminating two-way-street check (step 10 above) that actually rules out the
+      hardcoded-`True` regression
+- [x] Reply to the DBA (Sylvie Blanchard) who killed the blocking session, confirming it was
+      this ArcGIS Pro Build Network operation and not a rogue process
+- [ ] **Export the corrected template via `CreateTemplateFromNetworkDataset` and commit it
+      over `data/network_template.xml`** — a first export was caught still containing the
+      `return True` bug (step 8 above) before being committed; a fresh export reflecting the
+      final corrected state is needed
 - [ ] Confirm `scripts/03_create_network_dataset.py` can rebuild from that new template
       (`CreateNetworkDatasetFromTemplate` with Python evaluators is untested in this project)
 - [ ] Apply the same from-scratch rebuild to **Dev** (still VBScript, still read-only)
-- [ ] Reply to the DBA (Sylvie Blanchard) who killed the blocking session, confirming it was
-      this ArcGIS Pro Build Network operation and not a rogue process
 - [ ] Apply to **prod** as part of cutover
+- [ ] Report the Bishop St digitizing-direction issue (step 9 above) to whoever owns
+      `TRNLRS_TRN_STREET` data quality, if not already captured by the GIS team conversation
+      that confirmed it
 
 ---
 
