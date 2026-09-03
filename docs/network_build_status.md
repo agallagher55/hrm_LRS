@@ -539,10 +539,11 @@ this evaluator again:**
       hardcoded-`True` regression
 - [x] Reply to the DBA (Sylvie Blanchard) who killed the blocking session, confirming it was
       this ArcGIS Pro Build Network operation and not a rogue process
-- [ ] **Export the corrected template via `CreateTemplateFromNetworkDataset` and commit it
-      over `data/network_template.xml`** — a first export was caught still containing the
-      `return True` bug (step 8 above) before being committed; a fresh export reflecting the
-      final corrected state is needed
+- [x] **Export the corrected template and commit it over `data/network_template.xml` —
+      done 2026-09-03.** A first export attempt was caught still containing the `return True`
+      bug (step 8 above) before being committed; the second, verified export (both `FDTO` and
+      `FOTD` present and correctly placed, confirmed against a fresh `xml.etree.ElementTree`
+      parse) is what's now committed.
 - [ ] Confirm `scripts/03_create_network_dataset.py` can rebuild from that new template
       (`CreateNetworkDatasetFromTemplate` with Python evaluators is untested in this project)
 - [ ] Apply the same from-scratch rebuild to **Dev** (still VBScript, still read-only)
