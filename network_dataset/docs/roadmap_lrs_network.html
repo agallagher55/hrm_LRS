@@ -602,7 +602,7 @@ End Select                                  End Select</code></pre>
     <h3><span class="num">7</span> Deferred, future-phase scope</h3>
     <p class="why">Explicitly out of scope for the initial cutover. Listed here so it doesn't get lost.</p>
     <ul class="todo">
-      <li>Travel-time cost attribute from <code>E_SpeedLimit</code> (field <code>SPEED</code>, km/h): deferred because <code>E_SpeedLimit</code>'s segmentation isn't compatible with the other 7 event tables in the same <code>OverlayEvents</code> call; needs org approval to modify the shared <code>LRS_updates.py</code> event pipeline; default speeds by <code>ST_CLASS</code> have been proposed but not confirmed with the traffic/operations team</li>
+      <li>Travel-time cost attribute from <code>E_SpeedLimit</code> (field <code>SPEED</code>, km/h): deferred because <code>E_SpeedLimit</code>'s segmentation isn't compatible with the other 7 event tables in the same <code>OverlayEvents</code> call; needs org approval to modify the shared <code>LRS_updates.py</code> event pipeline; default speeds by <code>ST_CLASS</code> have been proposed but not confirmed with the traffic/operations team. Per the 2026-07-30 check-in, Robbie Evans already has a working speed × distance field-calculation approach he's used for ~12 years (screen caps on the T-drive) — reuse it rather than designing one from scratch — and confirmed the sequencing this project has followed is correct: prove connectivity/turns/junctions on a distance-only network first, add travel time after. Default speeds are for regular vehicle routing, not fire-apparatus response times (fire trucks are speed-limited).</li>
       <li>Consolidate the two copies of the edge source (standalone <code>TRNLRS_TRN_STREET_VW</code> and the feature-dataset copy <code>TRNLRS_TRN_STREET</code>) into one. Needs an impact assessment of every consumer of the standalone <code>_VW</code> class first; open since 2026-06-26.</li>
     </ul>
   </div>
@@ -657,6 +657,11 @@ End Select                                  End Select</code></pre>
         <td>Referenced docs that don't exist: <code>docs/traffic_turns.md</code>, <code>docs/network_review.md</code>; advertised <code>tests/</code> directory that doesn't exist</td>
         <td>Anyone following an inline reference to these hits a dead end. No automated regression coverage exists for this pipeline at all.</td>
         <td><span class="pill pill-notstarted">Housekeeping</span></td>
+      </tr>
+      <tr>
+        <td><code>INT_RouteOnRoute</code> / <code>GenerateIntersections</code> prod deployment status unclear</td>
+        <td>2026-07-22/07-30 "Road Network Check In" meeting notes describe <code>generate_intersections()</code> as uncommented and already running nightly in prod, feeding a new police collision-snapping application reviewed by Justin and the design authority. The tracked <code>scripts/LRS_updates.py</code> still has that call commented out, and this page's own Refresh automation phase says <code>LRS_updates.py</code> hasn't been deployed — the two sources disagree. See <code>network_build_status.md</code>'s "Route Intersection Class" section.</td>
+        <td><span class="pill pill-notstarted">Needs verification</span></td>
       </tr>
     </table>
   </div>
