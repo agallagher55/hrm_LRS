@@ -368,15 +368,10 @@ See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diag
 
 - [ ] Solve a **Route** between two known endpoints; compare path and cost against `TRN_street_network`
 - [x] Solve a **Service Area** (e.g. 5-minute drive) from a known origin; compare coverage — 50km service area, Robbie Evans, 2026-06-29
-- [ ] ❌ **Confirm one-way restriction is enforced — BLOCKED, currently failing.** Tested 2026-09-01
-      against Bishop St (`STR_DIR = 'FOTD'`, geometry confirms Along Digitized = west, so
-      *eastbound* should be prohibited). Eastbound solved straight through, 253 ft, no detour.
-      Root cause: the Python `OneWay` evaluator entered during the rebuild uses `!STR_DIR!`
-      inline inside the **Code Block**, which is not valid — field-token substitution only
-      applies to the single-line **Value** expression; the Code Block must be a plain function
-      that *receives* the field as a parameter. Corrected form (not yet applied or verified):
-      Code Block `def oneway_restricted(str_dir): ...` and Value `oneway_restricted(!STR_DIR!)`.
-      See the runbook's §4.4 and [`network_dataset_script_review.md` §F2](network_dataset_script_review.md#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01).
+- [x] ✅ **Confirm one-way restriction is enforced** — confirmed working 2026-09-03, after a
+      multi-day debugging saga (root cause: `Force Full Build` not checked after an evaluator
+      script edit, plus an earlier inline `!STR_DIR!` token-substitution bug along the way).
+      Full blow-by-blow in [Step 6](#step-6--rebuild-and-re-export-the-network-template-2026-09-01).
 - [x] ✅ **Confirm turn restriction logic works** against `TRNLRS_traffic_turn` — 2026-09-01.
       Turn OID 2 (`QUINPOOL RD → ROBIE ST`, a genuine prohibited movement) solved straight
       through at first (51 ft) because the Route layer's **Travel Mode** did not have
@@ -384,6 +379,16 @@ See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diag
       411 ft loop-around detour. **Restriction attributes do nothing unless the Travel Mode
       enables them** — now recorded in `CLAUDE.md`.
 - [ ] Check address range fields (`FROM_LEFT`, `TO_LEFT`, `FROM_RIGHT`, `TO_RIGHT`) for geocoding
+
+**2026-09-09 — Robbie Evans notified QA is ready for expert testing.** Alex emailed Robbie
+(cc Jillian Landry, subject "LRS Network dataset") confirming
+`SDEADM.TRNLRS_network\SDEADM.TRNLRS_street_network` in QA is ready for his expert network
+testing, requested by end of week (~2026-09-11), ahead of the HRFE kickoff meeting the
+following Tuesday (2026-09-15, derived from the 2026-09-09 send date — not stated explicitly
+in the email). Suggested focus: turn and one-way restrictions — both already confirmed working
+above, so this is Robbie's independent sign-off on top of the checks already run here.
+
+- [ ] Robbie's expert network testing results (requested 2026-09-09, due ~2026-09-11)
 
 ---
 
