@@ -1,0 +1,101 @@
+=== MEETING ATTENDEES ===
+Total Attendees: 4
+Meeting Start: 9/9/2026, 2:31:03 PM
+
+Attendee List:
+- Gallagher, Alex
+- Unknown user
+- Landry, Jillian
+- Lowe, Ryan
+
+=== TRANSCRIPT ===
+[2:31:05 PM] Gallagher, Alex: See how I am.
+[2:31:08 PM] Unknown user: Mel, Mel and Robbie are not here today.
+[2:31:10 PM] Gallagher, Alex: And for that.
+[2:31:15 PM] Landry, Jillian: Just with you, Alex, where are you at with the?
+[2:31:19 PM] Landry, Jillian: Rebuilding the network.
+[2:31:23 PM] Gallagher, Alex: Good. It's already in QA.
+[2:31:25 PM] Landry, Jillian: Oh, nice.
+[2:31:29 PM] Gallagher, Alex: I did some testing.
+[2:31:34 PM] Landry, Jillian: Perfect. So far so good from your perspective.
+[2:31:42 PM] Landry, Jillian: It has some Robbie done any testing? Do you know?
+[2:31:51 PM] Gallagher, Alex: I don't think Robbie's done any testing, but by testing I mean like I like. I did some route analysis which I think he was.
+[2:31:53 PM] Gallagher, Alex: He was going to do as well so.
+[2:31:58 PM] Gallagher, Alex: There's some overlap there.
+[2:32:00 PM] Gallagher, Alex: And yeah, we're ready.
+[2:32:05 PM] Gallagher, Alex: Ryan, I don't know if you caught that, but I have the network data set ready in QA.
+[2:32:10 PM] Gallagher, Alex: So if you want to take a look at it or whatever.
+[2:32:14 PM] Gallagher, Alex: I don't remember what the the next steps were actually.
+[2:32:17 PM] Landry, Jillian: Robbie was going to test.
+[2:32:17 PM] Gallagher, Alex: OK.
+[2:32:19 PM] Gallagher, Alex: Yep.
+[2:32:22 PM] Landry, Jillian: Perfect. And he's off today, but.
+[2:32:22 PM] Lowe, Ryan: Great. Sounds good.
+[2:32:28 PM] Landry, Jillian: Can you just send Robbie a little a little note, Alex, that it's ready?
+[2:32:28 PM] Gallagher, Alex: Yeah, I can do that.
+[2:32:30 PM] Gallagher, Alex: And then we were gonna meet.
+[2:32:36 PM] Gallagher, Alex: I think I set up a meeting next week with Robbie.
+[2:32:39 PM] Gallagher, Alex: Yeah, next Tuesday.
+[2:32:41 PM] Gallagher, Alex: To go over some speed stuff.
+[2:32:43 PM] Landry, Jillian: OK.
+[2:32:46 PM] Landry, Jillian: Perfect.
+[2:32:49 PM] Landry, Jillian: OK.
+[2:32:51 PM] Landry, Jillian: So yeah, OK.
+[2:32:55 PM] Landry, Jillian: So Robbie's off today. If you can let him know, maybe we can.
+[2:33:04 PM] Landry, Jillian: Fingers crossed we can test by the end of the week and then that way you're going into next week. You guys can focus on.
+[2:33:07 PM] Landry, Jillian: Speed. And then you can.
+[2:33:13 PM] Landry, Jillian: Rebuild. So once you're here, Robbie's done the the network with distance.
+[2:33:17 PM] Landry, Jillian: That's kinda completed.
+[2:33:24 PM] Landry, Jillian: And then can you let me know if this is incorrect? And then you're gonna build the HRFE network, which includes speed.
+[2:33:26 PM] Gallagher, Alex: Yep. Yeah, exactly.
+[2:33:28 PM] Landry, Jillian: And some additional inclusion exclusions.
+[2:33:31 PM] Landry, Jillian: OK.
+[2:33:35 PM] Landry, Jillian: The distance I called the distance network.
+[2:33:39 PM] Landry, Jillian: Do we know who the users are of that?
+[2:33:44 PM] Landry, Jillian: Like, should we once Robbie like, confirm the testing? Like should we be telling people it's now available?
+[2:33:51 PM] Landry, Jillian: Do we know who that is?
+[2:33:52 PM] Gallagher, Alex: I don't know.
+[2:33:55 PM] Gallagher, Alex: I think Robbie always has.
+[2:34:01 PM] Gallagher, Alex: People bugging him for network stuff. I think Mel does too.
+[2:34:07 PM] Gallagher, Alex: So yeah, I I don't have really any insight into who's interested or who uses it.
+[2:34:11 PM] Gallagher, Alex: And I think it's an unofficial group of people, but I don't really know.
+[2:34:14 PM] Landry, Jillian: OK.
+[2:34:19 PM] Landry, Jillian: Kirk Mills mentioned he did some kind of sandal, like a network analysis.
+[2:34:21 PM] Landry, Jillian: Are you aware?
+[2:34:23 PM] Landry, Jillian: Maybe Mel's where or Robbie.
+[2:34:25 PM] Gallagher, Alex: Not something I'm aware of.
+[2:34:26 PM] Landry, Jillian: OK.
+[2:34:30 PM] Landry, Jillian: All right, perfect, I think.
+[2:34:32 PM] Landry, Jillian: That's I think that's it.
+[2:34:34 PM] Landry, Jillian: Unless I'm missing something else to set up.
+[2:34:38 PM] Landry, Jillian: When is mail back?
+[2:34:39 PM] Landry, Jillian: I'll set time for.
+[2:34:43 PM] Landry, Jillian: Give you and Robbie some time.
+[2:34:48 PM] Landry, Jillian: So maybe like the week of the 21st, we'll set up another meeting.
+[2:35:03 PM] Landry, Jillian: Another check in, and hopefully by then we can say that the distance one is tested and then we just have to figure out who we have to let people know and then hopefully you'll have an update on the HRV one.
+[2:35:06 PM] Gallagher, Alex: Sounds good.
+[2:35:08 PM] Landry, Jillian: Sounds great.
+[2:35:11 PM] Landry, Jillian: Brian, anything from your end that I missed?
+[2:35:26 PM] Lowe, Ryan: Nothing much. I was chatting with Lucy just after lunch, so it looks like the ticket that we submitted for those.
+[2:35:29 PM] Lowe, Ryan: Few errors that we couldn't fix.
+[2:35:35 PM] Lowe, Ryan: There in the middle of testing that with our the copy of our LRS and.
+[2:35:40 PM] Lowe, Ryan: Hoping to get back to us in the next week. Ish.
+[2:35:41 PM] Landry, Jillian: OK.
+[2:35:52 PM] Landry, Jillian: Perfect. And I guess we'll have to ask, Mel, if they can't fix this before our pro upgrade.
+[2:35:56 PM] Landry, Jillian: I'm assuming we're still going forward with the pro upgrade.
+[2:36:01 PM] Landry, Jillian: We just may not update our LRS users.
+[2:36:07 PM] Lowe, Ryan: I haven't had a test chance to test the snapping on QA yet.
+[2:36:09 PM] Lowe, Ryan: Something else came up that was.
+[2:36:13 PM] Lowe, Ryan: Higher priority, unfortunately.
+[2:36:14 PM] Landry, Jillian: Oh yeah, no worries.
+[2:36:17 PM] Landry, Jillian: Perfect. So maybe I'll put that as a bit of.
+[2:36:28 PM] Landry, Jillian: Something to put on our list to talk about at our next check in around like if you had a chance to to test with your version of Pro.
+[2:36:29 PM] Lowe, Ryan: Yeah, absolutely.
+[2:36:33 PM] Landry, Jillian: The error.
+[2:36:34 PM] Landry, Jillian: Awesome, that was great.
+[2:36:36 PM] Landry, Jillian: That's quick.
+[2:36:38 PM] Gallagher, Alex: Cool music.
+[2:36:40 PM] Lowe, Ryan: Perfect.
+[2:36:41 PM] Gallagher, Alex: Thanks Joe.
+[2:36:42 PM] Gallagher, Alex: Thanks Ryan.
+[2:36:43 PM] Landry, Jillian: Thank you bye
