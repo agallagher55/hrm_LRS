@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRNLRS Street Network: Build Roadmap</title>
+<style>
+  :root {
+    --bg: #f5f6f3;
+    --surface: #ffffff;
+    --surface-2: #fafaf8;
+    --border: #dfe3dd;
+    --text: #1c211d;
+    --text-muted: #5f6b62;
+    --accent: #3a6b52;
+    --accent-soft: #e8f0ea;
+    --link: #2a5f8f;
+    --done: #227a4a;
+    --done-bg: #e5f4ea;
+    --partial: #9a6400;
+    --partial-bg: #fbf1dc;
+    --blocked: #ad2b21;
+    --blocked-bg: #fbe8e6;
+    --notstarted: #626b64;
+    --notstarted-bg: #ececea;
+    --code-bg: #eef0ec;
+    --shadow: 0 1px 2px rgba(20, 30, 22, 0.06), 0 1px 8px rgba(20, 30, 22, 0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --surface: #1c2023;
+      --surface-2: #20242a;
+      --border: #33383d;
+      --text: #e7ebe6;
+      --text-muted: #a2aca4;
+      --accent: #6fbf95;
+      --accent-soft: #1f2e26;
+      --link: #7ab6e8;
+      --done: #63c88f;
+      --done-bg: #163425;
+      --partial: #e0b04a;
+      --partial-bg: #362a12;
+      --blocked: #f0847a;
+      --blocked-bg: #3a1e1c;
+      --notstarted: #9aa39c;
+      --notstarted-bg: #262a2c;
+      --code-bg: #262b2f;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 10px rgba(0,0,0,0.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  a { color: var(--link); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 80px; }
+  nav.topnav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  nav.topnav .inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 10px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+  nav.topnav strong { font-size: 14px; white-space: nowrap; }
+  nav.topnav .links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13.5px; }
+  nav.topnav .links a { text-decoration: none; color: var(--text-muted); }
+  nav.topnav .links a:hover { color: var(--accent); }
+  nav.topnav button {
+    margin-left: auto;
+    font-size: 12.5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  header.hero { padding: 36px 0 8px; }
+  header.hero h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.hero .meta { color: var(--text-muted); font-size: 14px; margin: 4px 0; }
+  header.hero .meta strong { color: var(--text); }
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 18px 0 28px;
+    box-shadow: var(--shadow);
+    font-size: 15px;
+  }
+  .callout strong.tag {
+    display: inline-block;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  section { margin: 42px 0; }
+  section > h2 {
+    font-size: 21px;
+    margin: 0 0 4px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  section > p.section-sub { color: var(--text-muted); margin-top: 6px; font-size: 14.5px; }
+
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+  @media (max-width: 800px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .card h3 { margin: 0 0 8px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .card ul { margin: 10px 0 0; padding-left: 20px; font-size: 13.8px; }
+  .card li { margin-bottom: 5px; }
+
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .pill-done { background: var(--done-bg); color: var(--done); }
+  .pill-partial { background: var(--partial-bg); color: var(--partial); }
+  .pill-blocked { background: var(--blocked-bg); color: var(--blocked); }
+  .pill-notstarted { background: var(--notstarted-bg); color: var(--notstarted); }
+
+  .pipeline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 20px 0 6px;
+    font-size: 13px;
+  }
+  .pipeline .box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow);
+    max-width: 190px;
+  }
+  .pipeline .box.dim { opacity: 0.7; }
+  .pipeline .box .label { font-weight: 600; }
+  .pipeline .box .sub { color: var(--text-muted); font-size: 11.5px; margin-top: 3px; }
+  .pipeline .arrow { color: var(--text-muted); font-size: 16px; }
+  .pipeline .fd {
+    border: 1px dashed var(--accent);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .pipeline .fd-label { width: 100%; font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+
+  details.phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 10px 0;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  details.phase > summary {
+    cursor: pointer;
+    padding: 13px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    list-style: none;
+  }
+  details.phase > summary::-webkit-details-marker { display: none; }
+  details.phase > summary::before {
+    content: "▸";
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    font-size: 12px;
+  }
+  details.phase[open] > summary::before { transform: rotate(90deg); }
+  details.phase .body { padding: 2px 16px 16px; font-size: 14px; }
+  details.phase .body p { margin: 8px 0; }
+  details.phase .body ul { margin: 8px 0; padding-left: 22px; }
+  details.phase .body li { margin-bottom: 6px; }
+  details.phase .stat-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+  .stat {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    min-width: 120px;
+  }
+  .stat .n { font-size: 17px; font-weight: 700; display: block; }
+  .stat .l { color: var(--text-muted); }
+
+  .milestone {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 14px 0;
+    box-shadow: var(--shadow);
+  }
+  .milestone h3 { margin: 0 0 4px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .milestone .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .milestone p.why { color: var(--text-muted); font-size: 13.5px; margin: 4px 0 10px 34px; }
+  ul.todo { list-style: none; margin: 0; padding-left: 34px; }
+  ul.todo li {
+    position: relative;
+    padding-left: 26px;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  ul.todo li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 3px;
+    width: 15px; height: 15px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 4px;
+  }
+  ul.todo li.done { color: var(--text-muted); text-decoration: line-through; }
+  ul.todo li.done::before { content: "✓"; border-color: var(--done); color: var(--done); font-size: 11px; text-align: center; line-height: 13px; text-decoration: none; }
+  ul.todo li .tag {
+    display: inline-block;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 5px;
+    padding: 1px 6px;
+    margin-right: 6px;
+    position: relative;
+    top: -1px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 10px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  tr:last-child td { border-bottom: none; }
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px 14px; box-shadow: var(--shadow); }
+
+  code, .code {
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+  }
+  pre {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  .ready-list { list-style: none; padding-left: 0; margin: 10px 0; }
+  .ready-list li {
+    position: relative;
+    padding: 6px 0 6px 28px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .ready-list li:last-child { border-bottom: none; }
+  .ready-list li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 9px;
+    width: 15px; height: 15px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 4px;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 50px;
+    padding-top: 18px;
+    color: var(--text-muted);
+    font-size: 12.8px;
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="inner">
+    <strong>TRNLRS Network Roadmap</strong>
+    <div class="links">
+      <a href="#overview">Overview</a>
+      <a href="#completed">Completed</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#issues">Known issues</a>
+      <a href="#decisions">Decisions</a>
+      <a href="#ready">Ready-for-Prod</a>
+      <a href="#map">Repo map</a>
+    </div>
+    <button id="toggleAll" type="button">Expand all</button>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero" id="overview">
+  <h1>TRNLRS Street Network: Build Roadmap</h1>
+  <p class="meta">Prepared <strong>2026-09-09</strong> · Reflects repository state at commit <code>4420ec6</code> (2026-09-08) · Latest network execution evidence in the repo is dated <strong>2026-09-03</strong></p>
+  <p class="meta">This page is compiled entirely from what is committed to this repository (docs, scripts, data outputs). It is <strong>not</strong> a live query of Dev, QA, or Prod. Where the current QA environment and this page disagree, QA is the authority.</p>
+
+  <div class="callout">
+    <strong class="tag">Where things stand</strong>
+    QA has a working, editable network dataset, and both hard restriction types (one-way and prohibited turns) are proven correct with real solve tests. That was the hard part, and it is done. What is left is acceptance testing, a handful of data-policy decisions that need a business owner rather than an engineer, and turning the rebuild into something that survives a Prod cutover unattended. Dev still runs the original VBScript-based build and cannot be edited in place. Prod has nothing built yet. Treat this as late validation and pre-production, not production-ready.
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3>QA <span class="pill pill-done">Working &amp; editable</span></h3>
+      <ul>
+        <li>Rebuilt from scratch 2026-09-01 with Python evaluators (interactive wizard, not the template)</li>
+        <li>One-way restriction confirmed working 2026-09-03</li>
+        <li>Prohibited-turn restriction confirmed working 2026-09-01</li>
+        <li>1,180 of 1,189 remapped turns (99.2%) built as live elements</li>
+        <li>50 km service area solve confirmed 2026-06-29</li>
+        <li>SQL grants current: <code>N_3</code> / <code>ND_40171</code> (2026-09-01)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Dev <span class="pill pill-blocked">Blocked, read-only</span></h3>
+      <ul>
+        <li>Original build from 2026-06-26; still solves today</li>
+        <li>VBScript evaluators: Pro 3.4+ makes the whole network dataset permanently read-only, no in-place fix exists</li>
+        <li>Needs the same from-scratch rebuild QA got, not an edit</li>
+        <li>SQL grants pending since 2026-07-14</li>
+        <li><strong>Currently the only surviving copy</strong> of the original one-way logic. Don't touch it carelessly before Python version is fully trusted.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Prod <span class="pill pill-notstarted">Not started</span></h3>
+      <ul>
+        <li>No <code>SDEADM.TRNLRS_network</code> feature dataset yet</li>
+        <li>No network dataset built</li>
+        <li>Authoritative edge source <code>TRNLRS_TRN_STREET_VW</code> already exists (since 2026-07-07)</li>
+        <li>Refresh automation (<code>LRS_updates.py</code>) coded but not deployed</li>
+        <li>No SQL grants issued; nothing built yet to grant on</li>
+      </ul>
+    </div>
+  </div>
+</header>
+
+<section id="pipeline-section">
+  <h2>How the network is built</h2>
+  <p class="section-sub">The network's edge source is derived from the LRS dynamic-segmentation pipeline, then copied into a dedicated feature dataset alongside the junction and turn sources so ArcGIS can build a network dataset on top of them.</p>
+
+  <div class="pipeline">
+    <div class="box"><span class="label">LRSN_Route</span><br>+ 7 event tables<div class="sub">E_StreetDirection, E_StreetClass, E_AddressRange, E_PSAB, E_StreetOwnership, E_StreetStatus, E_WinterMaintenance</div></div>
+    <span class="arrow">→</span>
+    <div class="box dim"><span class="label">OverlayEvents</span><div class="sub">dynamic segmentation, run inside LRS_updates.py</div></div>
+    <span class="arrow">→</span>
+    <div class="box dim"><span class="label">TRNLRS_segmented_street_events</span><div class="sub">intermediate FC</div></div>
+    <span class="arrow">→</span>
+    <div class="box dim"><span class="label">SQL filter</span><div class="sub">TO_DATE IS NULL, joins ADDDATE/MODDATE</div></div>
+    <span class="arrow">→</span>
+    <div class="box"><span class="label">TRNLRS_TRN_STREET_VW</span><div class="sub">standalone, authoritative, prod only. Truncated + reloaded every LRS refresh.</div></div>
+    <span class="arrow">→</span>
+    <div class="box dim"><span class="label">CopyFeatures</span><div class="sub">script 03 / sync_network_edge_source()</div></div>
+    <span class="arrow">→</span>
+    <div class="pipeline fd">
+      <div class="fd-label">SDEADM.TRNLRS_network</div>
+      <div class="box"><span class="label">TRNLRS_TRN_STREET</span><div class="sub">edge source (FD copy)</div></div>
+      <div class="box"><span class="label">TRNLRS_street_junction</span><div class="sub">user junction source</div></div>
+      <div class="box"><span class="label">TRNLRS_traffic_turn</span><div class="sub">remapped turn source</div></div>
+      <div class="box"><span class="label">TRNLRS_street_network</span><div class="sub">the network dataset itself</div></div>
+    </div>
+  </div>
+  <p class="section-sub">The copy step exists because SDE requires unique feature-class names across the whole geodatabase (the standalone <code>_VW</code> name can't be reused inside the feature dataset) and because all network sources must live in the same feature dataset. The standalone <code>_VW</code> class stays authoritative; everything inside <code>TRNLRS_network</code> is a derived copy that goes stale on every LRS refresh and has to be re-synced and rebuilt.</p>
+</section>
+
+<section id="completed">
+  <h2>What's complete</h2>
+  <p class="section-sub">Organized by the phases used throughout <code>docs/network_build_status.md</code> and <code>docs/network_dataset_migration_plan.md</code>. Click a phase to expand it.</p>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-done">Done</span> Phase 1: Extract the legacy network configuration</summary>
+    <div class="body">
+      <p><code>scripts/01_extract_network_config.py</code> ran against the old <code>TRN_street_network</code> and produced <code>data/network_config.json</code> and <code>data/network_template.xml</code>.</p>
+      <p><strong>Caveat carried forward:</strong> the exported template turned out to be an incomplete snapshot. It was captured before someone hand-fixed the <code>OneWay</code> evaluator directly in Pro's Properties dialog, so the file didn't reflect what the live networks actually ran. See Phase 6 below for the fix.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-done">Done</span> Phase 2: Schema comparison (old edge source vs. LRS-derived edge source)</summary>
+    <div class="body">
+      <p><code>scripts/02_compare_schemas.py</code> produced <code>data/schema_comparison.json</code> and <code>data/evaluator_field_map.json</code>. <code>FROM_ELEV</code>/<code>TO_ELEV</code> were the only fields with real impact (both referenced by the old elevation model); every other schema difference was confirmed harmless.</p>
+      <p><strong>Known bug, low current risk:</strong> <code>evaluator_field_map.json</code> is empty, and the docs originally explained that as "no field evaluators to check." The real reason is a key-mismatch bug in <code>map_evaluator_fields()</code>: it reads <code>ev.get("field_name")</code>, a key that script 01 never writes, so the check silently returns nothing before it can run. The conclusion (the evaluators are safe against the new source) is still correct, it was just verified by hand instead of by the automated check that's supposed to catch this. That automated net stays dead until someone fixes the key names, and it's exactly the check that should catch a regression when a travel-time attribute is eventually added.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-done">Done</span> Phase 3: Edit the XML template</summary>
+    <div class="body">
+      <p>Names updated to the <code>TRNLRS_*</code> sources, elevation field references cleared (<code>FromElevationFieldName</code>/<code>ToElevationFieldName</code>/<code>ElevationFieldName</code>), <code>NetworkElevationModel</code> set to <code>0</code> (none). This is what let the first Dev/QA builds succeed with endpoint-only connectivity.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-partial">Mixed by environment</span> Phase 4: Create and build the network dataset</summary>
+    <div class="body">
+      <div class="stat-row">
+        <div class="stat"><span class="n">✅ QA</span><span class="l">rebuilt from scratch 2026-09-01</span></div>
+        <div class="stat"><span class="n">⚠️ Dev</span><span class="l">original 2026-06-26 build, read-only</span></div>
+        <div class="stat"><span class="n">❌ Prod</span><span class="l">nothing built</span></div>
+      </div>
+      <p>The original path (<code>scripts/03_create_network_dataset.py</code> + <code>data/network_template.xml</code>) built Dev and QA cleanly on 2026-06-26. That template later turned out to have two problems that only surfaced during the 2026-09-01 turn-FC swap:</p>
+      <ul>
+        <li>Its <code>Length</code>/<code>OneWay</code> evaluators are <strong>VBScript</strong>. ArcGIS Pro 3.5 refuses to build a network dataset from a VBScript-bearing template at all (<code>ERROR 030386</code>).</li>
+        <li>Any network dataset that already carries VBScript evaluators opens as <strong>permanently read-only</strong> starting in Pro 3.4, by Esri's own deliberate design (confirmed against Esri KB 000034955 / FAQ 000034321, and against four other hypotheses that were tested and ruled out: stale locks, Pro version, project state, schema version).</li>
+      </ul>
+      <p>QA's network dataset was rebuilt from scratch using Pro's interactive <strong>New Network Dataset</strong> wizard with Python evaluators, since <code>CreateNetworkDatasetFromTemplate</code> against the old XML would just reproduce the same error. Dev's original network dataset is untouched and still locked read-only; it needs the identical from-scratch treatment, not an edit.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-done">Done for QA</span> Phase 5a: Traffic turn rebuild</summary>
+    <div class="body">
+      <p>Turn features store edge references as the <code>OBJECTID</code> of a feature in the registered edge source. When the turn class was copied against the new LRS-derived edge source, every reference pointed at an <code>OBJECTID</code> that no longer meant anything, so every turn failed at build time. <code>scripts/05_rebuild_traffic_turns.py</code> spatially remaps each turn's edge references onto the new edge source by geometry, and <code>scripts/verify_turn_rebuild.py</code> independently checks the result with 10 mechanical checks before anything gets swapped into place.</p>
+      <p>The script was substantially rewritten on 2026-08-31 after review found the original junction-detection logic was built on a wrong assumption about Esri's <code>Edge#Pos</code> field (it collapses to a constant <code>0.5</code> under this network's connectivity settings, so a script that branched on it was effectively picking the same endpoint for every record). The rewrite derives the junction directly from shared edge geometry instead, uses the turn's own recorded point to break ties at divided roads, and only writes a turn when every populated edge slot actually resolved.</p>
+      <div class="stat-row">
+        <div class="stat"><span class="n">1,238</span><span class="l">total input turns</span></div>
+        <div class="stat"><span class="n">1,189</span><span class="l">written (≈4.0% skipped, reasons logged per category)</span></div>
+        <div class="stat"><span class="n">99.7%</span><span class="l">Edge1End agreement with source (1,190/1,194)</span></div>
+        <div class="stat"><span class="n">10 / 10</span><span class="l">independent verifier checks pass clean</span></div>
+        <div class="stat"><span class="n">5 / 5</span><span class="l">spatial spot checks correct</span></div>
+        <div class="stat"><span class="n">1,180 / 1,189</span><span class="l">(99.2%) built as live turn elements</span></div>
+      </div>
+      <p>Spot checks covered simple crossings (Robie/North, Agricola/North), bends along one named street (University/South Park/Morris, Inglis/Young), and the highest-risk case: the multi-leg Robie/Quinpool/Cogswell/Bell intersection, where the bearing-based tiebreaker correctly picked the distinct named leg for each turn rather than jumping to an unrelated edge.</p>
+      <p>A related environment-configuration bug was fixed the same day: scripts 03 and 05 had drifted onto different target environments (Dev vs. QA), which would have let the orchestrator remap turns in QA and then build the network in Dev. <code>scripts/run_full_network_rebuild.py</code> now asserts both scripts agree before doing anything.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-partial">Partially complete</span> Phase 5: Validation / solve testing</summary>
+    <div class="body">
+      <table>
+        <tr><th>Test</th><th>Result</th><th>Notes</th></tr>
+        <tr><td>Network properties (sources, evaluators, directions)</td><td><span class="pill pill-done">Pass</span></td><td>2026-06-26</td></tr>
+        <tr><td>Service area solve</td><td><span class="pill pill-done">Pass</span></td><td>50 km, distance-based, 2026-06-29. Not the 5-minute time-based test originally envisioned; there's no travel-time attribute yet.</td></tr>
+        <tr><td>Prohibited-turn solve</td><td><span class="pill pill-done">Pass</span></td><td>2026-09-01, QUINPOOL RD → ROBIE ST. The first attempt went straight through because the Route layer's <em>Travel Mode</em> did not have <code>TrafficTurn</code>/<code>OneWay</code> enabled; see the lesson noted below the table.</td></tr>
+        <tr><td>One-way solve</td><td><span class="pill pill-done">Pass</span></td><td>2026-09-02/03, after a multi-day debugging saga (below).</td></tr>
+        <tr><td>Route comparison vs. legacy network</td><td><span class="pill pill-notstarted">Not done</span></td><td>No side-by-side path/cost comparison has been run yet.</td></tr>
+        <tr><td>Address range / geocoding fields</td><td><span class="pill pill-notstarted">Not done</span></td><td><code>FROM_LEFT</code>/<code>TO_LEFT</code>/<code>FROM_RIGHT</code>/<code>TO_RIGHT</code> have never been acceptance-checked.</td></tr>
+      </table>
+      <p style="margin-top:14px"><strong>Lesson worth repeating:</strong> defining <code>OneWay</code>/<code>TrafficTurn</code> on the network dataset does not make any given Route or Service Area layer honor them. That's controlled per <strong>Travel Mode</strong> (Route layer → Travel Mode → Edit → Restrictions tab), and a freshly created layer's default travel mode does not pick up custom restrictions automatically. A solve will silently drive straight through a real prohibited turn or the wrong way down a one-way street, with no error, if the box isn't checked.</p>
+      <p><strong>The one-way debugging saga, summarized:</strong> the evaluator logic itself was correct on the first attempt, but nothing changed in any solve no matter how the script was written, including a version hardcoded to unconditionally block every edge network-wide. The actual root cause: <strong>Force Full Build</strong> was not checked after editing the evaluator's script content. An incremental build leaves the network's precomputed per-edge weight tables stale with no error or warning of any kind, so the solver keeps using old cached values regardless of how the evaluator reads. Once Force Full Build was used, the hardcoded version immediately produced the expected "no solution found" error. That forced rebuild then hung for 18 hours on a genuine blocking session on QA's shared SQL Server (eventually killed by a DBA), a separate lesson now captured in <code>CLAUDE.md</code>. The fix was verified for real only after a discriminating two-way-street test (Barrington St, ordinary two-way, clean in both directions) ruled out a lingering hardcoded-<code>True</code> regression that a one-way-only test could not have distinguished from correct behavior.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-done">Done for QA</span> Phase 6: Rebuild and re-export the network template</summary>
+    <div class="body">
+      <p>Before the VBScript logic on Dev became unrecoverable, the authentic <code>OneWay</code> logic was pulled back out of Dev's live network with <code>CreateTemplateFromNetworkDataset</code> (2026-09-01):</p>
+      <pre><code>' Along Digitized                          ' Against Digitized
+restricted = False                          restricted = False
+Select Case UCase([STR_DIR])                Select Case UCase([STR_DIR])
+  Case "N", "FDTO", "T": restricted = True    Case "N", "FOTD", "T": restricted = True
+End Select                                  End Select</code></pre>
+      <p><code>FDTO</code> blocks travel along the digitized direction, <code>FOTD</code> blocks travel against it, and <code>N</code> or <code>T</code> block both directions. The domain was confirmed complete on 2026-09-03: <code>BOTH</code> (15,812 rows), <code>FOTD</code> (2,792), <code>NULL</code> (7), <code>FDTO</code> (1). Nothing exists beyond what the evaluator already handles.</p>
+      <p>The corrected Python translation was applied to QA, verified with the one-way solve test above, exported with <code>CreateTemplateFromNetworkDataset</code>, and committed over <code>data/network_template.xml</code> on 2026-09-03.</p>
+      <p><strong>Open:</strong> nobody has actually confirmed <code>CreateNetworkDatasetFromTemplate</code> can build from this corrected, Python-evaluator template. QA's rebuild was done by hand in the interactive wizard. Until this runs successfully, there is no proven <em>automated</em> rebuild path, which is the top item in the roadmap below.</p>
+    </div>
+  </details>
+
+  <details class="phase">
+    <summary><span class="pill pill-partial">Coded, not deployed</span> Refresh automation</summary>
+    <div class="body">
+      <p><code>scripts/04_sync_and_rebuild_network.py</code> and <code>sync_network_edge_source()</code> inside <code>scripts/LRS_updates.py</code> re-copy the edge source into the feature dataset and rebuild the network after every LRS refresh. Both correctly use <code>DeleteRows</code> rather than <code>TruncateTable</code> for the controller-dataset-safe re-sync.</p>
+      <p><strong>Known bug, confirmed still present in the code today:</strong> a separate, older helper inside <code>LRS_updates.py</code>, <code>append_feature()</code>, still calls <code>arcpy.TruncateTable_management()</code> directly. <code>TRNLRS_TRN_STREET</code> is a controller-dataset member, so this will raise <code>ERROR 001395: Operation not supported on a feature class in a controller dataset</code> the first time it actually runs against it. It hasn't surfaced yet only because <code>LRS_updates.py</code> has never been deployed to prod.</p>
+      <p><code>LRS_updates.py</code> has not been deployed to <code>E:\HRM\Scripts\Python\LRS_updates.py</code>, and no full LRS refresh cycle has been run end-to-end with the network sync included.</p>
+    </div>
+  </details>
+</section>
+
+<section id="roadmap">
+  <h2>What's left, in recommended order</h2>
+  <p class="section-sub">Reconciled from <code>docs/street_network_meeting_overview.md</code>'s recommended order and the open items tracked in <code>docs/network_dataset_script_review.md</code>. Earlier milestones unblock or de-risk the ones after them.</p>
+
+  <div class="milestone">
+    <h3><span class="num">1</span> Establish the current live baseline</h3>
+    <p class="why">The repository's docs are several days ahead of the last time anything was actually queried live. Cheap to do, and it's the foundation everything after this decision rests on.</p>
+    <ul class="todo">
+      <li>In QA, confirm directly: network build date, source feature counts, turn count in Properties, current evaluator definitions, and a fresh <code>BuildErrors_&lt;guid&gt;.txt</code></li>
+      <li>Record the result as one short, dated run report</li>
+    </ul>
+  </div>
+
+  <div class="milestone">
+    <h3><span class="num">2</span> Prove the automated rebuild path</h3>
+    <p class="why">Right now the only way to build this network dataset correctly is the manual interactive wizard. Nothing about this project survives a Prod cutover, or a future evaluator change, without a rebuild path that doesn't depend on someone remembering 6 wizard steps.</p>
+    <ul class="todo">
+      <li>Test <code>CreateNetworkDatasetFromTemplate</code> against the corrected Python-evaluator <code>data/network_template.xml</code> (never actually tried in this project)</li>
+      <li>Fix <code>LRS_updates.py</code>'s <code>append_feature()</code> to use <code>DeleteRows</code> instead of <code>TruncateTable</code> before it ever runs against prod</li>
+      <li>Decide the turn-OID-stability question: an LRS refresh truncates and reloads <code>TRNLRS_TRN_STREET</code>, which reassigns every row's <code>OBJECTID</code> and silently breaks every turn's edge reference. The documented claim that "turns don't need rebuilding on each refresh" is incorrect. Pick one: remap turns every refresh cycle, make edge <code>OBJECTID</code>s stable via a keyed update instead of truncate/reload, or store turns against a stable street-identity key and re-derive edge references at build time.</li>
+      <li>Run <code>scripts/run_full_network_rebuild.py</code> end to end in a non-production environment</li>
+      <li>Deploy the updated <code>LRS_updates.py</code>, but only after Prod's feature dataset and network actually exist</li>
+      <li>Run one full LRS refresh end to end and confirm: source refresh, edge-copy sync, one network build, expected source/element counts, a clean build-errors file, permissions, and a smoke solve</li>
+    </ul>
+  </div>
+
+  <div class="milestone">
+    <h3><span class="num">3</span> Close QA acceptance testing</h3>
+    <p class="why">The hard restriction logic works. What's untested is whether the network as a whole reproduces the legacy network's routing behavior closely enough to cut over.</p>
+    <ul class="todo">
+      <li>Run side-by-side Route solves against the legacy network and compare path and length cost: ordinary streets, divided roads, bridges/underpasses, and rural roads</li>
+      <li>Perform the still-undone address-range / geocoding field checks</li>
+      <li>Re-run a smaller service-area comparison framed consistently as distance (a genuine 5-minute test needs a time cost attribute, which doesn't exist yet)</li>
+      <li>Decide whether the 9 build-rejected turns (0.76%) are acceptable for cutover; the 2 exact-coincidence failures are still unexplained and the 7 real geometry gaps could be snapped or accepted</li>
+      <li>Spot-check the historical degenerate/duplicate turn-pair CSVs (<code>intermediate_results/*.csv</code>) against the current 1,189-record output. Check 10 came back clean on this run, but the specific old pairs haven't been individually re-confirmed.</li>
+    </ul>
+  </div>
+
+  <div class="milestone">
+    <h3><span class="num">4</span> Resolve routing and data-policy questions</h3>
+    <p class="why">These need a GIS/transportation business owner to decide, not more engineering. Several have been open since the first QA review on 2026-06-29.</p>
+    <ul class="todo">
+      <li>Transit access roads (<code>STR_TYPE</code> ≈ <code>ATA</code>): include or exclude from vehicle routing</li>
+      <li>Water access roads (<code>STR_TYPE = 'WA'</code>): civic addresses are geocoded to them, so exclusion needs care, not a blanket filter</li>
+      <li>George's Island road segment: present in the network but not reachable by road; should likely be excluded</li>
+      <li>Emergency turnarounds in the turn source: possible exclusion flagged by Robbie, never confirmed</li>
+      <li>Confirm whether Mel's hand-authored Cogswell ramp turns survived the 2026-09-01 turn-FC swap, or were destroyed by it (depends on whether they were authored against the old turn table, which is carried through each remap, or directly against the live <code>TRNLRS_traffic_turn</code>, which is not)</li>
+      <li>Bishop St (<code>TRNLRS_TRN_STREET</code> OID 12002): geometry confirmed digitized backwards relative to its real-world sign (2026-09-03, confirmed with HRM's GIS team). Scope of a wider audit is unknown; only this one edge has been checked.</li>
+      <li>Manually review 4 plain-street junction anomalies with no grade-separation excuse: Hemlock Dr / High Timber Dr (8.7 m offset), Wright Ave / Countryview Dr (9.36 m), Skreia Rd / Sailview Lane (6.26 m), Massachusetts Ave / Lady Hammond Rd (7.44 m)</li>
+      <li>Confirm whether no elevation modelling (endpoint-only connectivity) is acceptable for first release, particularly at grade-separated crossings whose geometry happens to share endpoints</li>
+    </ul>
+  </div>
+
+  <div class="milestone">
+    <h3><span class="num">5</span> Rebuild Dev</h3>
+    <p class="why">Dev is currently the only surviving copy of the original VBScript one-way logic. It needs the same from-scratch treatment QA got, done deliberately rather than lost by accident.</p>
+    <ul class="todo">
+      <li>Rebuild Dev from scratch with Python evaluators, same interactive wizard procedure used for QA</li>
+      <li>Re-apply Dev's SQL <code>PUBLIC SELECT</code> grants (network metadata + dirty-area tables + all 4 source tables), pending since 2026-07-14</li>
+      <li>Parameterize environment selection across the scripts (currently a hand-edited constant per script); add a dedicated <code>PROD_SDE_CONNECTION</code> to script 05 for consistency with scripts 03/04</li>
+    </ul>
+  </div>
+
+  <div class="milestone">
+    <h3><span class="num">6</span> Plan and execute Prod cutover</h3>
+    <p class="why">Nothing has been built in Prod yet. This is the last milestone, deliberately, since it depends on everything above.</p>
+    <ul class="todo">
+      <li>Create/confirm <code>SDEADM.TRNLRS_network</code> in Prod</li>
+      <li>Populate and remap the sources, build from the now-tested template</li>
+      <li>Apply SQL grants under Prod's own registration IDs (do not assume Dev/QA's numbers)</li>
+      <li>Run the full acceptance suite from milestone 3 against Prod</li>
+      <li>Deploy the refresh integration and define rollback / ownership (the legacy <code>TRN_street_network</code> stays live and untouched through cutover as the de facto rollback)</li>
+      <li>Clean up the duplicate source feature classes still sitting untouched in <code>SDEADM.TRNLRS</code> in both Dev and QA, only after cutover validation. <code>scripts/06_migrate_network_fd.py</code> exists for exactly this but has never actually been run anywhere; the feature-dataset separation happened via script 03's fallback copy logic instead.</li>
+      <li>Fix script 02's dead evaluator cross-check (the key-mismatch bug above) so a future schema change, such as adding a speed attribute, actually gets validated automatically instead of by hand</li>
+      <li>Documentation cleanup: <code>docs/traffic_turns.md</code> and <code>docs/network_review.md</code> are referenced from several scripts and docs but do not exist in this repository (only <code>docs/network_traffic_turns.md</code> exists, and it doesn't contain what's referenced from it); <code>README.md</code> advertises a <code>tests/</code> directory that doesn't exist, and there is no automated regression coverage of any kind for this pipeline</li>
+    </ul>
+  </div>
+
+  <div class="milestone">
+    <h3><span class="num">7</span> Deferred, future-phase scope</h3>
+    <p class="why">Explicitly out of scope for the initial cutover. Listed here so it doesn't get lost.</p>
+    <ul class="todo">
+      <li>Travel-time cost attribute from <code>E_SpeedLimit</code> (field <code>SPEED</code>, km/h): deferred because <code>E_SpeedLimit</code>'s segmentation isn't compatible with the other 7 event tables in the same <code>OverlayEvents</code> call; needs org approval to modify the shared <code>LRS_updates.py</code> event pipeline; default speeds by <code>ST_CLASS</code> have been proposed but not confirmed with the traffic/operations team</li>
+      <li>Consolidate the two copies of the edge source (standalone <code>TRNLRS_TRN_STREET_VW</code> and the feature-dataset copy <code>TRNLRS_TRN_STREET</code>) into one. Needs an impact assessment of every consumer of the standalone <code>_VW</code> class first; open since 2026-06-26.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="issues">
+  <h2>Known issues and data-quality items</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Item</th><th>Impact</th><th>Status</th></tr>
+      <tr>
+        <td>9 turns (0.76%) rejected at build with <em>Cannot find at junction</em></td>
+        <td>Those 9 restrictions are unenforced in solves. 7 are explained by genuine 0.006–0.41 m digitizing gaps below the remap's snap tolerance; 2 are an exact 0.0000 m coincidence that still failed, unexplained.</td>
+        <td><span class="pill pill-partial">Needs a decision</span></td>
+      </tr>
+      <tr>
+        <td>Bishop St (OID 12002) edge geometry digitized backwards</td>
+        <td>Along/Against Digitized map to the wrong real-world compass direction on this one edge. <code>STR_DIR</code> and the evaluator are both correct; the line itself runs the wrong way. Confirmed with HRM's GIS team, 2026-09-03.</td>
+        <td><span class="pill pill-partial">Scope unknown</span></td>
+      </tr>
+      <tr>
+        <td>4 plain-street junction offsets with no grade-separation excuse</td>
+        <td>Hemlock Dr/High Timber Dr, Wright Ave/Countryview Dr, Skreia Rd/Sailview Lane, and Massachusetts Ave/Lady Hammond Rd, with 6 to 9 metre offsets between the edge source and the independently-generated route intersections.</td>
+        <td><span class="pill pill-notstarted">Not reviewed</span></td>
+      </tr>
+      <tr>
+        <td>249 route intersections with no aligned edge endpoint</td>
+        <td>221 have no match within 10 m at all. Confirmed <strong>not</strong> a systematic transform bug (offset vectors point in every direction); dominated by highway ramps/interchanges, consistent with the network's known lack of elevation modelling.</td>
+        <td><span class="pill pill-done">Explained</span></td>
+      </tr>
+      <tr>
+        <td><code>LRS_updates.py</code> <code>append_feature()</code> still calls <code>TruncateTable</code></td>
+        <td>Will raise <code>ERROR 001395</code> the first time it runs against the controller-dataset edge source in Prod.</td>
+        <td><span class="pill pill-blocked">Confirmed present in code today</span></td>
+      </tr>
+      <tr>
+        <td>Turn edge references don't survive an LRS refresh</td>
+        <td>Structural: refresh reassigns edge <code>OBJECTID</code>s, which is exactly what turn edge references key on. See milestone 2.</td>
+        <td><span class="pill pill-blocked">Unresolved design question</span></td>
+      </tr>
+      <tr>
+        <td>Script 02's evaluator cross-check never actually runs</td>
+        <td>Key-mismatch bug means <code>evaluator_field_map.json</code> is silently empty. Current conclusion (no evaluator impact) is correct, but only because it was checked by hand.</td>
+        <td><span class="pill pill-partial">Correct today, unverified by tooling</span></td>
+      </tr>
+      <tr>
+        <td>Mel's hand-authored Cogswell ramp turns</td>
+        <td>Unknown whether they're in the old turn table (survive every remap) or were authored directly against the live turn FC (destroyed by the 2026-09-01 swap).</td>
+        <td><span class="pill pill-notstarted">Unconfirmed</span></td>
+      </tr>
+      <tr>
+        <td>Referenced docs that don't exist: <code>docs/traffic_turns.md</code>, <code>docs/network_review.md</code>; advertised <code>tests/</code> directory that doesn't exist</td>
+        <td>Anyone following an inline reference to these hits a dead end. No automated regression coverage exists for this pipeline at all.</td>
+        <td><span class="pill pill-notstarted">Housekeeping</span></td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<section id="decisions">
+  <h2>Risks and decisions needing an owner</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Topic</th><th>Current risk</th><th>Decision or owner needed</th></tr>
+      <tr><td>Production readiness</td><td>Core QA behavior works, but Prod does not exist and automation is unproven end to end.</td><td>Agree on entry/exit criteria and a target cutover sequence.</td></tr>
+      <tr><td>9 missing turn restrictions</td><td>Up to 0.76% of migrated restrictions are not live; 2 failures are unexplained.</td><td>Accept for first release, fix source geometry, or block cutover.</td></tr>
+      <tr><td>No elevation model</td><td>Potential false connectivity at grade-separated crossings.</td><td>Confirm release acceptance and define test coverage/remediation.</td></tr>
+      <tr><td>No travel-time cost</td><td>Routing optimizes distance only; a "5-minute" service area isn't currently possible.</td><td>Confirm whether distance-only routing meets the initial business need.</td></tr>
+      <tr><td>Road exclusions</td><td>Transit access, water access, island roads, and turnarounds may not belong in general vehicle routing.</td><td>GIS/transportation owner to approve inclusion rules.</td></tr>
+      <tr><td>Source data direction</td><td>At least one one-way edge is digitized backward.</td><td>Assign data-quality ownership and determine audit scope.</td></tr>
+      <tr><td>Refresh operations</td><td>Refresh automation code exists but is not deployed or proven through a full cycle.</td><td>Name a deployment owner, schedule a rehearsal, define monitoring and rollback.</td></tr>
+      <tr><td>Environment configuration</td><td>Several scripts still rely on manually-edited connection constants rather than a flag or config.</td><td>Decide whether parameterization is required before Prod.</td></tr>
+      <tr><td>SQL permissions</td><td>Grants are specific to each network dataset instance and change on every rebuild; Dev's are still pending.</td><td>Assign DBA/GIS ownership and add grants to the cutover checklist.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="ready">
+  <h2>Definition of "ready for Prod," proposed for discussion</h2>
+  <p class="section-sub">None of these are checked off yet. This is the bar, not a status report.</p>
+  <ul class="ready-list">
+    <li>Corrected Python template successfully creates and fully builds a fresh non-Prod network</li>
+    <li>Agreed representative Route and distance Service Area comparisons pass against the legacy network</li>
+    <li>One-way and prohibited-turn smoke tests pass with restrictions enabled in the Travel Mode</li>
+    <li>Address-range / geocoding checks pass</li>
+    <li>Every build warning is counted and dispositioned; the 9 rejected turns are fixed or formally accepted</li>
+    <li>Grade-separation and road-exclusion decisions are recorded</li>
+    <li>A full LRS refresh plus edge sync/rebuild passes in rehearsal</li>
+    <li>Prod feature dataset, remapped turns, permissions, monitoring, and rollback steps are documented with named owners</li>
+  </ul>
+
+  <details class="phase" style="margin-top:22px">
+    <summary>Operational gotchas worth remembering before touching Dev or Prod (from <code>CLAUDE.md</code>)</summary>
+    <div class="body">
+      <ul>
+        <li><code>arcpy.na.CreateTurnFeatureClass</code> takes <code>out_location</code> / <code>out_feature_class_name</code>, not <code>out_name</code>. Use <code>in_template_feature_class</code> to match an existing turn FC's schema without registering the output as a live network source.</li>
+        <li>A feature class registered as a network source (edge, junction, or turn) becomes a controller-dataset participant: <code>Delete</code>/<code>Rename</code> are blocked (<code>ERROR 001919</code>) and <code>TruncateTable</code> is blocked (<code>ERROR 001395</code>, use <code>DeleteRows</code> instead) while the network dataset exists. There's no way to unregister a single source; the network dataset itself has to be deleted first.</li>
+        <li>A network dataset with VBScript evaluators opens permanently read-only starting in Pro 3.4+, with no documented in-place fix. Rebuild from scratch with Python evaluators instead.</li>
+        <li>Defining a restriction attribute on the network dataset does nothing by itself. It has to also be enabled in the Route/Service Area layer's <strong>Travel Mode</strong>, or it's silently ignored.</li>
+        <li>Editing a Field Script evaluator's code requires <strong>Force Full Build</strong>, or the edit silently has zero effect while Pro reports a clean build.</li>
+        <li>A Build Network that runs far longer than its usual ~90 seconds to 2 minutes is very likely blocked on a SQL Server session, not doing real work. Check Task Manager CPU (near-idle means stuck) before assuming it will finish.</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<section id="map">
+  <h2>Repository map</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>File</th><th>Role</th></tr>
+      <tr><td><a href="network_build_status.md">network_build_status.md</a></td><td>Most detailed, most frequently updated status log. Primary source for this roadmap.</td></tr>
+      <tr><td><a href="network_dataset_migration_plan.md">network_dataset_migration_plan.md</a></td><td>Migration architecture and phase-by-phase history.</td></tr>
+      <tr><td><a href="street_network_meeting_overview.md">street_network_meeting_overview.md</a></td><td>2026-09-08 stakeholder-facing summary; structured this roadmap's recommended order.</td></tr>
+      <tr><td><a href="network_dataset_script_review.md">network_dataset_script_review.md</a></td><td>Line-by-line code review of every script; the most rigorous, self-correcting source for open bugs.</td></tr>
+      <tr><td><a href="network_dataset_sql_permissions.md">network_dataset_sql_permissions.md</a></td><td>SQL grant procedure and per-environment registration ID history.</td></tr>
+      <tr><td><a href="turn_rebuild_qa_test_runbook.md">turn_rebuild_qa_test_runbook.md</a></td><td>Step-by-step execution log for the 2026-08-31 turn-rebuild rewrite.</td></tr>
+      <tr><td><a href="traffic_turn_staging_review_checklist.txt">traffic_turn_staging_review_checklist.txt</a></td><td>Manual review checklist run before swapping a remapped turn FC into place.</td></tr>
+      <tr><td><a href="network_traffic_turns.md">network_traffic_turns.md</a></td><td>Original turn-remap diagnosis (chat transcript form; largely superseded by the script review above).</td></tr>
+      <tr><td><a href="../data/network_template.xml">data/network_template.xml</a></td><td>Corrected Python-evaluator XML template, committed 2026-09-03. Not yet confirmed to work with <code>CreateNetworkDatasetFromTemplate</code>.</td></tr>
+      <tr><td><a href="../scripts/01_extract_network_config.py">scripts/01_extract_network_config.py</a></td><td>Extracts the legacy network's config and template.</td></tr>
+      <tr><td><a href="../scripts/02_compare_schemas.py">scripts/02_compare_schemas.py</a></td><td>Schema diff, old vs. new edge source. Evaluator cross-check is currently dead code.</td></tr>
+      <tr><td><a href="../scripts/03_create_network_dataset.py">scripts/03_create_network_dataset.py</a></td><td>Creates and builds the network dataset from the template; copies sources into the feature dataset.</td></tr>
+      <tr><td><a href="../scripts/04_sync_and_rebuild_network.py">scripts/04_sync_and_rebuild_network.py</a></td><td>Standalone, Prod-only edge sync + rebuild, outside a full LRS refresh.</td></tr>
+      <tr><td><a href="../scripts/05_rebuild_traffic_turns.py">scripts/05_rebuild_traffic_turns.py</a></td><td>Spatial turn remap. Rewritten 2026-08-31; the script this whole migration was blocked on.</td></tr>
+      <tr><td><a href="../scripts/06_migrate_network_fd.py">scripts/06_migrate_network_fd.py</a></td><td>Intended clean move of network sources out of <code>SDEADM.TRNLRS</code>. Written, never actually run.</td></tr>
+      <tr><td><a href="../scripts/06_check_junction_alignment.py">scripts/06_check_junction_alignment.py</a></td><td>City-wide edge-endpoint vs. route-intersection alignment check. Run 2026-08-31.</td></tr>
+      <tr><td><a href="../scripts/verify_turn_rebuild.py">scripts/verify_turn_rebuild.py</a></td><td>Independent 10-check verifier for the remapped turn staging FC.</td></tr>
+      <tr><td><a href="../scripts/run_full_network_rebuild.py">scripts/run_full_network_rebuild.py</a></td><td>End-to-end orchestrator: remap → swap → recreate → build. Asserts scripts 03/05 target the same environment.</td></tr>
+      <tr><td><a href="../scripts/LRS_updates.py">scripts/LRS_updates.py</a></td><td>The main LRS refresh script. Contains the still-unfixed <code>TruncateTable</code> bug described above. Not yet deployed to Prod.</td></tr>
+      <tr><td><a href="../scripts/log_utils.py">scripts/log_utils.py</a>, <a href="../scripts/patch.py">patch.py</a>, <a href="../scripts/classify_unresolved_turns.py">classify_unresolved_turns.py</a>, <a href="../scripts/08_find_duplicate_siblings.py">08_find_duplicate_siblings.py</a>, <a href="../scripts/09_classify_origin_duplicate.py">09_classify_origin_duplicate.py</a>, <a href="../scripts/diagnose_edge1end_disagreement.py">diagnose_edge1end_disagreement.py</a></td><td>Logging helper and one-off diagnostic scripts used during the turn-rebuild investigation.</td></tr>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <p>Compiled by reviewing every document in <code>docs/</code>, the pipeline outputs in <code>data/</code>, and the current contents of every script in <code>scripts/</code> as committed on this branch at commit <code>4420ec6</code> (2026-09-08). Specific bugs called out as "confirmed still present in the code today" (the <code>TruncateTable</code> call in <code>LRS_updates.py</code>, the QA-active environment constants in scripts 03/05) were re-checked directly against the source files while writing this page, not just taken from prior docs. This page does not reflect a live query of Dev, QA, or Prod; treat the current QA environment as the final authority when the two disagree.</p>
+</footer>
+
+</div>
+
+<script>
+  (function () {
+    var btn = document.getElementById('toggleAll');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var details = document.querySelectorAll('details.phase');
+      var anyClosed = Array.prototype.some.call(details, function (d) { return !d.open; });
+      details.forEach(function (d) { d.open = anyClosed; });
+      btn.textContent = anyClosed ? 'Collapse all' : 'Expand all';
+    });
+  })();
+</script>
+
+</body>
+</html>
