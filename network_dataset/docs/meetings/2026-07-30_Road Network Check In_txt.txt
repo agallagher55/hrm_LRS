@@ -1,0 +1,131 @@
+=== MEETING ATTENDEES ===
+Total Attendees: 5
+Meeting Start: 7/30/2026, 9:01:08 AM
+
+Attendee List:
+- Gallagher, Alex
+- Landry, Jillian
+- Unknown user
+- Lowe, Ryan
+- Evans, Robbie
+
+=== TRANSCRIPT ===
+[9:01:08 AM] Gallagher, Alex: Good morning.
+[9:01:08 AM] Landry, Jillian: Good morning.
+[9:01:10 AM] Gallagher, Alex: Didn't know Brian was coming.
+[9:01:13 AM] Landry, Jillian: Wait, Ryan.
+[9:01:16 AM] Gallagher, Alex: Yeah, I thought growing was off.
+[9:01:21 AM] Landry, Jillian: Yeah. No, he's working. He's working.
+[9:01:23 AM] Unknown user: Yeah, just yesterday and tomorrow.
+[9:01:26 AM] Gallagher, Alex: OK, cool. Good.
+[9:01:28 AM] Landry, Jillian: No rest for Ryan.
+[9:01:30 AM] Gallagher, Alex: As it should be.
+[9:01:34 AM] Gallagher, Alex: Robbie Rasena, for all of us.
+[9:01:36 AM] Landry, Jillian: Exactly. Exactly.
+[9:01:41 AM] Landry, Jillian: Yeah, you're probably a quick check in.
+[9:01:48 AM] Landry, Jillian: And I know Justin took the introspections to the design authority.
+[9:01:50 AM] Landry, Jillian: So the intersections are all good, are they?
+[9:01:54 AM] Gallagher, Alex: As far as I'm concerned, he created a ticket.
+[9:01:57 AM] Gallagher, Alex: I think we have a good plan to.
+[9:02:00 AM] Gallagher, Alex: Create that view.
+[9:02:02 AM] Gallagher, Alex: However, he wants and needs it.
+[9:02:04 AM] Gallagher, Alex: And yeah, it's all been outlined.
+[9:02:05 AM] Gallagher, Alex: That should all be good.
+[9:02:09 AM] Gallagher, Alex: And it's already, it's already updating every day in in prod.
+[9:02:12 AM] Gallagher, Alex: So when new streets are added, new intersections get added.
+[9:02:14 AM] Gallagher, Alex: Yep.
+[9:02:22 AM] Landry, Jillian: And then the junctions. Ryan, you sent that off to Heather, are those show stoppers.
+[9:02:31 AM] Landry, Jillian: Like, can we still move forward and then hopefully Heather can get us to show us how to fix these outliers and is there just three outliers or is there more than three?
+[9:02:37 AM] Lowe, Ryan: There's three that I've discovered so far.
+[9:02:40 AM] Lowe, Ryan: I've gone through about 900 of the.
+[9:02:45 AM] Lowe, Ryan: 3100 points.
+[9:02:55 AM] Landry, Jillian: Perfect. So you still have to check 2000?
+[9:02:58 AM] Lowe, Ryan: Yeah, I still have quite a bit more to go through, but I got through about.
+[9:03:03 AM] Lowe, Ryan: 5 or 600 on Tuesday.
+[9:03:06 AM] Lowe, Ryan: So once I get a chance to actually open it and look at them, they go quick.
+[9:03:08 AM] Landry, Jillian: Oh, OK.
+[9:03:10 AM] Landry, Jillian: That's that's amazing.
+[9:03:10 AM] Landry, Jillian: That's awesome.
+[9:03:12 AM] Landry, Jillian: OK so.
+[9:03:18 AM] Landry, Jillian: Hopefully we don't find too many more errors, but let's just say we have a hand.
+[9:03:14 AM] Gallagher, Alex: As far as I'm concerned, he created a ticket.
+[9:03:20 AM] Landry, Jillian: Let's say we have 100 errors.
+[9:03:25 AM] Landry, Jillian: Is that something that we could still move forward with and then hopefully?
+[9:03:27 AM] Landry, Jillian: Fix the errors.
+[9:03:35 AM] Landry, Jillian: Down the road, I guess since we hopefully Heather can provide some more insight.
+[9:03:38 AM] Gallagher, Alex: I I would say yes.
+[9:03:41 AM] Landry, Jillian: OK, perfect.
+[9:03:45 AM] Landry, Jillian: And then is what about turns?
+[9:03:47 AM] Landry, Jillian: Where are we at with turns?
+[9:03:49 AM] Gallagher, Alex: Traffic turns are good.
+[9:03:53 AM] Landry, Jillian: They're all good, nothing more there.
+[9:04:03 AM] Landry, Jillian: Perfect. So once we make our way through junctions and we don't, let's just say we have, you know 100 or less errors and we feel comfortable moving forward.
+[9:04:06 AM] Landry, Jillian: I guess what would be the next steps after that?
+[9:04:13 AM] Gallagher, Alex: Rebuild the network and then get Robbie to test it out.
+[9:04:14 AM] Evans, Robbie: Oh, no, no.
+[9:04:18 AM] Evans, Robbie: You haven't added speeds yet, have you?
+[9:04:21 AM] Gallagher, Alex: That's a different phase.
+[9:04:27 AM] Evans, Robbie: All right.
+[9:04:28 AM] Evans, Robbie: Yeah, I'll test who you want.
+[9:04:34 AM] Landry, Jillian: And we don't need speed for this network.
+[9:04:36 AM] Gallagher, Alex: So.
+[9:04:39 AM] Gallagher, Alex: Well, we we can chunk it out.
+[9:04:43 AM] Gallagher, Alex: We can do speed for.
+[9:04:46 AM] Gallagher, Alex: What is it?
+[9:04:51 AM] Gallagher, Alex: I don't all the network analysis tools, but some some require speed some tones.
+[9:04:58 AM] Evans, Robbie: Yeah, you're gonna have to add a field for the travel time too, so I don't know if that's.
+[9:04:59 AM] Gallagher, Alex: Add a field to where.
+[9:05:01 AM] Evans, Robbie: What's that?
+[9:05:02 AM] Gallagher, Alex: Add a field to where.
+[9:05:06 AM] Evans, Robbie: Whatever the input will be for street segments.
+[9:05:10 AM] Gallagher, Alex: For travel time.
+[9:05:14 AM] Evans, Robbie: Yeah, you'll be doing like a field calculation for.
+[9:05:21 AM] Evans, Robbie: Speed and distance. And then that'll give you the the travel time for the segment.
+[9:05:24 AM] Evans, Robbie: And then you'll point the network.
+[9:05:24 AM] Gallagher, Alex: You're saying that?
+[9:05:26 AM] Evans, Robbie: What's that?
+[9:05:28 AM] Gallagher, Alex: On the edges input itself.
+[9:05:30 AM] Evans, Robbie: No, on the street input.
+[9:05:36 AM] Gallagher, Alex: Yeah, we'll use the street as the edges for the data set.
+[9:05:40 AM] Evans, Robbie: Yeah. So just you'll need a field in there.
+[9:05:42 AM] Gallagher, Alex: OK.
+[9:05:43 AM] Evans, Robbie: I can.
+[9:05:43 AM] Evans, Robbie: We can.
+[9:05:46 AM] Gallagher, Alex: Maybe I ping you when we set that up.
+[9:05:47 AM] Gallagher, Alex: That seems weird.
+[9:05:48 AM] Gallagher, Alex: Like the old never mind.
+[9:05:50 AM] Gallagher, Alex: Yeah, we can talk about.
+[9:05:51 AM] Evans, Robbie: Yeah, I can.
+[9:05:55 AM] Evans, Robbie: I think I sent you a bunch of screen caps for how I configured mine.
+[9:05:56 AM] Gallagher, Alex: Yeah.
+[9:06:05 AM] Evans, Robbie: Or somewhere on T drive we can dig them up and then I can just show you the the field calculation used.
+[9:06:12 AM] Evans, Robbie: To calculate the travel time. Now, whether we revise that or not, I don't know.
+[9:06:15 AM] Evans, Robbie: I've been using the same one for 12 years now.
+[9:06:18 AM] Gallagher, Alex: OK.
+[9:06:23 AM] Gallagher, Alex: Yeah, maybe this meeting goes for an hour.
+[9:06:24 AM] Gallagher, Alex: Maybe we just chat real quick after it.
+[9:06:28 AM] Gallagher, Alex: OK. But.
+[9:06:35 AM] Gallagher, Alex: Is it right in thinking that like we can build up the network with proper junctions and traffic turns?
+[9:06:42 AM] Gallagher, Alex: And test out some of the network analysis functions before we add in the speed.
+[9:06:44 AM] Evans, Robbie: Yeah, yeah you can.
+[9:06:48 AM] Evans, Robbie: You can run it just on distance like a stop network, yeah.
+[9:06:48 AM] Gallagher, Alex: OK.
+[9:06:49 AM] Gallagher, Alex: That's what I was thinking.
+[9:06:51 AM] Evans, Robbie: Once you know all the connect.
+[9:06:58 AM] Evans, Robbie: Yeah. Once you know all the connectivity's good, then you can move on to get in. The next step speeds.
+[9:06:59 AM] Gallagher, Alex: Cool.
+[9:07:03 AM] Landry, Jillian: Perfect. Awesome.
+[9:07:05 AM] Landry, Jillian: Sounds good.
+[9:07:12 AM] Landry, Jillian: And then I booked us a meeting in two weeks just to kinda see where we are at then.
+[9:07:16 AM] Landry, Jillian: But it sounds like we're really in a good spot.
+[9:07:24 AM] Landry, Jillian: Hopefully we don't have too many more junction errors and then we can just keep moving forward and correct them as we go.
+[9:07:26 AM] Gallagher, Alex: Agreed.
+[9:07:27 AM] Evans, Robbie: All right.
+[9:07:28 AM] Lowe, Ryan: Fingers crossed.
+[9:07:29 AM] Landry, Jillian: Perfect.
+[9:07:31 AM] Landry, Jillian: Awesome. I'll add these next steps into that.
+[9:07:32 AM] Gallagher, Alex: Alright.
+[9:07:35 AM] Landry, Jillian: Meeting invite. So so I don't forget.
+[9:07:39 AM] Landry, Jillian: I'm sure you guys will will love that. Awesome. Thanks guys.
+[9:07:41 AM] Gallagher, Alex: Alright. Thanks rob. Thanks guys.
+[9:07:42 AM] Landry, Jillian: OK bye

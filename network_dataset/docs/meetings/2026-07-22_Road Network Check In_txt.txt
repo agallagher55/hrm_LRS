@@ -1,0 +1,247 @@
+=== MEETING ATTENDEES ===
+Total Attendees: 5
+Meeting Start: 7/22/2026, 3:00:47 PM
+
+Attendee List:
+- Landry, Jillian
+- Gallagher, Alex
+- Unknown user
+- Parker, Melanie
+- Lowe, Ryan
+
+=== TRANSCRIPT ===
+[3:00:50 PM] Landry, Jillian: Turns work now and are registered with the network data set.
+[3:00:53 PM] Landry, Jillian: There you go, bottom line.
+[3:00:54 PM] Gallagher, Alex: I can give everybody 1/2 an hour of their day back.
+[3:00:59 PM] Unknown user: Now can we edit them?
+[3:01:02 PM] Gallagher, Alex: Can you edit them? Oh my God.
+[3:01:03 PM] Landry, Jillian: Give us the Kohl's, notes, Alex, on your terms.
+[3:01:10 PM] Parker, Melanie: You know very well why I'm asking because some of them are incorrect.
+[3:01:12 PM] Gallagher, Alex: Yeah, 23 of them.
+[3:01:15 PM] Gallagher, Alex: I think.
+[3:01:18 PM] Gallagher, Alex: Yeah, let's get there.
+[3:01:25 PM] Gallagher, Alex: We had traffic turns from the Old Street network, right, and that was that was pulling those in.
+[3:01:40 PM] Gallagher, Alex: To use for the new network, but they reference old object IDs from the street segments, so I had to create some kind of process to remap the street segments, remap the traffic turns to the street segments.
+[3:01:44 PM] Gallagher, Alex: But also we need to update streets like on a daily basis, right?
+[3:01:49 PM] Gallagher, Alex: So that process also changes the object IDs.
+[3:01:54 PM] Gallagher, Alex: Which side note is good reason why we shouldn't reference object IDs?
+[3:01:57 PM] Gallagher, Alex: Anyways.
+[3:02:00 PM] Parker, Melanie: We're not the ones doing that, though.
+[3:02:00 PM] Gallagher, Alex: I know.
+[3:02:02 PM] Parker, Melanie: That's just the that's the default in the network.
+[3:02:04 PM] Gallagher, Alex: Oh yeah, but sometimes other groups.
+[3:02:05 PM] Gallagher, Alex: Maybe sometimes.
+[3:02:08 PM] Gallagher, Alex: Do this for some reasons but.
+[3:02:08 PM] Parker, Melanie: I'm like this.
+[3:02:10 PM] Parker, Melanie: This was not our design.
+[3:02:20 PM] Gallagher, Alex: Yeah, in fairness, sometimes it's a systems thing like this. This traffic turns data sets just using somebody phone, which is dumb, but anyway.
+[3:02:26 PM] Parker, Melanie: Yeah. I'm like, we didn't do that, 'cause we know better than to pick object ID 'cause like you said it just manually refreshes on its own.
+[3:02:33 PM] Gallagher, Alex: Yeah, especially when we update data like through like a truncate and load, which is pretty typical.
+[3:02:34 PM] Parker, Melanie: Mm-h.
+[3:02:47 PM] Gallagher, Alex: Anyways, just the wrong ideas are being sequenced and I didn't really realize until I did some stuff manually and then cross referenced what was done manual and working to.
+[3:02:52 PM] Gallagher, Alex: What was done automatically and not working?
+[3:02:54 PM] Gallagher, Alex: So not most of the traffic turns.
+[3:03:02 PM] Gallagher, Alex: Are registered to the network data set and there's just a few that were duplicates that existed in the network previously.
+[3:03:04 PM] Gallagher, Alex: So those just have to be removed.
+[3:03:09 PM] Gallagher, Alex: And then there's like 20 traffic turns that aren't registered that I think are.
+[3:03:13 PM] Gallagher, Alex: A result of new network geometry.
+[3:03:16 PM] Parker, Melanie: OK.
+[3:03:18 PM] Parker, Melanie: That sounds realistic.
+[3:03:24 PM] Parker, Melanie: And I want to say about right might be a little low, but we'll go with that.
+[3:03:25 PM] Gallagher, Alex: Yeah.
+[3:03:29 PM] Gallagher, Alex: Anyways, that's kind of the update and.
+[3:03:37 PM] Gallagher, Alex: It's gonna shift back to junctions because I start with junctions for a time to stop spinning tires.
+[3:03:45 PM] Gallagher, Alex: I was, yeah, I was half thinking about reaching out to have.
+[3:03:46 PM] Gallagher, Alex: Their what's that? What's that look like?
+[3:03:51 PM] Gallagher, Alex: In terms of availability and what we can do if.
+[3:03:56 PM] Landry, Jillian: Yep. So we have not closed the quote UN quote LRS project yet.
+[3:04:01 PM] Landry, Jillian: So she and there's still hours in there, so reach out to her.
+[3:04:03 PM] Landry, Jillian: Just say yeah, just reach out to her.
+[3:04:05 PM] Landry, Jillian: Ask whatever questions you need.
+[3:04:07 PM] Landry, Jillian: Just copy me.
+[3:04:13 PM] Landry, Jillian: In case they're like, hey, Alex, just so they know that it's OK that you're reaching out, I guess.
+[3:04:18 PM] Landry, Jillian: And then they'll just record their hours and send their bills.
+[3:04:27 PM] Gallagher, Alex: OK, so the only trigger I need to do to have this above board is to CCU and then everything else takes care of it.
+[3:04:28 PM] Landry, Jillian: Yeah, that way they'll know that. Yep.
+[3:04:29 PM] Gallagher, Alex: By the people themselves.
+[3:04:31 PM] Gallagher, Alex: OK.
+[3:04:32 PM] Landry, Jillian: But I'm cool with it.
+[3:04:35 PM] Gallagher, Alex: OK, cool.
+[3:04:51 PM] Gallagher, Alex: Yeah, I've been messing around with the network this week and I don't think I've had it accessible for Ryan and Mel in that time because things weren't even. Things weren't even working the way I wanted and needed with them to.
+[3:05:11 PM] Gallagher, Alex: So yeah, they couldn't access them, so I don't know unless like an export was taken of junctions and you guys were poking around great injunctions and I would guess that you've just been on standby, patiently waiting.
+[3:05:13 PM] Gallagher, Alex: Build that itself.
+[3:05:18 PM] Parker, Melanie: I've been working on fixing those.
+[3:05:23 PM] Parker, Melanie: Overlap underlap.
+[3:05:26 PM] Parker, Melanie: Situations that we identified.
+[3:05:28 PM] Gallagher, Alex: Yeah, I forgot about that.
+[3:05:32 PM] Gallagher, Alex: Yeah, that was an issue.
+[3:05:32 PM] Lowe, Ryan: Yeah, I shifted to that as well.
+[3:05:36 PM] Gallagher, Alex: Nice. Yeah, that was an issue earlier in the week.
+[3:05:41 PM] Gallagher, Alex: This is where St. segments.
+[3:05:50 PM] Gallagher, Alex: Would create intersections, but they don't because there's a ever so slight shift in One Direction.
+[3:05:54 PM] Gallagher, Alex: Like where the segment ends, like it doesn't end at. The actual would be intersection.
+[3:05:54 PM] Gallagher, Alex: It ends like meters before it.
+[3:05:57 PM] Gallagher, Alex: Is this the overlap thing?
+[3:06:05 PM] Parker, Melanie: Yeah, but it's funny because they're not even necessarily meters. Like in some cases it's submeter.
+[3:06:11 PM] Gallagher, Alex: So this is this is faulty snapping from the event editor.
+[3:06:12 PM] Parker, Melanie: Yeah.
+[3:06:17 PM] Gallagher, Alex: Like a which would create a shoe in creating junctions.
+[3:06:18 PM] Parker, Melanie: Skip.
+[3:06:20 PM] Gallagher, Alex: Right. Cool.
+[3:06:21 PM] Gallagher, Alex: How's that?
+[3:06:22 PM] Gallagher, Alex: How's that stuff going?
+[3:06:25 PM] Parker, Melanie: Slowly but going.
+[3:06:28 PM] Gallagher, Alex: I I forget how many we have.
+[3:06:29 PM] Gallagher, Alex: Is it like 200?
+[3:06:35 PM] Parker, Melanie: Why is my table say like 3000?
+[3:06:38 PM] Lowe, Ryan: Yeah, I'm pretty sure it's like 3000.
+[3:06:43 PM] Gallagher, Alex: Order a magnitude off. Maybe it was.
+[3:06:45 PM] Gallagher, Alex: OK, 2003 thousand.
+[3:06:50 PM] Parker, Melanie: Like I like your number of 200.
+[3:06:52 PM] Parker, Melanie: I'm like my my table says 3000.
+[3:06:52 PM] Gallagher, Alex: Yeah.
+[3:07:00 PM] Landry, Jillian: So do do we need Mel and Ryan to complete this before you can move forward with your junctions, Alex?
+[3:07:04 PM] Gallagher, Alex: No, it's not.
+[3:07:06 PM] Gallagher, Alex: It's not a downstream blocker.
+[3:07:08 PM] Gallagher, Alex: It it it's just a.
+[3:07:12 PM] Gallagher, Alex: Like that final ten percent, 5% thing like.
+[3:07:17 PM] Gallagher, Alex: This isn't anywhere and everywhere in the network.
+[3:07:25 PM] Gallagher, Alex: It's just on the periphery that'll it'll block some junctions from getting created. If these aren't snapping.
+[3:07:28 PM] Gallagher, Alex: So now not a blocker.
+[3:07:30 PM] Landry, Jillian: OK, perfect.
+[3:07:30 PM] Gallagher, Alex: Just clean up.
+[3:07:44 PM] Landry, Jillian: So we have this overlap gap clean up, but 3000 we got a couple churns to look at and you ask a good question about the churns the 165 that are duplicates.
+[3:07:48 PM] Landry, Jillian: Do we have to clean them up now or can we do those later?
+[3:07:59 PM] Gallagher, Alex: It's probably a similar thing as the junk, the overlap clean up.
+[3:08:01 PM] Gallagher, Alex: Like we have lots of.
+[3:08:07 PM] Gallagher, Alex: We have most turns registered now so this can be picked away and it'll just improve.
+[3:08:10 PM] Gallagher, Alex: Network quality.
+[3:08:18 PM] Parker, Melanie: Yeah, it'll just. It'll just come back as errors when he builds it and and stuff that. Yeah, you can clean up as you go.
+[3:08:25 PM] Landry, Jillian: OK. And should the 23 that are tied to no geometry issues?
+[3:08:28 PM] Landry, Jillian: Should those be like a a higher priority item?
+[3:08:30 PM] Landry, Jillian: Higher priority item. OK, perfect.
+[3:08:36 PM] Landry, Jillian: And then you have to contact Heather about junctions, correct, Alex?
+[3:08:39 PM] Gallagher, Alex: Probably I'm going to.
+[3:08:45 PM] Gallagher, Alex: Really familiarize myself with what things are looking like but.
+[3:08:48 PM] Gallagher, Alex: I probably spend my tires for a little bit too long and so I don't wanna do that anymore. So.
+[3:08:51 PM] Landry, Jillian: Yeah, I do think.
+[3:08:51 PM] Landry, Jillian: She.
+[3:08:55 PM] Gallagher, Alex: I'll reach out to her sooner rather than later if there's not an obvious path forward from here.
+[3:08:58 PM] Landry, Jillian: She might actually be on vacation.
+[3:09:03 PM] Landry, Jillian: Heather, I think she is.
+[3:09:09 PM] Landry, Jillian: Out of the office, July 17th to Friday the 24th. So.
+[3:09:18 PM] Landry, Jillian: Maybe you wait till Monday, spend your tires a little bit for two days and then if you still don't get it by Monday, then then send her.
+[3:09:19 PM] Gallagher, Alex: Yeah, sounds perfect.
+[3:09:20 PM] Landry, Jillian: Message OK.
+[3:09:29 PM] Landry, Jillian: Perfect. And is the junctions related to the intersections projecton yeah.
+[3:09:31 PM] Gallagher, Alex: Oh yeah, that's another update.
+[3:09:38 PM] Gallagher, Alex: Once Upon a time, for some reason I don't remember, we created.
+[3:09:57 PM] Gallagher, Alex: Intersections like there's a location reference in Gen. processing tool called generate intersections and this was commented out in the LRS update scripts just because I think that whatever prompted it to be put in the 1st place was only like a oneoff need for somebody.
+[3:10:01 PM] Gallagher, Alex: Anyways, that can be uncommon to dance and.
+[3:10:05 PM] Gallagher, Alex: I look at that feature class and it looks like.
+[3:10:08 PM] Gallagher, Alex: It's what Justin needs.
+[3:10:08 PM] Gallagher, Alex: It looks like it's intersections.
+[3:10:14 PM] Gallagher, Alex: So I've sent it to Justin to take a look and he's reviewed it.
+[3:10:21 PM] Gallagher, Alex: And on initial review, he said it looks good and he understands the attribute data.
+[3:10:36 PM] Gallagher, Alex: I asked him if I could close the ticket and he said just keep it open for now and he's going to continue to look through it and just ping the business unit. I think to make sure that it's gonna fit everybody's needs.
+[3:10:42 PM] Parker, Melanie: So the the intersections.
+[3:10:46 PM] Parker, Melanie: Does it have OK?
+[3:10:54 PM] Parker, Melanie: But there's more than than two streets that come into it, like a four way intersection. It lists all of them.
+[3:10:56 PM] Parker, Melanie: Or five, but it lists all of them.
+[3:11:00 PM] Gallagher, Alex: Yeah. Yeah. Like if you go to that one via the Commons like.
+[3:11:02 PM] Parker, Melanie: The Willow trees they call it.
+[3:11:03 PM] Parker, Melanie: Yeah, yeah.
+[3:11:10 PM] Gallagher, Alex: Blah blah. Yeah, yeah, there's an attribute that'll list all the streets that intersect, which is fun and cool.
+[3:11:16 PM] Parker, Melanie: And it's points like you like, the business you want, OK.
+[3:11:16 PM] Gallagher, Alex: Yeah.
+[3:11:19 PM] Parker, Melanie: So my question.
+[3:11:23 PM] Parker, Melanie: Then is moving forward.
+[3:11:26 PM] Parker, Melanie: We just move.
+[3:11:30 PM] Parker, Melanie: We just add a point into this for them.
+[3:11:32 PM] Gallagher, Alex: And my point into what?
+[3:11:37 PM] Parker, Melanie: Into what's going to be a new event for the LRS.
+[3:11:44 PM] Parker, Melanie: Because wasn't this about creating a base event?
+[3:11:45 PM] Landry, Jillian: A.
+[3:11:47 PM] Landry, Jillian: This will be an ongoing ask.
+[3:11:50 PM] Landry, Jillian: I guess maybe that's the way to put it.
+[3:11:53 PM] Landry, Jillian: So this is feeding into a net new application.
+[3:12:00 PM] Landry, Jillian: In the, I believe they need the this thing to better calculate.
+[3:12:01 PM] Landry, Jillian: Because.
+[3:12:15 PM] Landry, Jillian: The police are the ones who enter the information around collisions and I think we just like, I think that the goal I guess is must to be snap it to the nearest intersection. And I think the data set.
+[3:12:25 PM] Landry, Jillian: Would support that ask and so it would be a going forward feed. Like if there's new inter intersection we would have to update it.
+[3:12:44 PM] Parker, Melanie: Yes, my question is, is going forward, is Alex gonna have to run this tool to update the event every time or is it simply gonna be that whoever's editing the LRS to add New Street, new feature, whatever is then gonna add a new intersection point into this?
+[3:12:46 PM] Parker, Melanie: Event as well.
+[3:12:59 PM] Gallagher, Alex: But this is uncommon to this out in this in the LRS update script and then it'll automatically run the underlying network produce new points.
+[3:13:01 PM] Parker, Melanie: When you do like a geoprocessing apply event behaviors.
+[3:13:05 PM] Gallagher, Alex: Yeah, it's it's on tool called generate intersections so.
+[3:13:08 PM] Parker, Melanie: Oh, wait, wait, wait.
+[3:13:09 PM] Parker, Melanie: I think I know what you're talking about.
+[3:13:11 PM] Parker, Melanie: I think I remember Heather talking about this.
+[3:13:13 PM] Gallagher, Alex: Correct. So I think you know.
+[3:13:16 PM] Parker, Melanie: Now it's ringing bells.
+[3:13:24 PM] Parker, Melanie: I have way too many different things going on that, yes, generate intersections. OK Yep.
+[3:13:33 PM] Landry, Jillian: And will this like automatically update some kind of data set that that this data set can then be pointed to an application?
+[3:13:35 PM] Gallagher, Alex: Yeah.
+[3:13:36 PM] Landry, Jillian: OK, cool.
+[3:13:41 PM] Gallagher, Alex: It's it's already in the future data set that the LRS is hosted in.
+[3:13:44 PM] Parker, Melanie: Yes, yes, I've seen that.
+[3:13:47 PM] Parker, Melanie: I just didn't bother looking at it 'cause I don't need intersections.
+[3:13:53 PM] Gallagher, Alex: Yeah. So yeah, there's a base feature that will get updated.
+[3:13:58 PM] Gallagher, Alex: Pretty much nightly or yes, nightly and then.
+[3:14:04 PM] Gallagher, Alex: Justin has already looked at it and said, like some of these attributes won't be needed.
+[3:14:14 PM] Gallagher, Alex: Maybe that's just for open data, but the gist is that like we have a source feature that will be updated as this tool runs, and then if we need.
+[3:14:17 PM] Gallagher, Alex: Down stream.
+[3:14:19 PM] Gallagher, Alex: Transforming.
+[3:14:24 PM] Gallagher, Alex: Then we can sort that out in the different feature or table.
+[3:14:26 PM] Landry, Jillian: Amazing.
+[3:14:27 PM] Gallagher, Alex: But we have a source feature.
+[3:14:30 PM] Landry, Jillian: Awesome. That's great.
+[3:14:33 PM] Landry, Jillian: Perfect.
+[3:14:33 PM] Gallagher, Alex: Just send a screenshot.
+[3:14:38 PM] Landry, Jillian: So that's one big thing off the list.
+[3:14:42 PM] Landry, Jillian: So we hope that Justin doesn't come back with too many changes.
+[3:14:49 PM] Landry, Jillian: So once we get the turns and the junctions figured out, what are the big next steps after that?
+[3:14:55 PM] Gallagher, Alex: What type turns are 95.
+[3:14:57 PM] Gallagher, Alex: 90% figured out.
+[3:14:57 PM] Parker, Melanie: Mm-hmm.
+[3:15:02 PM] Gallagher, Alex: So junctions and then junctions I think is the last.
+[3:15:06 PM] Gallagher, Alex: Thing to create like the rudimentary basic network.
+[3:15:08 PM] Parker, Melanie: Once, yeah, I was gonna say once.
+[3:15:15 PM] Parker, Melanie: They're basically fixed to the point that they're not snapping in the incorrect location or drawing in the incorrect location.
+[3:15:15 PM] Parker, Melanie: They're they're pretty basic.
+[3:15:20 PM] Parker, Melanie: We don't have to worry about any intelligence or anything to them.
+[3:15:30 PM] Parker, Melanie: So once they're, at least in the correct locations and that Alex will be able to start building the base network and running it, and we should be able to just go.
+[3:15:33 PM] Landry, Jillian: Amazing.
+[3:15:37 PM] Landry, Jillian: Ounds great.
+[3:15:38 PM] Gallagher, Alex: Yeah.
+[3:15:41 PM] Landry, Jillian: Do I have this as a recurring?
+[3:15:46 PM] Landry, Jillian: Meeting or do I just like create a new one each time?
+[3:15:49 PM] Parker, Melanie: I think you've just been changing the date.
+[3:15:51 PM] Landry, Jillian: OK, perfect.
+[3:16:03 PM] Landry, Jillian: So that's what I'll do on this one. I'll find some time late next week for us to reconnect. Hopefully by then, Alex will have more to share on the junction piece and awesome.
+[3:16:05 PM] Parker, Melanie: I won't be here.
+[3:16:05 PM] Landry, Jillian: This is great.
+[3:16:06 PM] Gallagher, Alex: Super cool.
+[3:16:09 PM] Parker, Melanie: Not late next week, no.
+[3:16:11 PM] Landry, Jillian: You're just here Monday, Tuesday.
+[3:16:11 PM] Parker, Melanie: Yeah.
+[3:16:12 PM] Landry, Jillian: Perfect. You would you.
+[3:16:19 PM] Landry, Jillian: If you have any kind of significant update, maybe just e-mail it Tuesday.
+[3:16:24 PM] Lowe, Ryan: I think next week I'm also not here Wednesday, Friday.
+[3:16:26 PM] Landry, Jillian: Steak Friday.
+[3:16:31 PM] Landry, Jillian: Well, I guess a little bit Thursday, maybe Thursday's looking good.
+[3:16:36 PM] Landry, Jillian: You're here Thursday or you're off. OK, perfect.
+[3:16:39 PM] Landry, Jillian: Awesome. Thanks guys.
+[3:16:43 PM] Landry, Jillian: Really excited to see how what great progress everyone's making. So good job.
+[3:16:45 PM] Parker, Melanie: We're getting there. We're getting there.
+[3:16:47 PM] Landry, Jillian: We're getting there. We're doing it.
+[3:16:48 PM] Landry, Jillian: And you know what?
+[3:16:50 PM] Landry, Jillian: Maybe we only have one reach out to Heather. Like I'm impressed.
+[3:16:56 PM] Parker, Melanie: Yeah, well, it's better than Alex sitting there spinning his wheels, so.
+[3:16:58 PM] Landry, Jillian: 100%.
+[3:17:01 PM] Landry, Jillian: Like I said, there's some extra extra cash there. Let's spend it.
+[3:17:04 PM] Parker, Melanie: Yeah, well, you can always just give Alex a tip.
+[3:17:06 PM] Parker, Melanie: He figured out the terms.
+[3:17:08 PM] Gallagher, Alex: Or we can have a pizza party.
+[3:17:11 PM] Landry, Jillian: If he's a party. Yeah, I'll buy a slice of pizza.
+[3:17:13 PM] Gallagher, Alex: Drive a hard bargain
