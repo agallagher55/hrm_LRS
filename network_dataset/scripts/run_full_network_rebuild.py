@@ -45,8 +45,8 @@ What this does NOT do
 
 Usage
 -----
-Run from an ArcGIS Pro Python environment, from the scripts/ directory (or
-adjust SCRIPTS_DIR below):
+Run from an ArcGIS Pro Python environment, from the network_dataset/scripts/
+directory (or adjust SCRIPTS_DIR below):
     > python run_full_network_rebuild.py
 """
 

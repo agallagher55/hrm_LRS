@@ -8,7 +8,7 @@ is refreshed, so this script re-syncs it and rebuilds TRNLRS_street_network --
 both within prod.
 
 Dev and QA builds of TRNLRS_street_network are one-off/test builds created by
-scripts/03_create_network_dataset.py, which already loads a fresh copy of
+network_dataset/scripts/03_create_network_dataset.py, which already loads a fresh copy of
 TRNLRS_TRN_STREET_VW from prod at creation time. They are not kept in
 continuous sync and do not need this script run against them -- re-run script
 03 if a Dev/QA build needs a newer snapshot.
@@ -16,14 +16,14 @@ continuous sync and do not need this script run against them -- re-run script
 Run this script at the end of every LRS refresh cycle, or call
 sync_and_rebuild() directly from LRS_updates.py:
 
-    from scripts.04_sync_and_rebuild_network import sync_and_rebuild
+    from network_dataset.scripts.04_sync_and_rebuild_network import sync_and_rebuild
     sync_and_rebuild()
 
 Once TRNLRS_TRN_STREET_VW is moved into the feature dataset permanently, this
 script and the copy step in 03_create_network_dataset.py can both be retired.
 
 Run standalone from ArcGIS Pro Python environment:
-  > python scripts/04_sync_and_rebuild_network.py
+  > python network_dataset/scripts/04_sync_and_rebuild_network.py
 """
 
 import os
@@ -62,7 +62,7 @@ def sync_and_rebuild(
     Parameters default to the module-level constant so the function can be
     called from LRS_updates.py without arguments:
 
-        from scripts.sync_and_rebuild_network import sync_and_rebuild
+        from network_dataset.scripts.sync_and_rebuild_network import sync_and_rebuild
         sync_and_rebuild()
     """
 

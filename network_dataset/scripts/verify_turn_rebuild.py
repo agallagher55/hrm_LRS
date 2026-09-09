@@ -38,11 +38,11 @@ Checks
     in the new network, most often because LRS resegmentation merged two old
     street segments into a single new edge (a turn "from segment A onto
     segment B" becomes "from an edge onto itself"). Reported as a warning, not
-    a failure -- prior investigation (intermediate_results/turn_review_for_mel.csv,
+    a failure -- prior investigation (network_dataset/intermediate_results/turn_review_for_mel.csv,
     intersection_context_check_v2.csv) found this pattern at real intersections
     and consistent with legacy near-duplicate U-turn records, not a remap bug.
     Whether to keep one record per collision or drop both is an unresolved
-    domain decision (intermediate_results/degenerate_turns_disambiguated.csv is
+    domain decision (network_dataset/intermediate_results/degenerate_turns_disambiguated.csv is
     all UNRESOLVED) -- this check surfaces the current count, it does not decide.
 
 Checks 8 and 9 are the ones that catch a plausible-looking but wrong remap.
@@ -50,7 +50,7 @@ Check 10 catches a different failure mode entirely: correct remaps that
 collide with each other post-resegmentation.
 
 Run from ArcGIS Pro Python environment:
-  > python scripts/verify_turn_rebuild.py
+  > python network_dataset/scripts/verify_turn_rebuild.py
 """
 
 import math
@@ -441,7 +441,7 @@ def main():
             "10. no duplicate turn signatures",
             f"{len(duplicate_groups)} signature(s) shared by {len(duplicate_oids)} records "
             "-- BuildNetwork will keep one per group and reject the rest as 'Turn element "
-            "already exists'. See intermediate_results/turn_review_for_mel.csv and "
+            "already exists'. See network_dataset/intermediate_results/turn_review_for_mel.csv and "
             "degenerate_turns_disambiguated.csv for the prior (unresolved) investigation "
             "into whether these should be deduplicated before the swap.",
             duplicate_oids,
@@ -462,7 +462,7 @@ def main():
     logger.info(
         "Note: this validates the turn FC against the edge FC only. It does not "
         "confirm each turn landed on the CORRECT intersection -- that still needs the "
-        "spatial spot checks in docs/traffic_turn_staging_review_checklist.txt."
+        "spatial spot checks in network_dataset/docs/traffic_turn_staging_review_checklist.txt."
     )
 
 

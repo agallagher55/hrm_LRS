@@ -299,7 +299,7 @@ inconsistent (see the gotcha below).
   explanation, though the two aren't mutually exclusive.)
 
   Not a practical workaround for routine grant management -- deleting the network dataset to
-  use the GUI, then having to recreate/rebuild it via `scripts/03_create_network_dataset.py`
+  use the GUI, then having to recreate/rebuild it via `network_dataset/scripts/03_create_network_dataset.py`
   afterward, is far more disruptive than just using SQL directly. Use the permission-check
   queries and `GRANT` statements above instead of the Catalog dialog whenever the target
   feature dataset contains a network dataset.
@@ -308,7 +308,7 @@ inconsistent (see the gotcha below).
 
 **Supersedes the 2026-07-13 entry below.** `TRNLRS_street_network` was deleted and
 recreated again on 2026-07-14 as part of the turn FC swap
-(`scripts/05_rebuild_traffic_turns.py` + `scripts/03_create_network_dataset.py` -- see
+(`network_dataset/scripts/05_rebuild_traffic_turns.py` + `network_dataset/scripts/03_create_network_dataset.py` -- see
 `network_build_status.md` Step 3), which drops and reassigns these tables again regardless
 of what was granted before.
 

@@ -46,10 +46,10 @@ be deleted to release the lock, then recreated (`CreateNetworkDatasetFromTemplat
 - **`arcpy.management.Delete` / `arcpy.management.Rename`** → `ERROR 001919: <value> cannot
   be deleted because it participates in a controller dataset such as a network dataset,
   utility network, or trace network.` Hit when trying to delete/rename a turn or edge source
-  FC in place (e.g. the old→new turn FC swap in `scripts/05_rebuild_traffic_turns.py`).
+  FC in place (e.g. the old→new turn FC swap in `network_dataset/scripts/05_rebuild_traffic_turns.py`).
 - **`arcpy.management.TruncateTable`** → `ERROR 001395: Operation not supported on a feature
   class in a controller dataset.` Hit when re-syncing the edge source FC
-  (`scripts/04_sync_and_rebuild_network.py`). Fix: use `arcpy.management.DeleteRows` instead
+  (`network_dataset/scripts/04_sync_and_rebuild_network.py`). Fix: use `arcpy.management.DeleteRows` instead
   — it's a normal edit operation and IS supported on controller-dataset members (slower than
   `TruncateTable` on large tables, but doesn't require deleting the network dataset).
 
@@ -60,7 +60,7 @@ Pro 3.4 — not just the evaluators, everything — with no in-place fix, becaus
 documented remediation (convert to Python via Properties → Travel Attributes) requires the
 exact dialog that's locked. Confirmed against Esri KB 000034955 / FAQ 000034321; ruled out
 lock/session state, Pro client version, and network dataset schema version as causes before
-landing on this (see `docs/network_dataset_script_review.md` §F2 for the full diagnosis). Fix:
+landing on this (see `network_dataset/docs/network_dataset_script_review.md` §F2 for the full diagnosis). Fix:
 rebuild the network dataset from scratch with Python evaluators (interactive New Network
 Dataset wizard, not `CreateNetworkDatasetFromTemplate` against an old VBScript-bearing
 template — that reproduces `ERROR 030386`), then re-export the template via
@@ -145,10 +145,13 @@ This repository holds all data, scripts, and documentation for the **Halifax Reg
 
 ```
 hrm_LRS/
-├── data/       # Source and processed LRS data
-├── scripts/    # Processing, validation, and export scripts
-├── docs/       # Technical documentation and specifications
-└── tests/      # Data validation and regression tests
+├── scripts/                 # LRS refresh pipeline (LRS_updates.py)
+├── tests/                   # Data validation and regression tests
+└── network_dataset/         # Creating and maintaining the LRS network dataset
+    ├── scripts/              # Build, sync, and turn-rebuild scripts
+    ├── data/                 # Extracted config, XML template, schema diffs
+    ├── docs/                 # Migration plan, build status, runbooks
+    └── intermediate_results/ # Diagnostic CSVs from the turn rebuild
 ```
 
 > This structure is the intended layout. Populate this file further as scripts, data formats, and tooling are established.

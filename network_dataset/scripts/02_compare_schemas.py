@@ -1,15 +1,15 @@
 """
 Compare the schema of the old edge source (TRN_street) against the new LRS
 view (TRNLRS_TRN_STREET_VW) and cross-reference with the network attribute
-evaluators captured in data/network_config.json.
+evaluators captured in network_dataset/data/network_config.json.
 
 Outputs:
-  - data/schema_comparison.json   : full field-level diff
-  - data/evaluator_field_map.json : which evaluator field references need
+  - network_dataset/data/schema_comparison.json   : full field-level diff
+  - network_dataset/data/evaluator_field_map.json : which evaluator field references need
                                     updating (or confirming) in the new source
 
 Run from ArcGIS Pro Python environment:
-  > python scripts/02_compare_schemas.py
+  > python network_dataset/scripts/02_compare_schemas.py
 """
 
 import json

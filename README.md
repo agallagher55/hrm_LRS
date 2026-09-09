@@ -10,10 +10,13 @@ A Linear Referencing System (LRS) is a method of storing and locating geospatial
 
 ```
 hrm_LRS/
-├── data/               # Source and processed LRS data
-├── scripts/            # Processing, validation, and export scripts
-├── docs/               # Technical documentation and specifications
-└── tests/              # Data validation and regression tests
+├── scripts/                 # LRS refresh pipeline (LRS_updates.py)
+├── tests/                   # Data validation and regression tests
+└── network_dataset/         # Creating and maintaining the LRS network dataset
+    ├── scripts/              # Build, sync, and turn-rebuild scripts
+    ├── data/                 # Extracted config, XML template, schema diffs
+    ├── docs/                 # Migration plan, build status, runbooks
+    └── intermediate_results/ # Diagnostic CSVs from the turn rebuild
 ```
 
 > Structure will evolve as the project develops.

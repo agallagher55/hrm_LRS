@@ -265,9 +265,9 @@ do i need to build the network? is it already being built at some stage?
 9:47 AM
 Looking at your build status doc, yes -- it's already handled. Two places:
 
-scripts/03_create_network_dataset.py -- runs BuildNetwork as its final step when the network is first created. This is what ran on Dev and QA on June 26.
+network_dataset/scripts/03_create_network_dataset.py -- runs BuildNetwork as its final step when the network is first created. This is what ran on Dev and QA on June 26.
 scripts/LRS_updates.py (via sync_network_edge_source()) -- calls BuildNetwork after every LRS refresh cycle, keeping the network current as the edge source gets updated.
-There's also scripts/04_sync_and_rebuild_network.py as a standalone one-off option if you ever need to trigger a sync/rebuild outside of a full LRS refresh.
+There's also network_dataset/scripts/04_sync_and_rebuild_network.py as a standalone one-off option if you ever need to trigger a sync/rebuild outside of a full LRS refresh.
 
 So you shouldn't need to manually build -- unless you're about to promote to prod, in which case 03_create_network_dataset.py handles the initial build there too. Is that the context you're asking about?
 
@@ -697,7 +697,7 @@ references can be remapped to new edge OIDs by spatial coincidence:
    the turn junction sits on
 3. Look up that point in a spatial index of `TRNLRS_TRN_STREET` endpoints
 4. Write a new turn record with the matched new OIDs and the same `Pos` values
-**Script:** `scripts/05_rebuild_traffic_turns.py`
+**Script:** `network_dataset/scripts/05_rebuild_traffic_turns.py`
  
 Key parameters in the script:
  
@@ -855,7 +855,7 @@ After the script completes:
    removed by LRS resegmentation). A high skipped count (>5% of total) suggests the snap
    tolerance needs adjustment.
 2. **Delete the network dataset first.** `TRNLRS_traffic_turn` is itself a registered turn
-   source of `TRNLRS_street_network` (defined in `data/network_template.xml`), which makes
+   source of `TRNLRS_street_network` (defined in `network_dataset/data/network_template.xml`), which makes
    it a "controller dataset" participant. ArcGIS refuses to `Delete` or `Rename` it while the
    network dataset still references it (`ERROR 001919: <value> cannot be deleted because it
    participates in a controller dataset...`). There is no arcpy call to unregister a single
@@ -874,7 +874,7 @@ After the script completes:
 ```
  
 4. **Recreate and rebuild the network dataset** by re-running
-   `scripts/03_create_network_dataset.py` -- it's idempotent, so it will skip re-copying the
+   `network_dataset/scripts/03_create_network_dataset.py` -- it's idempotent, so it will skip re-copying the
    three source FCs (they already exist) and go straight to
    `CreateNetworkDatasetFromTemplate` + `BuildNetwork`.
  
@@ -918,7 +918,7 @@ another permanently-locked orphan turn source.
 | Old edge FC (for OID lookup) | `SDEADM.TRN_streets_routes\SDEADM.TRN_street` |
 | New edge FC | `SDEADM.TRNLRS\SDEADM.TRNLRS_TRN_STREET` |
 | Current (broken) turn FC | `SDEADM.TRNLRS\SDEADM.TRNLRS_traffic_turn` |
-| Rebuild script | `scripts/05_rebuild_traffic_turns.py` |
+| Rebuild script | `network_dataset/scripts/05_rebuild_traffic_turns.py` |
 | QA SDE connection | `E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde` |
  
 

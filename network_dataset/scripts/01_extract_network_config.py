@@ -2,11 +2,11 @@
 Extract all configuration and properties from the old TRN_street_network dataset.
 
 Outputs:
-  - data/network_config.json   : human-readable summary of every ND property
-  - data/network_template.xml  : ArcGIS XML template (used later to create the new ND)
+  - network_dataset/data/network_config.json   : human-readable summary of every ND property
+  - network_dataset/data/network_template.xml  : ArcGIS XML template (used later to create the new ND)
 
 Run from ArcGIS Pro Python environment:
-  > python scripts/01_extract_network_config.py
+  > python network_dataset/scripts/01_extract_network_config.py
 """
 
 import json

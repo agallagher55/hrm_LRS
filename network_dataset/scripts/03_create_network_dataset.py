@@ -2,14 +2,14 @@
 Create the new TRN_street_network (LRS-based) from the modified XML template.
 
 Prerequisites (run in order):
-  1. scripts/01_extract_network_config.py  → data/network_template.xml
-  2. scripts/02_compare_schemas.py         → data/evaluator_field_map.json
-  3. Manually edit data/network_template.xml:
+  1. network_dataset/scripts/01_extract_network_config.py  → network_dataset/data/network_template.xml
+  2. network_dataset/scripts/02_compare_schemas.py         → network_dataset/data/evaluator_field_map.json
+  3. Manually edit network_dataset/data/network_template.xml:
        - Replace all references to SDEADM.TRN_street with the new edge source name
        - Update any evaluator fieldName values flagged as ACTION REQUIRED
        - Confirm junction source name (TRN_street_junction → new junction FC if renamed)
        - Confirm turn source name (TRN_traffic_turn → TRNLRS_traffic_turn)
-     See docs/network_dataset_migration_plan.md for the full XML editing checklist.
+     See network_dataset/docs/network_dataset_migration_plan.md for the full XML editing checklist.
 
 Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
   TRNLRS_TRN_STREET_VW is created by LRS_updates.py as a standalone SDE feature
@@ -22,7 +22,7 @@ Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
   network dataset references; the standalone _VW FC in prod remains the
   authoritative source updated by LRS_updates.py. After each LRS refresh,
   re-copy the standalone FC over the FD copy and rebuild (see
-  scripts/04_sync_and_rebuild_network.py).
+  network_dataset/scripts/04_sync_and_rebuild_network.py).
 
   SDEADM.TRNLRS_network is a dedicated feature dataset for the network source
   FCs (TRNLRS_TRN_STREET, TRNLRS_street_junction, TRNLRS_traffic_turn),
@@ -33,7 +33,7 @@ Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
 Note on TRNLRS_traffic_turn:
   copy_fc_to_fd() below skips copying a source FC if the destination already
   exists in the feature dataset. If TRNLRS_traffic_turn has previously been
-  remapped and swapped in by scripts/05_rebuild_traffic_turns.py, re-running
+  remapped and swapped in by network_dataset/scripts/05_rebuild_traffic_turns.py, re-running
   this script will correctly leave that remapped FC alone. But if the network
   dataset (and its FD contents) is ever deleted and recreated, this script
   will re-copy the raw, unremapped TRN_traffic_turn and silently undo the
@@ -41,7 +41,7 @@ Note on TRNLRS_traffic_turn:
   present, skipping" on the turn FC specifically.
 
 Run from ArcGIS Pro Python environment:
-  > python scripts/03_create_network_dataset.py
+  > python network_dataset/scripts/03_create_network_dataset.py
 """
 
 import os
@@ -59,7 +59,7 @@ logger = setup_logger("03_create_network_dataset")
 # ---------------------------------------------------------------------------
 # Environment that will receive the new network dataset (and the FD copies of
 # the edge/junction/turn sources it needs).
-# QA: active. scripts/05_rebuild_traffic_turns.py must point at the SAME
+# QA: active. network_dataset/scripts/05_rebuild_traffic_turns.py must point at the SAME
 # environment -- run_full_network_rebuild.py asserts that before it does
 # anything, since it takes the turn/edge paths from 05 and the feature dataset
 # from here, and a mismatch would remap turns in one environment and build the
