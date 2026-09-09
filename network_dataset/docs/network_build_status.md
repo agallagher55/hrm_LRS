@@ -12,7 +12,7 @@ dataset) into a dedicated `SDEADM.TRNLRS_network` feature dataset.
 `SDEADM.TRNLRS_network` now has `TRNLRS_street_network` built in **both Dev and
 QA** -- prod is still on the original layout described throughout most of this
 document (FCs living inside `SDEADM.TRNLRS`). In both Dev and QA, script 03 was
-run before `scripts/06_migrate_network_fd.py` (which was meant to move the
+run before `network_dataset/scripts/06_migrate_network_fd.py` (which was meant to move the
 already-remapped FCs from `SDEADM.TRNLRS` first), so `SDEADM.TRNLRS_network`
 was empty when script 03 ran and its fallback copy logic kicked in for all
 three sources in both environments -- see the 2026-07-14 regression note under
@@ -24,11 +24,11 @@ Step 3. That means:
 - The turn (`TRNLRS_traffic_turn`) copies in `TRNLRS_network` were fresh,
   **unremapped** copies from the legacy `TRN_traffic_turn` in both
   environments. **Fixed (2026-07-14):** both Dev and QA have since been
-  re-remapped via `scripts/05_rebuild_traffic_turns.py` and swapped in
+  re-remapped via `network_dataset/scripts/05_rebuild_traffic_turns.py` and swapped in
   (delete network dataset → swap turn FCs → re-run script 03 to recreate and
   rebuild) -- see Step 3 below.
 - The original three FCs are still sitting untouched in `SDEADM.TRNLRS` in
-  **both** Dev and QA -- `scripts/06_migrate_network_fd.py` (the intended
+  **both** Dev and QA -- `network_dataset/scripts/06_migrate_network_fd.py` (the intended
   clean move-and-verify path) hasn't been run in either environment yet, so
   there's duplicate data in both feature datasets for now. No urgency to clean
   this up until the `TRNLRS_network` builds are validated.
@@ -53,7 +53,7 @@ superseded by the 2026-09-01 rebuild — see [the 2026-09-01 update](#update-202
 
 | Phase | Description | Status |
 |---|---|---|
-| 1 | Extract old network configuration | ✅ Complete — but `data/network_template.xml` is **stale**, see 2026-09-01 update |
+| 1 | Extract old network configuration | ✅ Complete — but `network_dataset/data/network_template.xml` is **stale**, see 2026-09-01 update |
 | 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ **QA rebuilt from scratch 2026-09-01** (interactive wizard, Python evaluators). Dev still on its original 2026-06-26 build — VBScript, permanently read-only, not rebuilt. Prod: nothing built. |
@@ -64,7 +64,7 @@ superseded by the 2026-09-01 rebuild — see [the 2026-09-01 update](#update-202
 
 QA's `TRNLRS_street_network` was **deleted and rebuilt from scratch** on 2026-09-01. This was
 not a routine rebuild — the delete happened as part of the normal turn-FC swap, and then
-recreating it from `data/network_template.xml` proved **impossible**: `ERROR 030386`, because
+recreating it from `network_dataset/data/network_template.xml` proved **impossible**: `ERROR 030386`, because
 that template's `Length`/`OneWay` evaluators are VBScript, which ArcGIS Pro 3.5 refuses to
 build from. The documented fix (convert evaluators to Python via Properties) is itself blocked,
 because a network dataset carrying VBScript evaluators opens **permanently read-only** in Pro
@@ -79,7 +79,7 @@ What this means for the state of each environment:
 | **Dev** | Original 2026-06-26 build, still functional for solves | VBScript | ❌ **Permanently read-only.** Cannot be edited or rebuilt. Will need the same from-scratch rebuild treatment. |
 | **Prod** | Not built | n/a | n/a |
 
-**`data/network_template.xml` is stale and must not be trusted.** Beyond the VBScript problem,
+**`network_dataset/data/network_template.xml` is stale and must not be trusted.** Beyond the VBScript problem,
 it was found to be missing logic that the live networks actually had: its `OneWay` evaluator is
 a hardcoded no-op (`restricted = False`, never reads `STR_DIR`), while Dev's *live* network
 carries a real `STR_DIR`-driven `Select Case`. The template was evidently captured in Phase 1
@@ -117,7 +117,7 @@ swapped in -- see Step 3 below.
 
 ## Schema Comparison Findings (Phase 2)
 
-**Outputs:** `data/schema_comparison.json`, `data/evaluator_field_map.json`
+**Outputs:** `network_dataset/data/schema_comparison.json`, `network_dataset/data/evaluator_field_map.json`
 
 ### Evaluators — no changes needed
 
@@ -173,7 +173,7 @@ element, `ZELEV` cleared from the system junction source, and `NetworkElevationM
 
 ### Step 1 — Create and build the new network dataset ✅
 
-**Script:** `scripts/03_create_network_dataset.py`
+**Script:** `network_dataset/scripts/03_create_network_dataset.py`
 
 Run successfully on Dev and QA. The script automatically copies all three source FCs into
 `SDEADM.TRNLRS` if not already present (skips if they exist), then creates and builds
@@ -275,7 +275,7 @@ same treatment (both the PUBLIC read grants and, if needed there, the editor wri
 `TRN_traffic_turn` (the pre-migration FC in `TRN_streets_routes`) was originally copied into
 `SDEADM.TRNLRS`, and its edge references (stored as ObjectIDs of features in the old
 `TRN_street` edge source) were spatially remapped against `TRNLRS_TRN_STREET` using
-`scripts/05_rebuild_traffic_turns.py`. Per the script's swap step, the remapped output
+`network_dataset/scripts/05_rebuild_traffic_turns.py`. Per the script's swap step, the remapped output
 was renamed to `TRNLRS_traffic_turn` and left in the `SDEADM.TRNLRS` feature dataset --
 matching the `TRNLRS_` prefix used by the other two sources and what
 `network_template.xml` already expects. This was marked complete after the 2026-06-26 QA build.
@@ -286,17 +286,17 @@ again showed all 1,209 `TRNLRS_traffic_turn` records failing with
 is back to referencing the old, unremapped `TRN_street` OIDs, and Turns shows `0` in
 Network Dataset Properties.
 
-Most likely cause: `scripts/03_create_network_dataset.py`'s `copy_fc_to_fd()` only copies
+Most likely cause: `network_dataset/scripts/03_create_network_dataset.py`'s `copy_fc_to_fd()` only copies
 `TRN_traffic_turn` → `TRNLRS_traffic_turn` if the destination doesn't already exist. If the
 network dataset (and its feature dataset contents) was deleted and recreated at some point
 after 2026-06-26, re-running script 03 would have silently re-copied the raw, unremapped
 turn FC over the previously-remapped one. Script 03 and `05_rebuild_traffic_turns.py` now
-log this distinction explicitly (copy vs. skip) via `scripts/log_utils.py` to make this
+log this distinction explicitly (copy vs. skip) via `network_dataset/scripts/log_utils.py` to make this
 easier to catch going forward.
 
 **Same regression hit again in Dev and QA (2026-07-14):** during the `SDEADM.TRNLRS_network`
-feature-dataset-separation pilot, `scripts/03_create_network_dataset.py` was run against
-both Dev and QA before `scripts/06_migrate_network_fd.py` (which was supposed to move the
+feature-dataset-separation pilot, `network_dataset/scripts/03_create_network_dataset.py` was run against
+both Dev and QA before `network_dataset/scripts/06_migrate_network_fd.py` (which was supposed to move the
 already-remapped `TRNLRS_traffic_turn` out of `SDEADM.TRNLRS` first). Since
 `SDEADM.TRNLRS_network` was still empty in both environments, `copy_fc_to_fd()`'s "skip if
 destination exists" check didn't fire, and script 03 fell back to copying fresh from the
@@ -304,7 +304,7 @@ raw, unremapped `SDEADM.TRN_streets_routes\TRN_traffic_turn` in each -- confirme
 inspecting the new `SDEADM.TRNLRS_network\TRNLRS_traffic_turn` attribute table: every row
 has `EDGE1FCID = 7134`, the old `TRN_street` source's registration ID (also the value baked
 into `network_template.xml`'s original `<ClassID>` from the Phase 1 extraction), not the
-new `TRNLRS_TRN_STREET` copy's freshly assigned ID. `scripts/05_rebuild_traffic_turns.py`
+new `TRNLRS_TRN_STREET` copy's freshly assigned ID. `network_dataset/scripts/05_rebuild_traffic_turns.py`
 now has a Dev + `SDEADM.TRNLRS_network` configuration (active by default) plus a commented
 QA + `SDEADM.TRNLRS_network` config, so the remap can be re-run against the new location in
 either environment -- see the "Key Paths Reference" note on script 05 below.
@@ -331,18 +331,18 @@ refuses to `Delete` or `Rename` it (`ERROR 001919`) while the network dataset ex
 documented swap order (delete old, rename new, then `BuildNetwork`) never actually worked as
 written for that reason. `05_rebuild_traffic_turns.py` now deletes the network dataset first
 to release the lock, then swaps the turn FCs, then requires re-running
-`scripts/03_create_network_dataset.py` to recreate and rebuild the network dataset. The
+`network_dataset/scripts/03_create_network_dataset.py` to recreate and rebuild the network dataset. The
 staging FC (`TRNLRS_traffic_turn_staging`) is also now created via `in_template_feature_class`
 instead of `in_network_dataset`, so it isn't registered as a live source and stays freely
 deletable/renameable before it's swapped in.
 
 See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diagnosis and remapping script.
 
-- [x] Run `scripts/05_rebuild_traffic_turns.py` to spatially remap turns to new edge OIDs (2026-06-26, QA)
+- [x] Run `network_dataset/scripts/05_rebuild_traffic_turns.py` to spatially remap turns to new edge OIDs (2026-06-26, QA)
 - [x] Verify written/skipped counts from script output
 - [x] Rebuild network after turn FC is replaced
-- [x] Re-run `scripts/05_rebuild_traffic_turns.py` against Dev + `SDEADM.TRNLRS_network` (2026-07-14 regression)
-- [x] Re-run `scripts/05_rebuild_traffic_turns.py` against QA + `SDEADM.TRNLRS_network` (2026-07-14 regression; 1,209/1,238 written, 2.3% skipped)
+- [x] Re-run `network_dataset/scripts/05_rebuild_traffic_turns.py` against Dev + `SDEADM.TRNLRS_network` (2026-07-14 regression)
+- [x] Re-run `network_dataset/scripts/05_rebuild_traffic_turns.py` against QA + `SDEADM.TRNLRS_network` (2026-07-14 regression; 1,209/1,238 written, 2.3% skipped)
 - [x] Complete the swap in Dev (delete network dataset → swap turn FCs → re-run script 03)
 - [x] Complete the swap in QA (delete network dataset → swap turn FCs → re-run script 03)
 - [ ] Confirm rebuilt Dev and QA networks show nonzero turns in Network Dataset Properties
@@ -389,7 +389,7 @@ See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diag
 
 ### Step 5 — Automate sync and rebuild in `LRS_updates.py` ✅
 
-**Script:** `scripts/04_sync_and_rebuild_network.py`
+**Script:** `network_dataset/scripts/04_sync_and_rebuild_network.py`
 
 `TRNLRS_TRN_STREET` (FD copy used by the network) must be kept in sync with
 `TRNLRS_TRN_STREET_VW` (standalone authoritative FC) after every LRS refresh.
@@ -402,7 +402,7 @@ See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diag
 - Called after the `street_features` loop, inside the QC-pass `else` block
 - Both extensions checked in the `finally` block
 
-`scripts/04_sync_and_rebuild_network.py` also exists as a standalone script if a one-off
+`network_dataset/scripts/04_sync_and_rebuild_network.py` also exists as a standalone script if a one-off
 sync/rebuild is needed outside of a full LRS refresh cycle.
 
 - [x] Check out Network Analyst extension in `LRS_updates.py`
@@ -411,7 +411,7 @@ sync/rebuild is needed outside of a full LRS refresh cycle.
 - [ ] Run a full LRS refresh cycle end-to-end and confirm the network rebuilds cleanly
 
 **Feature dataset separation note:** `sync_network_edge_source()` and
-`scripts/04_sync_and_rebuild_network.py` now target `SDEADM.TRNLRS_network`
+`network_dataset/scripts/04_sync_and_rebuild_network.py` now target `SDEADM.TRNLRS_network`
 instead of `SDEADM.TRNLRS` for the FD copy and network dataset path. Since
 `LRS_updates.py` has not been deployed to prod yet (see checklist above), this
 hasn't caused a live failure -- but prod's FCs must be moved into
@@ -424,8 +424,8 @@ expected path.
 ### Step 6 — Rebuild and re-export the network template (2026-09-01)
 
 The VBScript deprecation (see [the 2026-09-01 update](#update-2026-09-01--qa-network-dataset-rebuilt-from-scratch))
-means the template-driven rebuild path in `scripts/03_create_network_dataset.py` is broken
-until a **Python-evaluator template** replaces `data/network_template.xml`. Until then, any
+means the template-driven rebuild path in `network_dataset/scripts/03_create_network_dataset.py` is broken
+until a **Python-evaluator template** replaces `network_dataset/data/network_template.xml`. Until then, any
 rebuild of this network dataset requires the manual wizard procedure documented in the
 [runbook's Phase 3.2](turn_rebuild_qa_test_runbook.md).
 
@@ -439,7 +439,7 @@ language, and except the `OneWay` bug noted below):
 | `TrafficTurn` | Restriction, Prohibited (`-1`) | Constant `True` on the `TRNLRS_traffic_turn` source; Constant `False` on all defaults |
 
 **The recovered `OneWay` logic** (from Dev's live network via `CreateTemplateFromNetworkDataset`,
-2026-09-01 — this is the authoritative original, which `data/network_template.xml` never had):
+2026-09-01 — this is the authoritative original, which `network_dataset/data/network_template.xml` never had):
 
 ```vbscript
 ' Along Digitized
@@ -539,12 +539,12 @@ this evaluator again:**
       hardcoded-`True` regression
 - [x] Reply to the DBA (Sylvie Blanchard) who killed the blocking session, confirming it was
       this ArcGIS Pro Build Network operation and not a rogue process
-- [x] **Export the corrected template and commit it over `data/network_template.xml` —
+- [x] **Export the corrected template and commit it over `network_dataset/data/network_template.xml` —
       done 2026-09-03.** A first export attempt was caught still containing the `return True`
       bug (step 8 above) before being committed; the second, verified export (both `FDTO` and
       `FOTD` present and correctly placed, confirmed against a fresh `xml.etree.ElementTree`
       parse) is what's now committed.
-- [ ] Confirm `scripts/03_create_network_dataset.py` can rebuild from that new template
+- [ ] Confirm `network_dataset/scripts/03_create_network_dataset.py` can rebuild from that new template
       (`CreateNetworkDatasetFromTemplate` with Python evaluators is untested in this project)
 - [ ] Apply the same from-scratch rebuild to **Dev** (still VBScript, still read-only)
 - [ ] Apply to **prod** as part of cutover
@@ -568,22 +568,22 @@ prod path wired in. (`LRS_updates.py` is the exception: it already reads
 This has since been resolved differently for each script, based on where each
 one's data actually needs to live:
 
-- **`scripts/03_create_network_dataset.py`** always reads `TRNLRS_TRN_STREET_VW`
+- **`network_dataset/scripts/03_create_network_dataset.py`** always reads `TRNLRS_TRN_STREET_VW`
   from a dedicated `PROD_SDE_CONNECTION` (using the confirmed path above),
   since that FC only exists in prod. `SDE_CONNECTION_UPDATE` (Dev/QA/prod, still
   a manually-edited constant) controls where the FD copy, junction/turn sources,
   and new network dataset get created.
-- **`scripts/04_sync_and_rebuild_network.py`** is now prod-only -- there's no
+- **`network_dataset/scripts/04_sync_and_rebuild_network.py`** is now prod-only -- there's no
   Dev/QA target at all. Dev/QA builds are one-off snapshots created by script 03;
   only prod's copy of `TRNLRS_TRN_STREET` needs continuous re-syncing after every
   LRS refresh, since that's the copy live routing actually uses. See the script's
   docstring for the reasoning.
-- **`scripts/05_rebuild_traffic_turns.py`** still has a manually-edited `SDE`
+- **`network_dataset/scripts/05_rebuild_traffic_turns.py`** still has a manually-edited `SDE`
   constant (Dev/QA/prod) with no dedicated prod constant yet -- see the open item
   below.
 
 **Still open:**
-- [ ] Add a dedicated `PROD_SDE_CONNECTION` to `scripts/05_rebuild_traffic_turns.py`
+- [ ] Add a dedicated `PROD_SDE_CONNECTION` to `network_dataset/scripts/05_rebuild_traffic_turns.py`
       (currently just a single manually-edited `SDE` constant) for consistency
       with scripts 03/04
 - [ ] Add the same prod connection constant/comment to `01_extract_network_config.py`
@@ -660,5 +660,5 @@ review — it has no routing speed value.
 | Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` (unchanged -- outside any feature dataset, prod only) |
 | FD copy of edge source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_TRN_STREET` in Dev/QA; `SDEADM.TRNLRS\TRNLRS_TRN_STREET` in prod |
 | Turn source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_traffic_turn` in Dev/QA -- both re-remapped via script 05 and swapped in (2026-07-14); `SDEADM.TRNLRS\TRNLRS_traffic_turn` in prod |
-| XML template | `data/network_template.xml` |
+| XML template | `network_dataset/data/network_template.xml` |
 | Old network dataset | `SDEADM.TRN_street_network` (in `TRN_streets_routes`) |

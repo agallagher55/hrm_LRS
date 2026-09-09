@@ -227,17 +227,17 @@ result in one concise run report.
 
 | Need | Primary file |
 |---|---|
-| Detailed status and open items | `docs/network_build_status.md` |
-| Migration architecture/history | `docs/network_dataset_migration_plan.md` |
-| QA execution procedure and evidence | `docs/turn_rebuild_qa_test_runbook.md` |
-| Detailed script/defect review | `docs/network_dataset_script_review.md` |
-| SQL grants and registration-ID procedure | `docs/network_dataset_sql_permissions.md` |
-| Corrected network template | `data/network_template.xml` |
-| Create/build | `scripts/03_create_network_dataset.py` |
-| Routine Prod edge sync/build | `scripts/04_sync_and_rebuild_network.py` |
-| Turn remap/staging/swap | `scripts/05_rebuild_traffic_turns.py` |
-| Independent turn validation | `scripts/verify_turn_rebuild.py` |
-| End-to-end rebuild orchestration | `scripts/run_full_network_rebuild.py` |
+| Detailed status and open items | `network_dataset/docs/network_build_status.md` |
+| Migration architecture/history | `network_dataset/docs/network_dataset_migration_plan.md` |
+| QA execution procedure and evidence | `network_dataset/docs/turn_rebuild_qa_test_runbook.md` |
+| Detailed script/defect review | `network_dataset/docs/network_dataset_script_review.md` |
+| SQL grants and registration-ID procedure | `network_dataset/docs/network_dataset_sql_permissions.md` |
+| Corrected network template | `network_dataset/data/network_template.xml` |
+| Create/build | `network_dataset/scripts/03_create_network_dataset.py` |
+| Routine Prod edge sync/build | `network_dataset/scripts/04_sync_and_rebuild_network.py` |
+| Turn remap/staging/swap | `network_dataset/scripts/05_rebuild_traffic_turns.py` |
+| Independent turn validation | `network_dataset/scripts/verify_turn_rebuild.py` |
+| End-to-end rebuild orchestration | `network_dataset/scripts/run_full_network_rebuild.py` |
 | LRS refresh integration | `scripts/LRS_updates.py` |
 
 ## Confidence and caveats

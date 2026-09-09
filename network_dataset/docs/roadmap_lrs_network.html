@@ -418,12 +418,12 @@
 
 <section id="completed">
   <h2>What's complete</h2>
-  <p class="section-sub">Organized by the phases used throughout <code>docs/network_build_status.md</code> and <code>docs/network_dataset_migration_plan.md</code>. Click a phase to expand it.</p>
+  <p class="section-sub">Organized by the phases used throughout <code>network_dataset/docs/network_build_status.md</code> and <code>network_dataset/docs/network_dataset_migration_plan.md</code>. Click a phase to expand it.</p>
 
   <details class="phase" open>
     <summary><span class="pill pill-done">Done</span> Phase 1: Extract the legacy network configuration</summary>
     <div class="body">
-      <p><code>scripts/01_extract_network_config.py</code> ran against the old <code>TRN_street_network</code> and produced <code>data/network_config.json</code> and <code>data/network_template.xml</code>.</p>
+      <p><code>network_dataset/scripts/01_extract_network_config.py</code> ran against the old <code>TRN_street_network</code> and produced <code>network_dataset/data/network_config.json</code> and <code>network_dataset/data/network_template.xml</code>.</p>
       <p><strong>Caveat carried forward:</strong> the exported template turned out to be an incomplete snapshot. It was captured before someone hand-fixed the <code>OneWay</code> evaluator directly in Pro's Properties dialog, so the file didn't reflect what the live networks actually ran. See Phase 6 below for the fix.</p>
     </div>
   </details>
@@ -431,7 +431,7 @@
   <details class="phase" open>
     <summary><span class="pill pill-done">Done</span> Phase 2: Schema comparison (old edge source vs. LRS-derived edge source)</summary>
     <div class="body">
-      <p><code>scripts/02_compare_schemas.py</code> produced <code>data/schema_comparison.json</code> and <code>data/evaluator_field_map.json</code>. <code>FROM_ELEV</code>/<code>TO_ELEV</code> were the only fields with real impact (both referenced by the old elevation model); every other schema difference was confirmed harmless.</p>
+      <p><code>network_dataset/scripts/02_compare_schemas.py</code> produced <code>network_dataset/data/schema_comparison.json</code> and <code>network_dataset/data/evaluator_field_map.json</code>. <code>FROM_ELEV</code>/<code>TO_ELEV</code> were the only fields with real impact (both referenced by the old elevation model); every other schema difference was confirmed harmless.</p>
       <p><strong>Known bug, low current risk:</strong> <code>evaluator_field_map.json</code> is empty, and the docs originally explained that as "no field evaluators to check." The real reason is a key-mismatch bug in <code>map_evaluator_fields()</code>: it reads <code>ev.get("field_name")</code>, a key that script 01 never writes, so the check silently returns nothing before it can run. The conclusion (the evaluators are safe against the new source) is still correct, it was just verified by hand instead of by the automated check that's supposed to catch this. That automated net stays dead until someone fixes the key names, and it's exactly the check that should catch a regression when a travel-time attribute is eventually added.</p>
     </div>
   </details>
@@ -451,7 +451,7 @@
         <div class="stat"><span class="n">⚠️ Dev</span><span class="l">original 2026-06-26 build, read-only</span></div>
         <div class="stat"><span class="n">❌ Prod</span><span class="l">nothing built</span></div>
       </div>
-      <p>The original path (<code>scripts/03_create_network_dataset.py</code> + <code>data/network_template.xml</code>) built Dev and QA cleanly on 2026-06-26. That template later turned out to have two problems that only surfaced during the 2026-09-01 turn-FC swap:</p>
+      <p>The original path (<code>network_dataset/scripts/03_create_network_dataset.py</code> + <code>network_dataset/data/network_template.xml</code>) built Dev and QA cleanly on 2026-06-26. That template later turned out to have two problems that only surfaced during the 2026-09-01 turn-FC swap:</p>
       <ul>
         <li>Its <code>Length</code>/<code>OneWay</code> evaluators are <strong>VBScript</strong>. ArcGIS Pro 3.5 refuses to build a network dataset from a VBScript-bearing template at all (<code>ERROR 030386</code>).</li>
         <li>Any network dataset that already carries VBScript evaluators opens as <strong>permanently read-only</strong> starting in Pro 3.4, by Esri's own deliberate design (confirmed against Esri KB 000034955 / FAQ 000034321, and against four other hypotheses that were tested and ruled out: stale locks, Pro version, project state, schema version).</li>
@@ -463,7 +463,7 @@
   <details class="phase" open>
     <summary><span class="pill pill-done">Done for QA</span> Phase 5a: Traffic turn rebuild</summary>
     <div class="body">
-      <p>Turn features store edge references as the <code>OBJECTID</code> of a feature in the registered edge source. When the turn class was copied against the new LRS-derived edge source, every reference pointed at an <code>OBJECTID</code> that no longer meant anything, so every turn failed at build time. <code>scripts/05_rebuild_traffic_turns.py</code> spatially remaps each turn's edge references onto the new edge source by geometry, and <code>scripts/verify_turn_rebuild.py</code> independently checks the result with 10 mechanical checks before anything gets swapped into place.</p>
+      <p>Turn features store edge references as the <code>OBJECTID</code> of a feature in the registered edge source. When the turn class was copied against the new LRS-derived edge source, every reference pointed at an <code>OBJECTID</code> that no longer meant anything, so every turn failed at build time. <code>network_dataset/scripts/05_rebuild_traffic_turns.py</code> spatially remaps each turn's edge references onto the new edge source by geometry, and <code>network_dataset/scripts/verify_turn_rebuild.py</code> independently checks the result with 10 mechanical checks before anything gets swapped into place.</p>
       <p>The script was substantially rewritten on 2026-08-31 after review found the original junction-detection logic was built on a wrong assumption about Esri's <code>Edge#Pos</code> field (it collapses to a constant <code>0.5</code> under this network's connectivity settings, so a script that branched on it was effectively picking the same endpoint for every record). The rewrite derives the junction directly from shared edge geometry instead, uses the turn's own recorded point to break ties at divided roads, and only writes a turn when every populated edge slot actually resolved.</p>
       <div class="stat-row">
         <div class="stat"><span class="n">1,238</span><span class="l">total input turns</span></div>
@@ -474,7 +474,7 @@
         <div class="stat"><span class="n">1,180 / 1,189</span><span class="l">(99.2%) built as live turn elements</span></div>
       </div>
       <p>Spot checks covered simple crossings (Robie/North, Agricola/North), bends along one named street (University/South Park/Morris, Inglis/Young), and the highest-risk case: the multi-leg Robie/Quinpool/Cogswell/Bell intersection, where the bearing-based tiebreaker correctly picked the distinct named leg for each turn rather than jumping to an unrelated edge.</p>
-      <p>A related environment-configuration bug was fixed the same day: scripts 03 and 05 had drifted onto different target environments (Dev vs. QA), which would have let the orchestrator remap turns in QA and then build the network in Dev. <code>scripts/run_full_network_rebuild.py</code> now asserts both scripts agree before doing anything.</p>
+      <p>A related environment-configuration bug was fixed the same day: scripts 03 and 05 had drifted onto different target environments (Dev vs. QA), which would have let the orchestrator remap turns in QA and then build the network in Dev. <code>network_dataset/scripts/run_full_network_rebuild.py</code> now asserts both scripts agree before doing anything.</p>
     </div>
   </details>
 
@@ -505,7 +505,7 @@ Select Case UCase([STR_DIR])                Select Case UCase([STR_DIR])
   Case "N", "FDTO", "T": restricted = True    Case "N", "FOTD", "T": restricted = True
 End Select                                  End Select</code></pre>
       <p><code>FDTO</code> blocks travel along the digitized direction, <code>FOTD</code> blocks travel against it, and <code>N</code> or <code>T</code> block both directions. The domain was confirmed complete on 2026-09-03: <code>BOTH</code> (15,812 rows), <code>FOTD</code> (2,792), <code>NULL</code> (7), <code>FDTO</code> (1). Nothing exists beyond what the evaluator already handles.</p>
-      <p>The corrected Python translation was applied to QA, verified with the one-way solve test above, exported with <code>CreateTemplateFromNetworkDataset</code>, and committed over <code>data/network_template.xml</code> on 2026-09-03.</p>
+      <p>The corrected Python translation was applied to QA, verified with the one-way solve test above, exported with <code>CreateTemplateFromNetworkDataset</code>, and committed over <code>network_dataset/data/network_template.xml</code> on 2026-09-03.</p>
       <p><strong>Open:</strong> nobody has actually confirmed <code>CreateNetworkDatasetFromTemplate</code> can build from this corrected, Python-evaluator template. QA's rebuild was done by hand in the interactive wizard. Until this runs successfully, there is no proven <em>automated</em> rebuild path, which is the top item in the roadmap below.</p>
     </div>
   </details>
@@ -513,7 +513,7 @@ End Select                                  End Select</code></pre>
   <details class="phase">
     <summary><span class="pill pill-partial">Coded, not deployed</span> Refresh automation</summary>
     <div class="body">
-      <p><code>scripts/04_sync_and_rebuild_network.py</code> and <code>sync_network_edge_source()</code> inside <code>scripts/LRS_updates.py</code> re-copy the edge source into the feature dataset and rebuild the network after every LRS refresh. Both correctly use <code>DeleteRows</code> rather than <code>TruncateTable</code> for the controller-dataset-safe re-sync.</p>
+      <p><code>network_dataset/scripts/04_sync_and_rebuild_network.py</code> and <code>sync_network_edge_source()</code> inside <code>scripts/LRS_updates.py</code> re-copy the edge source into the feature dataset and rebuild the network after every LRS refresh. Both correctly use <code>DeleteRows</code> rather than <code>TruncateTable</code> for the controller-dataset-safe re-sync.</p>
       <p><strong>Known bug, confirmed still present in the code today:</strong> a separate, older helper inside <code>LRS_updates.py</code>, <code>append_feature()</code>, still calls <code>arcpy.TruncateTable_management()</code> directly. <code>TRNLRS_TRN_STREET</code> is a controller-dataset member, so this will raise <code>ERROR 001395: Operation not supported on a feature class in a controller dataset</code> the first time it actually runs against it. It hasn't surfaced yet only because <code>LRS_updates.py</code> has never been deployed to prod.</p>
       <p><code>LRS_updates.py</code> has not been deployed to <code>E:\HRM\Scripts\Python\LRS_updates.py</code>, and no full LRS refresh cycle has been run end-to-end with the network sync included.</p>
     </div>
@@ -522,7 +522,7 @@ End Select                                  End Select</code></pre>
 
 <section id="roadmap">
   <h2>What's left, in recommended order</h2>
-  <p class="section-sub">Reconciled from <code>docs/street_network_meeting_overview.md</code>'s recommended order and the open items tracked in <code>docs/network_dataset_script_review.md</code>. Earlier milestones unblock or de-risk the ones after them.</p>
+  <p class="section-sub">Reconciled from <code>network_dataset/docs/street_network_meeting_overview.md</code>'s recommended order and the open items tracked in <code>network_dataset/docs/network_dataset_script_review.md</code>. Earlier milestones unblock or de-risk the ones after them.</p>
 
   <div class="milestone">
     <h3><span class="num">1</span> Establish the current live baseline</h3>
@@ -537,10 +537,10 @@ End Select                                  End Select</code></pre>
     <h3><span class="num">2</span> Prove the automated rebuild path</h3>
     <p class="why">Right now the only way to build this network dataset correctly is the manual interactive wizard. Nothing about this project survives a Prod cutover, or a future evaluator change, without a rebuild path that doesn't depend on someone remembering 6 wizard steps.</p>
     <ul class="todo">
-      <li>Test <code>CreateNetworkDatasetFromTemplate</code> against the corrected Python-evaluator <code>data/network_template.xml</code> (never actually tried in this project)</li>
+      <li>Test <code>CreateNetworkDatasetFromTemplate</code> against the corrected Python-evaluator <code>network_dataset/data/network_template.xml</code> (never actually tried in this project)</li>
       <li>Fix <code>LRS_updates.py</code>'s <code>append_feature()</code> to use <code>DeleteRows</code> instead of <code>TruncateTable</code> before it ever runs against prod</li>
       <li>Decide the turn-OID-stability question: an LRS refresh truncates and reloads <code>TRNLRS_TRN_STREET</code>, which reassigns every row's <code>OBJECTID</code> and silently breaks every turn's edge reference. The documented claim that "turns don't need rebuilding on each refresh" is incorrect. Pick one: remap turns every refresh cycle, make edge <code>OBJECTID</code>s stable via a keyed update instead of truncate/reload, or store turns against a stable street-identity key and re-derive edge references at build time.</li>
-      <li>Run <code>scripts/run_full_network_rebuild.py</code> end to end in a non-production environment</li>
+      <li>Run <code>network_dataset/scripts/run_full_network_rebuild.py</code> end to end in a non-production environment</li>
       <li>Deploy the updated <code>LRS_updates.py</code>, but only after Prod's feature dataset and network actually exist</li>
       <li>Run one full LRS refresh end to end and confirm: source refresh, edge-copy sync, one network build, expected source/element counts, a clean build-errors file, permissions, and a smoke solve</li>
     </ul>
@@ -554,7 +554,7 @@ End Select                                  End Select</code></pre>
       <li>Perform the still-undone address-range / geocoding field checks</li>
       <li>Re-run a smaller service-area comparison framed consistently as distance (a genuine 5-minute test needs a time cost attribute, which doesn't exist yet)</li>
       <li>Decide whether the 9 build-rejected turns (0.76%) are acceptable for cutover; the 2 exact-coincidence failures are still unexplained and the 7 real geometry gaps could be snapped or accepted</li>
-      <li>Spot-check the historical degenerate/duplicate turn-pair CSVs (<code>intermediate_results/*.csv</code>) against the current 1,189-record output. Check 10 came back clean on this run, but the specific old pairs haven't been individually re-confirmed.</li>
+      <li>Spot-check the historical degenerate/duplicate turn-pair CSVs (<code>network_dataset/intermediate_results/*.csv</code>) against the current 1,189-record output. Check 10 came back clean on this run, but the specific old pairs haven't been individually re-confirmed.</li>
     </ul>
   </div>
 
@@ -592,9 +592,9 @@ End Select                                  End Select</code></pre>
       <li>Apply SQL grants under Prod's own registration IDs (do not assume Dev/QA's numbers)</li>
       <li>Run the full acceptance suite from milestone 3 against Prod</li>
       <li>Deploy the refresh integration and define rollback / ownership (the legacy <code>TRN_street_network</code> stays live and untouched through cutover as the de facto rollback)</li>
-      <li>Clean up the duplicate source feature classes still sitting untouched in <code>SDEADM.TRNLRS</code> in both Dev and QA, only after cutover validation. <code>scripts/06_migrate_network_fd.py</code> exists for exactly this but has never actually been run anywhere; the feature-dataset separation happened via script 03's fallback copy logic instead.</li>
+      <li>Clean up the duplicate source feature classes still sitting untouched in <code>SDEADM.TRNLRS</code> in both Dev and QA, only after cutover validation. <code>network_dataset/scripts/06_migrate_network_fd.py</code> exists for exactly this but has never actually been run anywhere; the feature-dataset separation happened via script 03's fallback copy logic instead.</li>
       <li>Fix script 02's dead evaluator cross-check (the key-mismatch bug above) so a future schema change, such as adding a speed attribute, actually gets validated automatically instead of by hand</li>
-      <li>Documentation cleanup: <code>docs/traffic_turns.md</code> and <code>docs/network_review.md</code> are referenced from several scripts and docs but do not exist in this repository (only <code>docs/network_traffic_turns.md</code> exists, and it doesn't contain what's referenced from it); <code>README.md</code> advertises a <code>tests/</code> directory that doesn't exist, and there is no automated regression coverage of any kind for this pipeline</li>
+      <li>Documentation cleanup: <code>docs/traffic_turns.md</code> and <code>docs/network_review.md</code> are referenced from several scripts and docs but do not exist in this repository (only <code>network_dataset/docs/network_traffic_turns.md</code> exists, and it doesn't contain what's referenced from it); <code>README.md</code> advertises a <code>tests/</code> directory that doesn't exist, and there is no automated regression coverage of any kind for this pipeline</li>
     </ul>
   </div>
 
@@ -722,18 +722,18 @@ End Select                                  End Select</code></pre>
       <tr><td><a href="turn_rebuild_qa_test_runbook.md">turn_rebuild_qa_test_runbook.md</a></td><td>Step-by-step execution log for the 2026-08-31 turn-rebuild rewrite.</td></tr>
       <tr><td><a href="traffic_turn_staging_review_checklist.txt">traffic_turn_staging_review_checklist.txt</a></td><td>Manual review checklist run before swapping a remapped turn FC into place.</td></tr>
       <tr><td><a href="network_traffic_turns.md">network_traffic_turns.md</a></td><td>Original turn-remap diagnosis (chat transcript form; largely superseded by the script review above).</td></tr>
-      <tr><td><a href="../data/network_template.xml">data/network_template.xml</a></td><td>Corrected Python-evaluator XML template, committed 2026-09-03. Not yet confirmed to work with <code>CreateNetworkDatasetFromTemplate</code>.</td></tr>
-      <tr><td><a href="../scripts/01_extract_network_config.py">scripts/01_extract_network_config.py</a></td><td>Extracts the legacy network's config and template.</td></tr>
-      <tr><td><a href="../scripts/02_compare_schemas.py">scripts/02_compare_schemas.py</a></td><td>Schema diff, old vs. new edge source. Evaluator cross-check is currently dead code.</td></tr>
-      <tr><td><a href="../scripts/03_create_network_dataset.py">scripts/03_create_network_dataset.py</a></td><td>Creates and builds the network dataset from the template; copies sources into the feature dataset.</td></tr>
-      <tr><td><a href="../scripts/04_sync_and_rebuild_network.py">scripts/04_sync_and_rebuild_network.py</a></td><td>Standalone, Prod-only edge sync + rebuild, outside a full LRS refresh.</td></tr>
-      <tr><td><a href="../scripts/05_rebuild_traffic_turns.py">scripts/05_rebuild_traffic_turns.py</a></td><td>Spatial turn remap. Rewritten 2026-08-31; the script this whole migration was blocked on.</td></tr>
-      <tr><td><a href="../scripts/06_migrate_network_fd.py">scripts/06_migrate_network_fd.py</a></td><td>Intended clean move of network sources out of <code>SDEADM.TRNLRS</code>. Written, never actually run.</td></tr>
-      <tr><td><a href="../scripts/06_check_junction_alignment.py">scripts/06_check_junction_alignment.py</a></td><td>City-wide edge-endpoint vs. route-intersection alignment check. Run 2026-08-31.</td></tr>
-      <tr><td><a href="../scripts/verify_turn_rebuild.py">scripts/verify_turn_rebuild.py</a></td><td>Independent 10-check verifier for the remapped turn staging FC.</td></tr>
-      <tr><td><a href="../scripts/run_full_network_rebuild.py">scripts/run_full_network_rebuild.py</a></td><td>End-to-end orchestrator: remap → swap → recreate → build. Asserts scripts 03/05 target the same environment.</td></tr>
-      <tr><td><a href="../scripts/LRS_updates.py">scripts/LRS_updates.py</a></td><td>The main LRS refresh script. Contains the still-unfixed <code>TruncateTable</code> bug described above. Not yet deployed to Prod.</td></tr>
-      <tr><td><a href="../scripts/log_utils.py">scripts/log_utils.py</a>, <a href="../scripts/patch.py">patch.py</a>, <a href="../scripts/classify_unresolved_turns.py">classify_unresolved_turns.py</a>, <a href="../scripts/08_find_duplicate_siblings.py">08_find_duplicate_siblings.py</a>, <a href="../scripts/09_classify_origin_duplicate.py">09_classify_origin_duplicate.py</a>, <a href="../scripts/diagnose_edge1end_disagreement.py">diagnose_edge1end_disagreement.py</a></td><td>Logging helper and one-off diagnostic scripts used during the turn-rebuild investigation.</td></tr>
+      <tr><td><a href="../data/network_template.xml">network_dataset/data/network_template.xml</a></td><td>Corrected Python-evaluator XML template, committed 2026-09-03. Not yet confirmed to work with <code>CreateNetworkDatasetFromTemplate</code>.</td></tr>
+      <tr><td><a href="../scripts/01_extract_network_config.py">network_dataset/scripts/01_extract_network_config.py</a></td><td>Extracts the legacy network's config and template.</td></tr>
+      <tr><td><a href="../scripts/02_compare_schemas.py">network_dataset/scripts/02_compare_schemas.py</a></td><td>Schema diff, old vs. new edge source. Evaluator cross-check is currently dead code.</td></tr>
+      <tr><td><a href="../scripts/03_create_network_dataset.py">network_dataset/scripts/03_create_network_dataset.py</a></td><td>Creates and builds the network dataset from the template; copies sources into the feature dataset.</td></tr>
+      <tr><td><a href="../scripts/04_sync_and_rebuild_network.py">network_dataset/scripts/04_sync_and_rebuild_network.py</a></td><td>Standalone, Prod-only edge sync + rebuild, outside a full LRS refresh.</td></tr>
+      <tr><td><a href="../scripts/05_rebuild_traffic_turns.py">network_dataset/scripts/05_rebuild_traffic_turns.py</a></td><td>Spatial turn remap. Rewritten 2026-08-31; the script this whole migration was blocked on.</td></tr>
+      <tr><td><a href="../scripts/06_migrate_network_fd.py">network_dataset/scripts/06_migrate_network_fd.py</a></td><td>Intended clean move of network sources out of <code>SDEADM.TRNLRS</code>. Written, never actually run.</td></tr>
+      <tr><td><a href="../scripts/06_check_junction_alignment.py">network_dataset/scripts/06_check_junction_alignment.py</a></td><td>City-wide edge-endpoint vs. route-intersection alignment check. Run 2026-08-31.</td></tr>
+      <tr><td><a href="../scripts/verify_turn_rebuild.py">network_dataset/scripts/verify_turn_rebuild.py</a></td><td>Independent 10-check verifier for the remapped turn staging FC.</td></tr>
+      <tr><td><a href="../scripts/run_full_network_rebuild.py">network_dataset/scripts/run_full_network_rebuild.py</a></td><td>End-to-end orchestrator: remap → swap → recreate → build. Asserts scripts 03/05 target the same environment.</td></tr>
+      <tr><td><a href="../../scripts/LRS_updates.py">scripts/LRS_updates.py</a></td><td>The main LRS refresh script. Contains the still-unfixed <code>TruncateTable</code> bug described above. Not yet deployed to Prod.</td></tr>
+      <tr><td><a href="../scripts/log_utils.py">network_dataset/scripts/log_utils.py</a>, <a href="../scripts/patch.py">patch.py</a>, <a href="../scripts/classify_unresolved_turns.py">classify_unresolved_turns.py</a>, <a href="../scripts/08_find_duplicate_siblings.py">08_find_duplicate_siblings.py</a>, <a href="../scripts/09_classify_origin_duplicate.py">09_classify_origin_duplicate.py</a>, <a href="../scripts/diagnose_edge1end_disagreement.py">diagnose_edge1end_disagreement.py</a></td><td>Logging helper and one-off diagnostic scripts used during the turn-rebuild investigation.</td></tr>
     </table>
   </div>
 </section>

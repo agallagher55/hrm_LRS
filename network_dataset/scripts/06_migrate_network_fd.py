@@ -8,7 +8,7 @@ feature dataset dedicated to the network sources), separating network data
 from LRS data. SDEADM.TRNLRS_network already exists in both Dev and QA; this
 script only ever targets Dev (SDE_CONNECTION below) -- QA/prod get the same
 treatment later, once the Dev pilot is validated. See
-docs/network_dataset_migration_plan.md for the full plan.
+network_dataset/docs/network_dataset_migration_plan.md for the full plan.
 
 Steps performed
 ----------------
@@ -26,7 +26,7 @@ Steps performed
 Controller dataset gotcha
 --------------------------
 If TRNLRS_street_network has already been built in SDEADM.TRNLRS (it has, as
-of the 2026-06-26 Dev build -- see docs/network_build_status.md), the three
+of the 2026-06-26 Dev build -- see network_dataset/docs/network_build_status.md), the three
 source FCs there are registered network sources, which makes them controller
 dataset participants. arcpy.management.Delete refuses to delete a controller
 dataset member (ERROR 001919) while the network dataset that registers it
@@ -35,7 +35,7 @@ automatically -- that's a bigger, more destructive action than "move three
 FCs" and deserves an explicit decision, not a silent side effect. If the
 delete step hits ERROR 001919, stop and read the logged guidance: the
 existing network dataset in SDEADM.TRNLRS must be deleted first to release
-the lock, and scripts/03_create_network_dataset.py (already updated to target
+the lock, and network_dataset/scripts/03_create_network_dataset.py (already updated to target
 SDEADM.TRNLRS_network) re-created and rebuilt in its place afterward.
 
 Usage
@@ -50,7 +50,7 @@ Usage
    ERROR 001919, see "Controller dataset gotcha" above.
 
 Run from ArcGIS Pro Python environment:
-  > python scripts/06_migrate_network_fd.py
+  > python network_dataset/scripts/06_migrate_network_fd.py
 """
 
 import os

@@ -43,7 +43,7 @@ disagreeing with the authoritative source value and the run should not be truste
 Divided-road tie-break (fixed 2026-08-31)
 ------------------------------------------
 Run against QA, the Edge1End integrity check above came back at 70.9% (846/1194)
--- well below the swap threshold. Diagnosis (scripts/diagnose_edge1end_disagreement.py)
+-- well below the swap threshold. Diagnosis (network_dataset/scripts/diagnose_edge1end_disagreement.py)
 found 345 of the 348 disagreements shared one exact signature: Edge1 and Edge2 tied
 at 0.0m on BOTH possible endpoint pairings simultaneously (Edge1.first~Edge2.last
 AND Edge1.last~Edge2.first). That happens when two edges are digitised between the
@@ -87,8 +87,8 @@ optional swap step at the end -- and that step, too, must delete the network
 dataset first, because the CURRENT TRNLRS_traffic_turn is itself a registered
 turn source and subject to the same lock.
 
-See docs/network_traffic_turns.md for the original diagnosis and post-run steps,
-and docs/network_dataset_script_review.md for the reasoning behind the
+See network_dataset/docs/network_traffic_turns.md for the original diagnosis and post-run steps,
+and network_dataset/docs/network_dataset_script_review.md for the reasoning behind the
 2026-08-31 rewrite of the junction/Edge1End logic.
 """
 
@@ -106,8 +106,8 @@ logger = setup_logger("05_rebuild_traffic_turns")
 # ------------------------------------------------------------------------------
 
 # QA: active. The network source FCs live in SDEADM.TRNLRS_network in both Dev
-# and QA (see docs/network_build_status.md, feature dataset separation).
-# scripts/03_create_network_dataset.py must point at the SAME environment --
+# and QA (see network_dataset/docs/network_build_status.md, feature dataset separation).
+# network_dataset/scripts/03_create_network_dataset.py must point at the SAME environment --
 # run_full_network_rebuild.py asserts that before it does anything.
 SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 NETWORK_FD = r"SDEADM.TRNLRS_network"
@@ -335,7 +335,7 @@ def resolve_new_edge(junction_pt, old_geom, endpoint_index, new_geoms, tolerance
     # Multiple candidates share this endpoint (multi-leg intersection). Compare
     # the local bearing of each candidate against the local bearing of the old
     # edge at the same junction. Best effort -- very complex intersections may
-    # still need manual review (see docs/traffic_turn_staging_review_checklist.txt).
+    # still need manual review (see network_dataset/docs/traffic_turn_staging_review_checklist.txt).
     old_angle = tangent_at(old_geom, junction_pt, tolerance)
     if old_angle is None:
         return candidates[0]
@@ -737,14 +737,14 @@ def main():
     # 10. Optional: swap old turn FC for new, then recreate/rebuild the network
     # ------------------------------------------------------------------
     # NOTE: TRNLRS_traffic_turn is itself a registered turn source of
-    # TRNLRS_street_network (defined in data/network_template.xml), which
+    # TRNLRS_street_network (defined in network_dataset/data/network_template.xml), which
     # makes it a "controller dataset" participant -- ArcGIS refuses to
     # Delete or Rename it (ERROR 001919: "cannot be deleted because it
     # participates in a controller dataset") while the network dataset still
     # references it. There is no arcpy call to unregister a single source
     # from an existing network dataset -- the network dataset itself must be
     # deleted first to release the lock on ALL its sources, then recreated
-    # from the template afterward (see scripts/03_create_network_dataset.py,
+    # from the template afterward (see network_dataset/scripts/03_create_network_dataset.py,
     # which is idempotent and will just recreate + rebuild the network
     # dataset since the three source FCs already exist).
     if AUTO_SWAP_AND_REBUILD:
@@ -771,7 +771,7 @@ def main():
 
         logger.info(
             "Turn FC swap complete. The network dataset was deleted and must be recreated: "
-            "run scripts/03_create_network_dataset.py to recreate TRNLRS_street_network "
+            "run network_dataset/scripts/03_create_network_dataset.py to recreate TRNLRS_street_network "
             "from the template and rebuild it (it will skip re-copying the three source "
             "FCs since they already exist, and go straight to create + build)."
         )
@@ -785,7 +785,7 @@ def main():
             f"1) arcpy.management.Delete(r'{NEW_NETWORK}') "
             f"2) arcpy.management.Delete(r'{OLD_TURN_FC_FINAL}') "
             f"3) arcpy.management.Rename(r'{NEW_TURN_FC}', 'TRNLRS_traffic_turn') "
-            "4) Run scripts/03_create_network_dataset.py to recreate and rebuild the network dataset."
+            "4) Run network_dataset/scripts/03_create_network_dataset.py to recreate and rebuild the network dataset."
         )
 
 

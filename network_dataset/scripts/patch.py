@@ -21,7 +21,7 @@ Usage
 -----
 1. Review PATCH_TURN_FC and NETWORK_DATASET below.
 2. Run from an ArcGIS Pro Python environment (arcpy required).
-3. Re-run scripts/03_create_network_dataset.py afterward to recreate and
+3. Re-run network_dataset/scripts/03_create_network_dataset.py afterward to recreate and
    rebuild the network (the turn FC will be "already present", no re-copy
    needed -- it only needs recreating, not re-copying).
 
@@ -194,7 +194,7 @@ def main():
 
     if APPLY_UPDATE:
         print(f"\nEdge1End patched on {changed_to_y + changed_to_n} records.")
-        print("Next step: run scripts/03_create_network_dataset.py to recreate and")
+        print("Next step: run network_dataset/scripts/03_create_network_dataset.py to recreate and")
         print("rebuild TRNLRS_street_network (it will skip re-copying the three")
         print("source FCs since they already exist, and go straight to create + build).")
     else:

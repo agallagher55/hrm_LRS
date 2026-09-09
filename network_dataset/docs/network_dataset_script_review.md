@@ -2,7 +2,7 @@
 
 A code-and-docs review of everything used to recreate `TRNLRS_street_network` from LRS
 data: scripts `01`–`06`, `run_full_network_rebuild.py`, `log_utils.py`, the
-`sync_network_edge_source()` path in `LRS_updates.py`, `data/network_template.xml`, and
+`sync_network_edge_source()` path in `LRS_updates.py`, `network_dataset/data/network_template.xml`, and
 the four docs in `docs/`.
 
 Findings are split into **Confirmed** (readable directly from the repo) and **Needs
@@ -61,8 +61,8 @@ G are still open.
    for why, and what's still worth a light follow-up.
 7. **`LRS_updates.py` will fail on its first prod run** with `ERROR 001395` — the
    `TruncateTable` fix that landed in script 04 was never ported to it. See [C](#c-lrs_updatespy-will-fail-on-first-prod-run).
-8. **QA's network dataset had to be rebuilt from scratch, not from `data/network_template.xml` — done 2026-09-01.** After the swap (Phase 3), `CreateNetworkDatasetFromTemplate` failed with `ERROR 030386`: the template's `Length`/`OneWay` evaluators are VBScript, which ArcGIS Pro 3.5 refuses to build from. Attempting the Esri-documented fix (convert the evaluators to Python in Properties) hit a second wall: Dev's existing network dataset shows "Read-only network dataset" in Properties, and this is confirmed to be Esri's deliberate, one-way behavior for any network dataset with VBScript evaluators opened in Pro 3.4+ — not a lock, Pro-version, project-state, or schema-version issue (all four tested and disproven). There is no documented in-place fix. QA was rebuilt interactively with Python evaluators and **turn restrictions are confirmed enforced**; **`OneWay` is currently broken there** and is the top open item. See [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01).
-9. **`data/network_template.xml` is stale and actively misleading — confirmed 2026-09-01.** Its `OneWay` evaluator is a hardcoded no-op, while the *live* Dev network carries real `STR_DIR`-driven logic (recovered and transcribed in F2). The template was captured in Phase 1 and never re-exported after `OneWay` was fixed directly in Pro's Properties. Anything reasoning from this file about live behavior is reasoning from a stale snapshot — including, initially, this review.
+8. **QA's network dataset had to be rebuilt from scratch, not from `network_dataset/data/network_template.xml` — done 2026-09-01.** After the swap (Phase 3), `CreateNetworkDatasetFromTemplate` failed with `ERROR 030386`: the template's `Length`/`OneWay` evaluators are VBScript, which ArcGIS Pro 3.5 refuses to build from. Attempting the Esri-documented fix (convert the evaluators to Python in Properties) hit a second wall: Dev's existing network dataset shows "Read-only network dataset" in Properties, and this is confirmed to be Esri's deliberate, one-way behavior for any network dataset with VBScript evaluators opened in Pro 3.4+ — not a lock, Pro-version, project-state, or schema-version issue (all four tested and disproven). There is no documented in-place fix. QA was rebuilt interactively with Python evaluators and **turn restrictions are confirmed enforced**; **`OneWay` is currently broken there** and is the top open item. See [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01).
+9. **`network_dataset/data/network_template.xml` is stale and actively misleading — confirmed 2026-09-01.** Its `OneWay` evaluator is a hardcoded no-op, while the *live* Dev network carries real `STR_DIR`-driven logic (recovered and transcribed in F2). The template was captured in Phase 1 and never re-exported after `OneWay` was fixed directly in Pro's Properties. Anything reasoning from this file about live behavior is reasoning from a stale snapshot — including, initially, this review.
 
 ---
 
@@ -73,7 +73,7 @@ G are still open.
 | Phase 1 — extract old config | ✅ Done (`network_config.json`, `network_template.xml`) |
 | Phase 2 — schema comparison | ⚠️ Ran, but the evaluator half never executed — see [E](#e-script-02s-evaluator-cross-check-has-never-actually-run) |
 | Phase 3 — XML template edits | ✅ Done (elevation cleared, sources renamed); stale `ClassID`s remain — see [F](#f-template-hygiene) |
-| Phase 4 — create + build ND | ✅ **Rebuilt 2026-09-01, `OneWay` fully verified and `data/network_template.xml` committed 2026-09-03** — see [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01) and `network_build_status.md`'s Step 6 for the full trail. Dev's ND is untouched and still stuck read-only for the VBScript reason — not part of this fix. |
+| Phase 4 — create + build ND | ✅ **Rebuilt 2026-09-01, `OneWay` fully verified and `network_dataset/data/network_template.xml` committed 2026-09-03** — see [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01) and `network_build_status.md`'s Step 6 for the full trail. Dev's ND is untouched and still stuck read-only for the VBScript reason — not part of this fix. |
 | Phase 5a — traffic turns | 🔄 **Remap confirmed correct, staging FC verified clean, spatial spot checks passed (2026-08-31/09-01)** — 99.7% Edge1End agreement, 4.0% skip rate, correct DSID, all 10 verifier checks pass including check 10 (zero duplicate signatures — see A0 update), 5 manual spot checks correct including the highest-risk multi-leg intersection. The turn FC itself is proven correct and already swapped into place; **blocked on Phase 4** (no network dataset currently exists in QA to attach it to). |
 | Phase 5 — solve tests | 🔄 Properties ✅ (06-26); 50 km service area ✅ (Robbie, 06-29); **turn-restriction solve ✅ (2026-09-01)** — see the runbook's §4.4 for the Travel Mode gotcha this surfaced; **one-way solve ✅ (2026-09-02/03)** — root cause was `Force Full Build` not being checked after evaluator edits, which left precomputed weight tables stale regardless of how correct the evaluator was; see `CLAUDE.md` and `network_build_status.md`'s Step 6 for the full trail, including an 18-hour blocking-session incident on QA's SQL Server; route-comparison / address-range solves **not done** |
 | SQL grants | QA ✅ (2026-07-14, `N_3_*` + `ND_38726_*` + 4 source tables + editor writes); **Dev pending**; prod N/A |
@@ -89,14 +89,14 @@ cold, into a state where the docs and the code disagree about whether the last s
 
 ## A0. Duplicate / degenerate turn signatures -- found not to recur under the rewritten script (2026-08-31)
 
-Discovered via diagnostic scripts (`scripts/08_find_duplicate_siblings.py`,
+Discovered via diagnostic scripts (`network_dataset/scripts/08_find_duplicate_siblings.py`,
 `09_classify_origin_duplicate.py`, `classify_unresolved_turns.py`) and their outputs
-(`intermediate_results/*.csv`) that predate A1-A4 and were uploaded to the repo separately.
+(`network_dataset/intermediate_results/*.csv`) that predate A1-A4 and were uploaded to the repo separately.
 This is **not** the same bug as A1-A4 -- it only shows up once the OID/FCID/Edge1End-level
 failures are fixed and turns actually start resolving, which is exactly why it wasn't visible
 earlier: every prior build had turns failing 100% for a more fundamental reason.
 
-**Evidence.** Against an earlier, hand-patched build (`scripts/patch.py`, which recomputed
+**Evidence.** Against an earlier, hand-patched build (`network_dataset/scripts/patch.py`, which recomputed
 `Edge1End` in place using the same `Edge1Pos >= 0.5` heuristic A1 identifies as unsound), 1,209
 turns produced 1,021 successful builds, 165 `Turn element already exists` failures, and 23
 `Cannot find at junction` failures. `turn_review_for_mel.csv` / `intersection_context_check_v2.csv`
@@ -149,7 +149,7 @@ missing.
 
 ## A0b. Junction alignment check (run 2026-08-31) -- grade separation, not a transform bug; a handful of real anomalies
 
-`scripts/06_check_junction_alignment.py` compares `TRNLRS_TRN_STREET` edge endpoints against
+`network_dataset/scripts/06_check_junction_alignment.py` compares `TRNLRS_TRN_STREET` edge endpoints against
 `SDEADM.INT_RouteOnRoute` (generated independently from `LRSN_Route` geometry via
 `GenerateIntersections`) at every active route intersection. It was written because three
 hand-picked intersections (Blowers/Barrington, Barrington/Salter, Upper Water/Hollis) showed
@@ -160,7 +160,7 @@ hypothesis.**
 **Result.** Of the active route intersections, 249 have no edge endpoint within 1cm (the
 alignment tolerance): 221 have **no edge endpoint at all within the 10m search radius**
 (`NO_MATCH`); the other 28 have a nearest endpoint somewhere between 0.03m and 10.0m away.
-Read the raw numbers in `docs/turn_rebuild_qa_test_runbook.md` for the exact commands used.
+Read the raw numbers in `network_dataset/docs/turn_rebuild_qa_test_runbook.md` for the exact commands used.
 
 **Not a systematic transform.** The offset vectors on the 28 matched-but-misaligned records
 point in every direction with no shared sign or ratio -- e.g. `(-0.445, 9.984)`,
@@ -285,7 +285,7 @@ endpoint connectivity, `0.5` is the canonical position of the single element.
 
 **Follow-up bug found and fixed (2026-08-31, same day).** Run against QA, this integrity
 check came back at 70.9% (846/1194) — well below the 95% gate. Diagnosis
-(`scripts/diagnose_edge1end_disagreement.py`) found 345 of the 348 disagreements shared one
+(`network_dataset/scripts/diagnose_edge1end_disagreement.py`) found 345 of the 348 disagreements shared one
 exact signature: Edge1 and Edge2 tied at 0.0m on **both** possible endpoint pairings
 simultaneously. That happens when two edges are digitised between the same pair of
 cross-street nodes — e.g. the two carriageways of a divided road — and it is a genuine
@@ -502,7 +502,7 @@ prod-scoped, and already logs. One import removes three bugs and the duplication
 
 ## D. Turn references do not survive an LRS refresh (STRUCTURAL)
 
-`docs/network_dataset_migration_plan.md` (Rebuild Cadence) states:
+`network_dataset/docs/network_dataset_migration_plan.md` (Rebuild Cadence) states:
 
 > **Note:** the traffic turn FC (`TRNLRS_traffic_turn`) does not need to be rebuilt on each
 > LRS refresh -- turn restrictions are maintained separately from the street LRS pipeline
@@ -570,15 +570,15 @@ before more manual turn editing happens.
 Script 02's `map_evaluator_fields()` reads `ev.get("field_name")` and `ev["element_type"]` —
 neither key exists. `field_ref` is therefore always `""`, every evaluator hits the
 `if not field_ref: continue` guard, and the function returns `[]`. That is why
-`data/evaluator_field_map.json` is `[]`. (Had the guard not fired first, `ev["element_type"]`
+`network_dataset/data/evaluator_field_map.json` is `[]`. (Had the guard not fired first, `ev["element_type"]`
 would have raised `KeyError`.)
 
-`docs/network_build_status.md` explains the empty file as:
+`network_dataset/docs/network_build_status.md` explains the empty file as:
 
 > `evaluator_field_map.json` is empty because the existing evaluators use VB Script
 > expressions, not direct field evaluators.
 
-`data/network_config.json` contradicts this: all four Length/OneWay evaluators are
+`network_dataset/data/network_config.json` contradicts this: all four Length/OneWay evaluators are
 `"evaluator_type": "Field"`. The file is empty because of a key mismatch, not because of
 evaluator type.
 
@@ -595,7 +595,7 @@ field_refs = re.findall(r"\[([A-Za-z0-9_.()]+)\]", ev.get("data") or "")
 
 ---
 
-## F. Template hygiene (`data/network_template.xml`)
+## F. Template hygiene (`network_dataset/data/network_template.xml`)
 
 - **Stale `ClassID`s.** The template still carries the *old* network's dataset IDs:
   `7134` (edge), `7135` (junction), `7137` (turn), `7292` (system junctions), plus
@@ -629,7 +629,7 @@ rebuild, re-export the template — hit a second, harder wall on Dev's *existing
 `TRNLRS_street_network`: Properties opens showing "Read-only network dataset." with no
 Evaluators tab, on every environment tried.
 
-**Root cause, read directly out of `data/network_template.xml`:** only two attributes actually
+**Root cause, read directly out of `network_dataset/data/network_template.xml`:** only two attributes actually
 use a scripted (VBScript) evaluator — `NetworkEvaluatorCLSID {68055FC4-37D5-4BD0-81A5-CD177A29759C}`
 (Field Script). Everything else (junction/edge/turn defaults, `TrafficTurn`) uses the Constant
 evaluator (`{318C4B91-F5D2-467A-996C-0AB51B0D8FF2}`), which is not VBScript and is not affected.
@@ -643,7 +643,7 @@ The two real ones, exact current content:
 | `OneWay` | Against Digitized | `restricted` | `restricted = False` |
 
 **Side finding — CORRECTED 2026-09-01, read this before acting on the table above.** The
-`OneWay` PreLogic in `data/network_template.xml` unconditionally sets `restricted = False` and
+`OneWay` PreLogic in `network_dataset/data/network_template.xml` unconditionally sets `restricted = False` and
 never references `STR_DIR`. My initial reading of that was "the live network doesn't enforce
 one-way at all" — **that was wrong**, and the error mattered, because the like-for-like rebuild
 faithfully reproduced the no-op into QA's new network.
@@ -663,7 +663,7 @@ End Select                                  End Select
 ```
 
 `FDTO` blocks travel along the digitized direction, `FOTD` blocks travel against it, and `N`
-or `T` block both (a fully closed segment). **The lesson for this repo: `data/network_template.xml`
+or `T` block both (a fully closed segment). **The lesson for this repo: `network_dataset/data/network_template.xml`
 is not a trustworthy record of what the live networks actually do.** It was captured in Phase 1
 and never re-exported after someone fixed `OneWay` directly in Pro's Properties dialog. Treat
 the live network — or a fresh `CreateTemplateFromNetworkDataset` export — as authoritative, not
@@ -729,9 +729,9 @@ beyond building a new one.
    per the runbook's §4.4.
 4. Match sources (`TRNLRS_TRN_STREET` edge, `TRNLRS_street_junction` junction,
    `TRNLRS_traffic_turn` turn) and connectivity settings to the values already recorded in
-   `data/network_template.xml`.
+   `network_dataset/data/network_template.xml`.
 5. `BuildNetwork` (Force Full Build), then export the corrected template with
-   `CreateTemplateFromNetworkDataset` and commit it over `data/network_template.xml`, so
+   `CreateTemplateFromNetworkDataset` and commit it over `network_dataset/data/network_template.xml`, so
    `03_create_network_dataset.py` can
    reproduce this network going forward without ever touching VBScript again.
 6. Resume the runbook at Phase 4 (post-build) — the turn FC itself needs no further work.
@@ -745,7 +745,7 @@ now actively mislead:
 
 | Item | Problem |
 |---|---|
-| `docs/traffic_turns.md` | **Does not exist.** Referenced from `05_rebuild_traffic_turns.py` (twice, including *"See traffic_turns.md for the full diagnosis"* of the DSID and `Edge1End` findings) and from `run_full_network_rebuild.py`. The actual file is `docs/network_traffic_turns.md` — which does **not** contain that diagnosis. |
+| `docs/traffic_turns.md` | **Does not exist.** Referenced from `05_rebuild_traffic_turns.py` (twice, including *"See traffic_turns.md for the full diagnosis"* of the DSID and `Edge1End` findings) and from `run_full_network_rebuild.py`. The actual file is `network_dataset/docs/network_traffic_turns.md` — which does **not** contain that diagnosis. |
 | `network_review.md` | **Does not exist.** Referenced from `network_dataset_migration_plan.md` for the full QA review notes. Never committed. |
 | The 2026-07-21/22 work | The two most consequential fixes in the project (FCID→DSID, `Edge1End`) exist only as inline comments. No doc, no status-table update, no log. |
 | `traffic_turn_staging_review_checklist.txt` §2 | ~~Says *"Edge1FCID should equal the FCID logged during the run (2, for TRNLRS_TRN_STREET)"* — now exactly inverted.~~ **Fixed 2026-08-31**, along with the `Edge{N}Pos` carry-over check, which the rewrite also invalidated. The rest of the checklist (counts, spatial spot checks, skipped-turn assessment, ETAs) still stands. |
@@ -784,7 +784,7 @@ now actively mislead:
 6. ~~Run `SELECT DISTINCT STR_DIR, COUNT(*)` against `TRNLRS_TRN_STREET`.~~ **Done.**
    `BOTH` (15,812), `FOTD` (2,792), `NULL` (7), `FDTO` (1). No codes exist beyond what the
    evaluator already handles.
-7. ~~Export the corrected template and commit it over `data/network_template.xml`.~~
+7. ~~Export the corrected template and commit it over `network_dataset/data/network_template.xml`.~~
    **Done 2026-09-03.** **Still open: confirm `03_create_network_dataset.py` can actually
    rebuild from it (gap #13)** — `CreateNetworkDatasetFromTemplate` with Python evaluators has
    never been tested in this project. Until this is confirmed, there is no proven automated
@@ -858,7 +858,7 @@ Several of the above closed during the QA rebuild; new ones opened. Current pict
 | #3 — state of QA's turn FC / Turns count / build errors | `Edge1FCID = 39618` (a real DSID, not `2`). ND Properties reports **Turns: 1,180**. Build errors: 1,048 harmless standalone-junction warnings + 9 `Cannot find at junction` (see below). |
 | Do turn restrictions actually work? | **Yes, confirmed by solve** — but only once the Travel Mode enables them. |
 | What is the real `OneWay` logic? | Recovered from Dev — `FDTO`/`FOTD`/`N`/`T` semantics, transcribed in [F2](#f2-error-030386--vbscript-evaluators-make-the-network-dataset-permanently-read-only-qas-nd-must-be-rebuilt-from-scratch-not-from-this-template-confirmed-2026-09-01). |
-| Is `data/network_template.xml` an accurate record? | **No.** Stale since Phase 1; missing the real `OneWay` logic entirely. |
+| Is `network_dataset/data/network_template.xml` an accurate record? | **No.** Stale since Phase 1; missing the real `OneWay` logic entirely. |
 
 **Still open, unchanged:** #2 (were the 07-22 fixes ever run — now moot, superseded by the
 09-01 rebuild), #4 (does `Append` reassign OBJECTIDs), #5 (DSID stability), #6 (Robbie's turn

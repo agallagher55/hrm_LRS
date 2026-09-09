@@ -67,7 +67,7 @@ logger = setup_logger("06_check_junction_alignment")
 # ------------------------------------------------------------------------------
 
 # QA: network source FCs live in SDEADM.TRNLRS_network (moved out of
-# SDEADM.TRNLRS by scripts/06_migrate_network_fd.py).
+# SDEADM.TRNLRS by network_dataset/scripts/06_migrate_network_fd.py).
 arcpy.env.overwriteOutput = True
 
 SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"

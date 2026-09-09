@@ -1,7 +1,7 @@
 # Turn Rebuild — QA Test Runbook
 
 Step-by-step procedure for testing the 2026-08-31 rewrite of
-`scripts/05_rebuild_traffic_turns.py` against **QA** (`ms-gis-sql-q21`), and the
+`network_dataset/scripts/05_rebuild_traffic_turns.py` against **QA** (`ms-gis-sql-q21`), and the
 list of outputs needed to assess the result.
 
 Background on what changed and why:
@@ -25,11 +25,11 @@ git checkout claude/network-dataset-scripts-review-mj09ob
 git pull
 ```
 
-Run everything from the `scripts/` directory in an **ArcGIS Pro Python environment**
+Run everything from the `network_dataset/scripts/` directory in an **ArcGIS Pro Python environment**
 (`arcpy` importable, Network Analyst extension available). The scripts import `log_utils`
 from their own directory.
 
-Logs are written to `<repo>/logs/<timestamp>_<script>.log` — console gets INFO, the file
+Logs are written to `<repo>/network_dataset/logs/<timestamp>_<script>.log` — console gets INFO, the file
 gets DEBUG. **The DEBUG lines matter here**: the per-reason skipped OID lists and the full
 `BuildNetwork` messages only exist in the file. `logs/` is gitignored, so these stay local.
 
@@ -93,7 +93,7 @@ Then set `TURN_FC` back to the staging path for the rest of the run.
 
 ### 0.6 Junction alignment check -- DONE (2026-08-31), result: no transform bug, mostly grade separation
 
-`scripts/06_check_junction_alignment.py` has already been run against QA. Result: 249 active
+`network_dataset/scripts/06_check_junction_alignment.py` has already been run against QA. Result: 249 active
 route intersections have no aligned edge endpoint (221 `NO_MATCH` within the 10m search
 radius, 28 matched but offset 0.03m-10m). The offset vectors point in every direction with no
 shared sign or ratio -- this rules out the systematic-transform hypothesis the script was
@@ -102,7 +102,7 @@ ramps/interchanges (`ALM-A RAMP`, `HIGHWAY 102 ... OFF RAMP`, etc.) -- consisten
 network's already-documented lack of elevation modelling: `INT_RouteOnRoute` flags
 grade-separated route crossings as intersections with no awareness that the streets never
 meet at ground level, so `TRNLRS_TRN_STREET` correctly has no edge endpoint there. Full
-analysis: `docs/network_dataset_script_review.md` section A0b.
+analysis: `network_dataset/docs/network_dataset_script_review.md` section A0b.
 
 **A handful of plain surface-street pairs remain unexplained** -- `HEMLOCK DR`/`HIGH TIMBER
 DR` (8.7m), `WRIGHT AVE`/`COUNTRYVIEW DR` (9.36m), `SKREIA RD`/`SAILVIEW LANE` (6.26m),
@@ -205,7 +205,7 @@ This compares the source's own `Edge1End` against the junction this script finds
 - **< 95%** — the script warns and will refuse an auto-swap. **Stop and send me the log.**
 
 **Update 2026-08-31, same day:** the run that motivated writing this gate came back at
-70.9% (846/1194). `scripts/diagnose_edge1end_disagreement.py` traced 345 of the 348
+70.9% (846/1194). `network_dataset/scripts/diagnose_edge1end_disagreement.py` traced 345 of the 348
 disagreements to one exact cause: Edge1 and Edge2 tying at 0.0m on **both** possible endpoint
 pairings simultaneously — the signature of two edges digitised between the same pair of
 cross-street nodes (e.g. the two carriageways of a divided road). That's a genuine geometric
@@ -224,15 +224,15 @@ below 95%, or the total skip rate is above ~10%.
 
 ## Phase 1.5 — A newly surfaced issue: duplicate / degenerate turn signatures
 
-**Added 2026-08-31, after locally-held diagnostic work (`scripts/08_find_duplicate_siblings.py`,
+**Added 2026-08-31, after locally-held diagnostic work (`network_dataset/scripts/08_find_duplicate_siblings.py`,
 `09_classify_origin_duplicate.py`, `classify_unresolved_turns.py`, and
-`intermediate_results/*.csv`) was uploaded to the repo.** This predates and is independent of
+`network_dataset/intermediate_results/*.csv`) was uploaded to the repo.** This predates and is independent of
 the A1-A4 rewrite -- it's a different failure mode that only shows up once turns actually
 start resolving.
 
 **What was found (against an earlier, hand-patched build):** of 1,209 turns, 1,021 built,
 165 failed with `Turn element already exists`, and 23 failed with `Cannot find at junction`.
-`intermediate_results/turn_review_for_mel.csv` and `intersection_context_check_v2.csv` show
+`network_dataset/intermediate_results/turn_review_for_mel.csv` and `intersection_context_check_v2.csv` show
 the 165 are pairs of old turn records -- both describing a U-turn on the same street, at a
 real intersection, with slightly different measured positions. `duplicate_turn_siblings.csv`
 shows why they collide after remap: **both old edges resolve to the same new edge**, because
@@ -244,7 +244,7 @@ still `UNRESOLVED`. This is a domain decision (is the restriction "no through mo
 the old segment break", now meaningless, or "no U-turn here", still meaningful?), not
 something either script decided on its own.
 
-**`scripts/verify_turn_rebuild.py` now has a tenth check** for exactly this: it groups turns
+**`network_dataset/scripts/verify_turn_rebuild.py` now has a tenth check** for exactly this: it groups turns
 by `(Edge{N}FID..., Edge1End)` and reports any signature shared by more than one record,
 flagging the edge-onto-itself subset separately. It's a **warning**, not a failure -- unlike
 checks 1-9, a collision here isn't necessarily a bug in the remap, it may be correct output
@@ -339,7 +339,7 @@ arcpy.management.Rename(fd + r"\SDEADM.TRNLRS_traffic_turn_staging", "TRNLRS_tra
 python 03_create_network_dataset.py
 ```
 
-**This fails with `ERROR 030386`.** `data/network_template.xml`'s `Length` and `OneWay`
+**This fails with `ERROR 030386`.** `network_dataset/data/network_template.xml`'s `Length` and `OneWay`
 evaluators are VBScript, which ArcGIS Pro 3.5 refuses to build a network dataset from at all.
 Do not chase this by trying to edit the evaluators on an already-built network dataset in
 Properties — Dev's existing ND was tried and is permanently "Read-only network dataset" for
@@ -355,9 +355,9 @@ were each tested and ruled out:
    reproduces `ERROR 030386`.
 2. Add `TRNLRS_TRN_STREET` as the edge source, `TRNLRS_street_junction` as the junction
    source, `TRNLRS_traffic_turn` as the turn source. Match the connectivity settings recorded
-   in `data/network_template.xml` (edge and junction both: Version 1, one connectivity group).
+   in `network_dataset/data/network_template.xml` (edge and junction both: Version 1, one connectivity group).
 3. Define network attributes `Length`, `OneWay`, `TrafficTurn` matching
-   `data/network_template.xml`'s `EvaluatedNetworkAttributes` (units, data type, usage type,
+   `network_dataset/data/network_template.xml`'s `EvaluatedNetworkAttributes` (units, data type, usage type,
    restriction parameters — see the XML or §F2 for the exact values).
 4. Assign evaluators. `TrafficTurn` and the Junction/Edge/Turn defaults for `Length`/`OneWay`
    are plain Constant evaluators — copy the constant values straight from the XML. For the
@@ -394,7 +394,7 @@ were each tested and ruled out:
    build.** A clean "Build succeeded" message does not confirm restrictions are actually
    enforced — see §4.4 below. Only once verified, export the template:
    `arcpy.na.CreateTemplateFromNetworkDataset` → commit the result over
-   `data/network_template.xml`, so future refreshes can go back to running
+   `network_dataset/data/network_template.xml`, so future refreshes can go back to running
    `03_create_network_dataset.py` unattended instead of repeating this by hand.
 
 ### 3.3 Find and read the build errors file
