@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refreshing the QA Street Network</title>
+<style>
+  :root {
+    --bg: #f5f6f3;
+    --surface: #ffffff;
+    --surface-2: #fafaf8;
+    --border: #dfe3dd;
+    --text: #1c211d;
+    --text-muted: #5f6b62;
+    --accent: #3a6b52;
+    --accent-soft: #e8f0ea;
+    --link: #2a5f8f;
+    --done: #227a4a;
+    --done-bg: #e5f4ea;
+    --partial: #9a6400;
+    --partial-bg: #fbf1dc;
+    --blocked: #ad2b21;
+    --blocked-bg: #fbe8e6;
+    --notstarted: #626b64;
+    --notstarted-bg: #ececea;
+    --code-bg: #eef0ec;
+    --shadow: 0 1px 2px rgba(20, 30, 22, 0.06), 0 1px 8px rgba(20, 30, 22, 0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --surface: #1c2023;
+      --surface-2: #20242a;
+      --border: #33383d;
+      --text: #e7ebe6;
+      --text-muted: #a2aca4;
+      --accent: #6fbf95;
+      --accent-soft: #1f2e26;
+      --link: #7ab6e8;
+      --done: #63c88f;
+      --done-bg: #163425;
+      --partial: #e0b04a;
+      --partial-bg: #362a12;
+      --blocked: #f0847a;
+      --blocked-bg: #3a1e1c;
+      --notstarted: #9aa39c;
+      --notstarted-bg: #262a2c;
+      --code-bg: #262b2f;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 10px rgba(0,0,0,0.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  a { color: var(--link); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 80px; }
+  nav.topnav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  nav.topnav .inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 10px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+  nav.topnav strong { font-size: 14px; white-space: nowrap; }
+  nav.topnav .links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13.5px; }
+  nav.topnav .links a { text-decoration: none; color: var(--text-muted); }
+  nav.topnav .links a:hover { color: var(--accent); }
+  nav.topnav button {
+    margin-left: auto;
+    font-size: 12.5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  header.hero { padding: 36px 0 8px; }
+  header.hero h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.hero .meta { color: var(--text-muted); font-size: 14px; margin: 4px 0; }
+  header.hero .meta strong { color: var(--text); }
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 18px 0 28px;
+    box-shadow: var(--shadow);
+    font-size: 15px;
+  }
+  .callout strong.tag {
+    display: inline-block;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  section { margin: 42px 0; }
+  section > h2 {
+    font-size: 21px;
+    margin: 0 0 4px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  section > p.section-sub { color: var(--text-muted); margin-top: 6px; font-size: 14.5px; }
+
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+  @media (max-width: 800px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .card h3 { margin: 0 0 8px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .card ul { margin: 10px 0 0; padding-left: 20px; font-size: 13.8px; }
+  .card li { margin-bottom: 5px; }
+
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .pill-done { background: var(--done-bg); color: var(--done); }
+  .pill-partial { background: var(--partial-bg); color: var(--partial); }
+  .pill-blocked { background: var(--blocked-bg); color: var(--blocked); }
+  .pill-notstarted { background: var(--notstarted-bg); color: var(--notstarted); }
+
+  .pipeline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 20px 0 6px;
+    font-size: 13px;
+  }
+  .pipeline .box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow);
+    max-width: 190px;
+  }
+  .pipeline .box.dim { opacity: 0.7; }
+  .pipeline .box .label { font-weight: 600; }
+  .pipeline .box .sub { color: var(--text-muted); font-size: 11.5px; margin-top: 3px; }
+  .pipeline .arrow { color: var(--text-muted); font-size: 16px; }
+  .pipeline .fd {
+    border: 1px dashed var(--accent);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .pipeline .fd-label { width: 100%; font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+
+  details.phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 10px 0;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  details.phase > summary {
+    cursor: pointer;
+    padding: 13px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    list-style: none;
+  }
+  details.phase > summary::-webkit-details-marker { display: none; }
+  details.phase > summary::before {
+    content: "▸";
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    font-size: 12px;
+  }
+  details.phase[open] > summary::before { transform: rotate(90deg); }
+  details.phase .body { padding: 2px 16px 16px; font-size: 14px; }
+  details.phase .body p { margin: 8px 0; }
+  details.phase .body ul { margin: 8px 0; padding-left: 22px; }
+  details.phase .body li { margin-bottom: 6px; }
+  details.phase .stat-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+  .stat {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    min-width: 120px;
+  }
+  .stat .n { font-size: 17px; font-weight: 700; display: block; }
+  .stat .l { color: var(--text-muted); }
+
+  .milestone {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 14px 0;
+    box-shadow: var(--shadow);
+  }
+  .milestone h3 { margin: 0 0 4px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .milestone .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .milestone p.why { color: var(--text-muted); font-size: 13.5px; margin: 4px 0 10px 34px; }
+  ul.todo { list-style: none; margin: 0; padding-left: 34px; }
+  ul.todo li {
+    position: relative;
+    padding-left: 26px;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  ul.todo li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 3px;
+    width: 15px; height: 15px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 4px;
+  }
+  ul.todo li.done { color: var(--text-muted); text-decoration: line-through; }
+  ul.todo li.done::before { content: "✓"; border-color: var(--done); color: var(--done); font-size: 11px; text-align: center; line-height: 13px; text-decoration: none; }
+  ul.todo li .tag {
+    display: inline-block;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 5px;
+    padding: 1px 6px;
+    margin-right: 6px;
+    position: relative;
+    top: -1px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 10px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  tr:last-child td { border-bottom: none; }
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px 14px; box-shadow: var(--shadow); }
+
+  code, .code {
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+  }
+  pre {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  .ready-list { list-style: none; padding-left: 0; margin: 10px 0; }
+  .ready-list li {
+    position: relative;
+    padding: 6px 0 6px 28px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .ready-list li:last-child { border-bottom: none; }
+  .ready-list li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 9px;
+    width: 15px; height: 15px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 4px;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 50px;
+    padding-top: 18px;
+    color: var(--text-muted);
+    font-size: 12.8px;
+  }
+</style>
+<style>
+  .answer {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blocked);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 18px 0 28px;
+    box-shadow: var(--shadow);
+    font-size: 15px;
+  }
+  .answer strong.tag { display: inline-block; color: var(--blocked); text-transform: uppercase; font-size: 11.5px; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .note {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--partial);
+    border-radius: 6px;
+    padding: 11px 14px;
+    margin: 14px 0;
+    font-size: 13.8px;
+  }
+  .email {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .email .hdr {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+  .email .hdr div { margin: 2px 0; }
+  .email .hdr span.k { color: var(--text-muted); display: inline-block; min-width: 62px; }
+  .email .bdy { padding: 16px 18px; font-size: 14.2px; line-height: 1.6; }
+  .email .bdy p { margin: 0 0 12px; }
+  .email .bdy ul, .email .bdy ol { margin: 0 0 12px; padding-left: 22px; }
+  .email .bdy li { margin-bottom: 6px; }
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 14px 0;
+    box-shadow: var(--shadow);
+  }
+  .step h3 { margin: 0 0 6px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .step .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 12.5px; font-weight: 700; flex-shrink: 0;
+  }
+  .step .why { color: var(--text-muted); font-size: 13.5px; margin: 2px 0 10px 36px; }
+  .step .body { padding-left: 36px; font-size: 14px; }
+  .step .body p { margin: 8px 0; }
+  .step .body ul { margin: 8px 0; padding-left: 20px; }
+  .step .body li { margin-bottom: 6px; }
+  @media (max-width: 700px) { .step .why, .step .body { padding-left: 0; margin-left: 0; } }
+  .sev-hi { color: var(--blocked); font-weight: 600; }
+  .sev-md { color: var(--partial); font-weight: 600; }
+  .sev-lo { color: var(--text-muted); }
+  ul.plain { list-style: none; padding-left: 0; }
+  ul.plain li { padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  ul.plain li:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="inner">
+    <strong>QA Network Refresh</strong>
+    <div class="links">
+      <a href="#answer">Short answer</a>
+      <a href="#why">Why not</a>
+      <a href="#sequence">Sequencing</a>
+      <a href="#procedure">Procedure</a>
+      <a href="#alt">Simpler option</a>
+      <a href="#risks">Risks</a>
+      <a href="#open">Open questions</a>
+    </div>
+    <button id="toggleAll" type="button">Expand all</button>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero" id="answer">
+  <h1>Refreshing the Street Network in QA</h1>
+  <p class="meta">Prepared <strong>2026-09-15</strong> &middot; Written in response to Robbie Evans's 2026-09-11 acceptance testing and Jillian Landry's direction to hold testing until the source errors are fixed</p>
+  <p class="meta">Compiled from what is committed to this repository. Verify against the live QA environment before running anything; where the two disagree, QA is the authority.</p>
+
+  <div class="answer">
+    <strong class="tag">The question, answered</strong>
+    <p style="margin:0 0 10px;"><strong>No. It is not as simple as truncating QA's <code>TRNLRS_TRN_STREET_VW</code> and loading it from Prod's.</strong> Three things are wrong with that description, and the third is the one that actually causes damage.</p>
+    <ol style="margin:0 0 10px 0; padding-left:22px;">
+      <li><strong>There is no <code>TRNLRS_TRN_STREET_VW</code> in QA to truncate.</strong> That class only exists in Prod. QA's edge source is <code>SDEADM.TRNLRS_network\TRNLRS_TRN_STREET</code>, a snapshot copied from Prod's <code>_VW</code> at build time.</li>
+      <li><strong><code>TruncateTable</code> is blocked on it anyway</strong> with <code>ERROR 001395</code>, because a registered network source is a controller-dataset member. <code>DeleteRows</code> is the supported equivalent.</li>
+      <li><strong>Reloading the edge source silently destroys all 1,180 live turn restrictions.</strong> <code>DeleteRows</code> + <code>Append</code> reassigns every OBJECTID, and turn edge references are stored as OBJECTIDs. The next build re-emits <code>Cannot find edge element corresponding to turn identifier N</code> for every turn and the Turns count goes to zero.</li>
+    </ol>
+    <p style="margin:0;">So an edge refresh is really a <strong>seven-step rebuild</strong>: sync the edge copy, re-remap the turns, verify, swap, recreate the network dataset, force a full build, re-apply the SQL grants. Roughly half a day, mostly waiting. The full procedure is below.</p>
+  </div>
+
+  <div class="note">
+    <strong>And before any of that:</strong> refreshing QA today would reload the same geometry Robbie just rejected. Prod's <code>TRNLRS_TRN_STREET_VW</code> has not changed, because nothing in the LRS has been corrected yet. See <a href="#sequence">Sequencing</a>.
+  </div>
+</header>
+
+<section id="why">
+  <h2>Why it is not a truncate and load</h2>
+
+  <div class="step">
+    <h3><span class="num">1</span> QA has no <code>_VW</code> class</h3>
+    <div class="body">
+      <p><code>TRNLRS_TRN_STREET_VW</code> is created by <code>scripts/LRS_updates.py</code> as a standalone SDE feature class, outside any feature dataset, and <strong>it only exists in Prod</strong>. Both <code>03_create_network_dataset.py</code> and <code>04_sync_and_rebuild_network.py</code> are written around that fact: script 03 always reads the edge source from a dedicated <code>PROD_SDE_CONNECTION</code> regardless of which environment it is building into.</p>
+      <p>What QA actually has is the feature dataset copy:</p>
+      <pre><code>E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde\SDEADM.TRNLRS_network\TRNLRS_TRN_STREET</code></pre>
+      <p>That copy, not a <code>_VW</code>, is what the QA network dataset reads. The name differs because SDE enforces unique feature class names across the whole geodatabase, so the copy cannot reuse the <code>_VW</code> name.</p>
+      <div class="note"><strong>Worth verifying live:</strong> if something named <code>TRNLRS_TRN_STREET_VW</code> <em>does</em> turn up in QA, it is an orphaned one-off snapshot, not a source of the network dataset. Refreshing it would change nothing about routing results. Check what the network dataset's Sources tab actually lists before touching anything.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">2</span> <code>TruncateTable</code> raises <code>ERROR 001395</code></h3>
+    <div class="body">
+      <p><code>TRNLRS_TRN_STREET</code> is a registered edge source of <code>TRNLRS_street_network</code>, which makes it a controller-dataset participant. <code>arcpy.management.TruncateTable</code> against it fails with:</p>
+      <pre><code>ERROR 001395: Operation not supported on a feature class in a controller dataset.</code></pre>
+      <p><code>arcpy.management.DeleteRows</code> is an ordinary edit operation and <strong>is</strong> supported. It is slower on a table this size, but it does not require tearing the network dataset down. <code>04_sync_and_rebuild_network.py</code> already does it this way.</p>
+      <div class="note"><strong>Known bug, relevant here:</strong> <code>append_feature()</code> inside <code>scripts/LRS_updates.py</code> still calls <code>arcpy.TruncateTable_management()</code> directly, and <code>sync_network_edge_source()</code> calls it. That will hit this exact error the first time it runs against a controller-dataset edge source. It has not surfaced only because <code>LRS_updates.py</code> has never been deployed to Prod.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">3</span> The reload reassigns every OBJECTID, which breaks every turn</h3>
+    <div class="body">
+      <p>This is the one that matters. The chain:</p>
+      <ul>
+        <li>A turn feature stores its edge references as <code>Edge{N}FID</code>, which is the <strong>OBJECTID</strong> of a feature in the registered edge source. That is the entire reason <code>05_rebuild_traffic_turns.py</code> exists.</li>
+        <li><code>OBJECTID</code> is database-managed and is not carried across by <code>Append</code>. Every reloaded row gets a fresh one.</li>
+        <li>So after the reload, the segment-to-OBJECTID mapping every turn depends on is gone.</li>
+      </ul>
+      <p>The next <code>BuildNetwork</code> then re-emits, for all 1,189 turns:</p>
+      <pre><code>Cannot find edge element corresponding to turn identifier 1.</code></pre>
+      <p>and Network Dataset Properties shows <strong>Turns: 0</strong>. Nothing errors out loudly. The build reports success, the network solves fine, and every prohibited turn is silently unenforced. <strong>This project has already chased that exact regression three separate times.</strong></p>
+      <p><code>Edge{N}FCID</code> is safer but not free: it holds the edge class's <code>DSID</code>, which survives <code>DeleteRows</code> and <code>Append</code> (the class object persists) but changes whenever the class itself is deleted and recreated. So re-run the turn remap after anything that recreates <code>TRNLRS_TRN_STREET</code>, not just after its geometry changes.</p>
+      <div class="note"><strong>Documentation correction:</strong> <code>network_dataset_migration_plan.md</code>'s Rebuild Cadence section used to state that the turn class does not need rebuilding on each LRS refresh. That was wrong for the reason above, and has been corrected as part of this work.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">4</span> Knock-on: the swap invalidates the SQL grants</h3>
+    <div class="body">
+      <p>Swapping the turn class requires deleting the network dataset first (<code>ERROR 001919</code> blocks <code>Delete</code> and <code>Rename</code> on a registered source while it exists). Deleting and recreating the network dataset <strong>reassigns its registration IDs</strong>, and the <code>PUBLIC SELECT</code> grants go with the old ones.</p>
+      <p>QA's current IDs are <code>N_3</code> and <code>ND_40171</code>, set on 2026-09-01. After a rebuild they will be different. Until the new ones are granted, <strong>every OS-authentication user, Robbie included, gets <code>DBMS table not found</code> and cannot open the network dataset at all.</strong> This is the single easiest step to forget and the one that most visibly breaks the person you are handing the network back to.</p>
+    </div>
+  </div>
+</section>
+
+<section id="sequence">
+  <h2>Sequencing: is a refresh even the right next step?</h2>
+  <p class="section-sub">Worth settling before anyone spends half a day on the procedure below.</p>
+
+  <p>Robbie's roughly 500 flagged streets are defects in the <strong>LRS source data</strong>, not in the network dataset. His description is "the segment is extended past the intersection," which is a geometry problem in <code>TRNLRS_TRN_STREET_VW</code>, upstream of everything the network build does. Refreshing QA pulls from Prod's <code>_VW</code>, and Prod's <code>_VW</code> still carries exactly the geometry Robbie rejected, because no corrections have been made yet. <strong>A refresh run today would reload the same 500 problems and Robbie would find them again.</strong></p>
+
+  <p>That is consistent with what Jillian said on 2026-09-11: no sense continuing until these are fixed. The order that actually works:</p>
+
+  <div class="table-wrap">
+  <table>
+    <tr><th>#</th><th>Step</th><th>Owner</th><th>Status</th></tr>
+    <tr><td>1</td><td>Robbie sends the roughly 500 flagged locations to Melanie Parker</td><td>Robbie Evans</td><td>Committed to in his 2026-09-11 email</td></tr>
+    <tr><td>2</td><td>Corrections made in the LRS source (routes / event data)</td><td>LRS team, Mel and Ryan</td><td>Not started. Volume unknown until the list lands.</td></tr>
+    <tr><td>3</td><td>Prod LRS refresh regenerates <code>TRNLRS_TRN_STREET_VW</code> with the corrections</td><td><code>LRS_updates.py</code> on its normal cycle</td><td>Automatic once step 2 lands</td></tr>
+    <tr><td>4</td><td><strong>Confirm the corrections are actually present in Prod's <code>_VW</code></strong> before refreshing QA</td><td>Alex</td><td>Do not skip. See the procedure's Phase 1.</td></tr>
+    <tr><td>5</td><td>Refresh QA using the procedure below</td><td>Alex</td><td>Roughly half a day</td></tr>
+    <tr><td>6</td><td>Robbie retests</td><td>Robbie Evans</td><td></td></tr>
+  </table>
+  </div>
+
+  <div class="note">
+    <strong>One thing worth deciding at the meeting:</strong> whether to refresh QA once at the end, or in batches as corrections land. Each refresh is a half-day rebuild with a turn remap and a re-grant, so batching is much cheaper. But if the fixes will take weeks, one early partial refresh lets Robbie confirm that a fixed segment actually resolves the editing error, before the LRS team works through all 500 on the assumption that it will.
+  </div>
+</section>
+
+<section id="procedure">
+  <h2>The procedure</h2>
+  <p class="section-sub">Seven phases. Run from an ArcGIS Pro Python environment with the Network Analyst extension available. Paths shown are QA.</p>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-notstarted">Phase 0</span> Baseline and backup</summary>
+    <div class="body">
+      <p>Record what QA looks like before you touch it, so that "did this change?" is answerable afterwards.</p>
+      <ul>
+        <li>Network Dataset Properties: build date, source feature counts, <strong>Turns count</strong>, evaluator definitions on <code>Length</code>, <code>OneWay</code>, <code>TrafficTurn</code>.</li>
+        <li>Feature counts on all three sources.</li>
+        <li>The current <code>N_&lt;id&gt;</code> and <code>ND_&lt;id&gt;</code> registration IDs (expected <code>N_3</code> and <code>ND_40171</code>).</li>
+        <li>Back up the current turn class. It is the only copy of any hand-authored turn edits.</li>
+      </ul>
+<pre><code>import arcpy
+
+QA = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+FD = QA + r"\SDEADM.TRNLRS_network"
+
+for name in ["TRNLRS_TRN_STREET", "TRNLRS_street_junction", "TRNLRS_traffic_turn"]:
+    print(name, arcpy.management.GetCount(FD + "\\" + name)[0])
+
+arcpy.management.CopyFeatures(
+    FD + r"\TRNLRS_traffic_turn",
+    FD + r"\TRNLRS_traffic_turn_bak_20260915",
+)</code></pre>
+      <div class="note"><strong>Open item this backup protects against:</strong> Mel's hand-authored Cogswell ramp turns. The remap in Phase 3 reads from the <em>legacy</em> <code>TRN_traffic_turn</code> class, so anything authored there is carried through, but anything authored directly against the live <code>TRNLRS_traffic_turn</code> is destroyed by the swap. Which of the two applies has never been confirmed. Back it up and check the backup afterwards.</div>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-notstarted">Phase 1</span> Confirm Prod's edge source actually carries the fixes</summary>
+    <div class="body">
+      <p>Cheap, and it is the whole point of the exercise. If the corrections are not in Prod's <code>_VW</code> yet, stop here.</p>
+      <ul>
+        <li>Feature count on Prod's <code>SDEADM.TRNLRS_TRN_STREET_VW</code>, compared to QA's current copy.</li>
+        <li><code>MODDATE</code> range, to confirm the LRS refresh has run since the corrections were made.</li>
+        <li>Spot-check three or four of Robbie's actual flagged locations by <code>FDMID</code> and confirm the overshoot is gone.</li>
+      </ul>
+      <p>The third check is the only one that proves anything. The first two confirm a refresh ran; they do not confirm it fixed the thing Robbie found.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-notstarted">Phase 2</span> Re-sync QA's edge copy from Prod</summary>
+    <div class="body">
+      <p>Do <strong>not</strong> use <code>04_sync_and_rebuild_network.py</code> unmodified here. It is written Prod-only, and it rebuilds the network immediately after the sync, which is exactly what you do not want before the turns have been remapped. Do the sync explicitly instead:</p>
+<pre><code>import arcpy
+
+PROD = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
+QA   = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+
+src = PROD + r"\SDEADM.TRNLRS_TRN_STREET_VW"
+dst = QA   + r"\SDEADM.TRNLRS_network\TRNLRS_TRN_STREET"
+
+# DeleteRows, not TruncateTable -- see ERROR 001395 above.
+arcpy.management.DeleteRows(dst)
+arcpy.management.Append(inputs=src, target=dst, schema_type="NO_TEST")
+
+print(arcpy.management.GetCount(dst)[0])</code></pre>
+      <p>Expect the count to match Prod's <code>_VW</code>. From here until Phase 5 completes, <strong>QA's network dataset is in a broken state</strong>: the edge OBJECTIDs no longer match what the turns reference. Do not build it yet, and do not hand it to anyone.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-notstarted">Phase 3</span> Re-remap the turns and verify</summary>
+    <div class="body">
+      <p>Run <code>05_rebuild_traffic_turns.py</code> with <code>SDE</code> pointing at QA and <code>AUTO_SWAP_AND_REBUILD = False</code>, so you get a chance to look at the result before it goes live. It writes <code>TRNLRS_traffic_turn_staging</code>.</p>
+      <p>Read four numbers out of the log before going further:</p>
+      <div class="stat-row">
+        <div class="stat"><span class="n">&lt; 5%</span><span class="l">skip rate (last run: 4.0%)</span></div>
+        <div class="stat"><span class="n">&gt; 95%</span><span class="l">Edge1End agreement (last run: 99.7%)</span></div>
+        <div class="stat"><span class="n">= DSID</span><span class="l">edge source FCID matches <code>Describe(edge).DSID</code></span></div>
+        <div class="stat"><span class="n">~1,189</span><span class="l">records written, from ~1,238 input</span></div>
+      </div>
+      <p>The script refuses the automatic swap below 95% agreement. If the skip rate jumps well above 4%, that is a signal in itself: the corrections in Phase 1 changed the geometry more than expected, and the skip categories in the log are worth reading before continuing.</p>
+      <p>Then run the independent verifier against the staging class:</p>
+<pre><code>python verify_turn_rebuild.py    # TURN_FC pointed at TRNLRS_traffic_turn_staging</code></pre>
+      <p>All ten checks should pass clean, including check 9 (junction agreement) and check 10 (duplicate signatures). Do not swap on anything less.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-notstarted">Phase 4</span> Swap the turn class in</summary>
+    <div class="body">
+      <p>Order matters. The network dataset must go first, or <code>ERROR 001919</code> blocks the delete and rename.</p>
+<pre><code>import arcpy
+
+QA = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+FD = QA + r"\SDEADM.TRNLRS_network"
+
+arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_street_network")      # releases the lock
+arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_traffic_turn")
+arcpy.management.Rename(FD + r"\SDEADM.TRNLRS_traffic_turn_staging", "TRNLRS_traffic_turn")</code></pre>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-notstarted">Phase 5</span> Recreate and build the network dataset</summary>
+    <div class="body">
+      <p>Two routes. <strong>Try the first one</strong>, because it is the thing this project most needs to find out.</p>
+      <p><strong>Route A, scripted.</strong> Run <code>03_create_network_dataset.py</code> against the corrected Python-evaluator template committed on 2026-09-03. <strong>Nobody has ever confirmed this works.</strong> QA's current network was built by hand; the template that broke before was the old VBScript one. Testing it here costs nothing extra and closes the top open item on the roadmap. Watch the log for "Copying into feature dataset" against the turn class: that would mean it is about to overwrite your freshly remapped turns with the raw legacy copy, and you should stop.</p>
+      <p><strong>Route B, interactive, if Route A fails with <code>ERROR 030386</code> or anything else.</strong> Right-click <code>SDEADM.TRNLRS_network</code> &rarr; New &rarr; Network Dataset. Add the three sources. Endpoint connectivity, one connectivity group, no elevation model. Then the three attributes:</p>
+      <ul>
+        <li><code>Length</code>, cost, metres, double. Python Field Script, Value <code>!Shape!</code>, no code block, both directions. Constant 0 for the junction, edge, and turn defaults.</li>
+        <li><code>OneWay</code>, restriction, prohibited. Python Field Script both directions, constant <code>False</code> for all defaults:</li>
+      </ul>
+<pre><code># Along Digitized -- Code Block
+def oneway_restricted(str_dir):
+    return (str_dir or "").upper() in ("N", "FDTO", "T")
+
+# Value
+oneway_restricted(!STR_DIR!)
+
+
+# Against Digitized -- Code Block   (FOTD, not FDTO)
+def oneway_restricted(str_dir):
+    return (str_dir or "").upper() in ("N", "FOTD", "T")
+
+# Value
+oneway_restricted(!STR_DIR!)</code></pre>
+      <ul>
+        <li><code>TrafficTurn</code>, restriction, prohibited. Constant <code>True</code> on <code>TRNLRS_traffic_turn</code>, constant <code>False</code> on all defaults.</li>
+      </ul>
+      <p>Then Build Network with <strong>Force Full Build checked</strong>, exactly once. Do not also click Build Network afterwards: a double build stacks two generations of system junctions, which is how a bogus 16,334 junctions / 37,728 edges showed up earlier in this project.</p>
+      <div class="note"><strong>Two things that will waste your day if you forget them.</strong> A Field Script evaluator edit without Force Full Build has <em>zero effect</em> while Pro reports a clean build, because the precomputed per-edge weight tables stay stale. And a build that runs much longer than about two minutes on this network is almost certainly blocked on a SQL Server session, not working. Check Task Manager CPU first (near-idle means stuck), then ask whoever administers <code>ms-gis-sql-q21</code>. One of these ran for 18 hours before a DBA killed it.</div>
+      <p>If Route A worked, and only then, re-export the template afterwards with <code>arcpy.na.CreateTemplateFromNetworkDataset</code> and diff it against the committed one.</p>
+      <div class="note"><strong>Alternative:</strong> <code>run_full_network_rebuild.py</code> wraps phases 3 to 5 and guarantees exactly one build per run. It swaps automatically without giving you the review step, and it does not do the Phase 2 edge sync, so run Phase 2 by hand first either way. Good choice once the refresh becomes routine; for the first run after 500 source corrections, do it stepwise so the remap numbers get looked at.</div>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-notstarted">Phase 6</span> Re-apply the SQL grants under the new IDs</summary>
+    <div class="body">
+      <p><strong>Do not skip this.</strong> Without it Robbie cannot open the network dataset at all. Follow <code>network_dataset_sql_permissions.md</code>; the audit query in its section 2b lists the IDs and their grant status in one pass.</p>
+<pre><code>SELECT name FROM sys.tables
+WHERE schema_id = SCHEMA_ID('SDEADM')
+  AND (name LIKE 'N\_%' ESCAPE '\' OR name LIKE 'ND\_%' ESCAPE '\')
+ORDER BY name;</code></pre>
+      <p>Grant <code>SELECT</code> to <code>PUBLIC</code> on the six <code>N_&lt;id&gt;_*</code> tables and the two <code>ND_&lt;id&gt;_*</code> tables under whatever the new IDs turn out to be, plus all four source classes: <code>TRNLRS_TRN_STREET</code>, <code>TRNLRS_street_junction</code>, <code>TRNLRS_traffic_turn</code>, and the easily-missed auto-created <code>TRNLRS_street_network_Junctions</code>. Re-apply the editor writes to <code>HRM\GIS_LRS_EVENT_EDITOR</code> if turn editing is still expected.</p>
+      <p>Then confirm with an actual add-to-map under an OS-auth connection, not by reading the grants back.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-notstarted">Phase 7</span> Smoke test before handing it back</summary>
+    <div class="body">
+      <ul>
+        <li><strong>Properties &rarr; Sources.</strong> Turns count must be nonzero and close to 1,180. Zero means the remap did not take and the whole refresh is void.</li>
+        <li><strong>Build errors file.</strong> Open <code>BuildErrors_&lt;guid&gt;.txt</code> and confirm the GUID matches this run, not an earlier one. Expect zero <code>Cannot find edge element corresponding to turn identifier</code> lines; expect many harmless <code>Standalone user-defined junction is detected</code> warnings; expect a small number of <code>Cannot find at junction</code> lines and <strong>compare that count to the previous 9</strong>. If the source corrections worked, it should drop.</li>
+        <li><strong>One-way, both directions.</strong> Route along a <code>STR_DIR = 'FOTD'</code> street: allowed direction solves clean, wrong-way direction returns <code>ERROR 030212</code>. Then route an ordinary two-way street (Barrington St) in both directions and confirm both are clean. <strong>The two-way control is the one that matters</strong>, because a one-way-only test cannot distinguish correct logic from an evaluator accidentally restricting everything.</li>
+        <li><strong>Prohibited turn, on and off.</strong> Solve across a known prohibited movement with <code>TrafficTurn</code> enabled, then disabled. Different results means it is enforced; identical results means it is not, whatever the Turns count says.</li>
+      </ul>
+      <div class="note"><strong>Tell Robbie this explicitly when you hand it back:</strong> restrictions defined on the network dataset are <em>not</em> honoured by a Route or Service Area layer unless they are checked in that layer's Travel Mode (layer &rarr; Travel Mode &rarr; Edit &rarr; Restrictions). A freshly created layer's default travel mode does not pick up <code>OneWay</code> or <code>TrafficTurn</code>. Without them checked, a solve drives straight through a genuinely prohibited turn with no error. This cost a real afternoon on 2026-09-01.</div>
+    </div>
+  </details>
+</section>
+
+<section id="alt">
+  <h2>A simpler option worth considering</h2>
+  <p>QA's whole network is a disposable snapshot. It is not kept in sync with anything, nothing downstream depends on its identity, and the legacy <code>TRN_street_network</code> stays live and untouched throughout. So instead of an in-place edge refresh, the cleaner move is to <strong>delete QA's network dataset and its three source classes outright and rebuild from Prod's current <code>_VW</code></strong>.</p>
+  <p>The step count is almost identical, because the turn remap, the recreate, the build, and the re-grant are all required either way. What it buys:</p>
+  <ul>
+    <li>No stale-copy ambiguity. Every source is provably fresh.</li>
+    <li>It is the same procedure that will eventually be used to build Prod, so rehearsing it in QA has direct value.</li>
+    <li>It forces the <code>CreateNetworkDatasetFromTemplate</code> question to be answered, which is the top open item on the roadmap.</li>
+  </ul>
+  <p>What it costs: the backup in Phase 0 becomes mandatory rather than prudent, since there is no in-place copy of any hand-authored turn edits left behind.</p>
+</section>
+
+<section id="risks">
+  <h2>Risks and effort</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Phase</th><th>Rough effort</th><th>What can go wrong</th></tr>
+    <tr><td>0&ndash;1 Baseline and Prod check</td><td>30 min</td><td>Corrections are not actually in Prod's <code>_VW</code> yet, and the whole exercise is premature. This is the point of Phase 1.</td></tr>
+    <tr><td>2 Edge sync</td><td>15&ndash;30 min</td><td><code>DeleteRows</code> is slow on ~18,600 rows. Accidentally using <code>TruncateTable</code> gives <code>ERROR 001395</code>.</td></tr>
+    <tr><td>3 Turn remap and verify</td><td>1&ndash;2 hours</td><td>Skip rate or agreement rate outside tolerance after the source corrections. Needs a human to read the categories, not a retry.</td></tr>
+    <tr><td>4 Swap</td><td>10 min</td><td><code>ERROR 001919</code> if the network dataset was not deleted first.</td></tr>
+    <tr><td>5 Recreate and build</td><td>30 min, or all day if blocked</td><td><code>ERROR 030386</code> on Route A. Script 03 silently re-copying the raw legacy turn class over the remap. A build blocked on a SQL session with no error shown.</td></tr>
+    <tr><td>6 SQL grants</td><td>30 min</td><td>Forgetting entirely. Robbie then cannot open the network and reports it as broken.</td></tr>
+    <tr><td>7 Smoke tests</td><td>45 min</td><td>Travel Mode restrictions not enabled, producing a false pass on the turn test.</td></tr>
+  </table>
+  </div>
+  <p style="margin-top:14px;">Call it <strong>half a day of attention</strong>, spread across a day, assuming nothing blocks. The two historically expensive failures were a forgotten Force Full Build and an 18-hour blocked build, and both are avoidable by watching for them.</p>
+</section>
+
+<section id="open">
+  <h2>Open questions</h2>
+  <ul class="plain">
+    <li><strong>Does anything named <code>TRNLRS_TRN_STREET_VW</code> exist in QA?</strong> This document says no on the basis of what the scripts assume. It has not been checked live. If one does exist, it is an orphan, but it is worth knowing about before someone refreshes it and expects routing to change.</li>
+    <li><strong>How many of Robbie's roughly 500 are actually fixable in the LRS,</strong> and how long will that take? Neither the list nor an estimate exists yet. That number drives whether to batch the QA refresh or do it once.</li>
+    <li><strong>Do the seven sub-metre turn-build gaps overlap Robbie's list?</strong> They are the same class of defect. If they do, the corrections may close those turn failures for free, which would show up as the <code>Cannot find at junction</code> count dropping below 9 in Phase 7.</li>
+    <li><strong>Were Mel's Cogswell ramp turns authored against the legacy turn table or the live one?</strong> Still unconfirmed. Determines whether they survive this refresh or were already lost in the 2026-09-01 swap.</li>
+    <li><strong>Is the turn-OID-stability problem being solved, or lived with?</strong> Every refresh needs a full turn remap for as long as the answer is "lived with," and that is a real operational cost once Prod is live. The three options on the table are: remap every cycle, make edge OBJECTIDs stable with a keyed update instead of truncate and reload, or store turns against a stable street key and re-derive edge references at build time. This needs a decision before Prod cutover, not after.</li>
+  </ul>
+</section>
+
+<footer>
+  Sources: <code>network_dataset/docs/network_build_status.md</code>, <code>network_dataset/docs/turn_rebuild_qa_test_runbook.md</code>, <code>network_dataset/docs/network_dataset_script_review.md</code> sections C and D, <code>network_dataset/docs/network_dataset_sql_permissions.md</code>, <code>network_dataset/scripts/03_create_network_dataset.py</code>, <code>04_sync_and_rebuild_network.py</code>, <code>05_rebuild_traffic_turns.py</code>, <code>run_full_network_rebuild.py</code>, and the "RE: LRS Network dataset" thread of 2026-09-11.
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('toggleAll');
+  if (!btn) return;
+  var expanded = true;
+  btn.textContent = 'Collapse all';
+  btn.addEventListener('click', function () {
+    expanded = !expanded;
+    document.querySelectorAll('details.phase').forEach(function (d) { d.open = expanded; });
+    btn.textContent = expanded ? 'Collapse all' : 'Expand all';
+  });
+})();
+</script>
+
+</body>
+</html>

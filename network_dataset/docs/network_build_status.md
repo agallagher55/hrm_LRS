@@ -6,6 +6,18 @@
 
 For full technical details see [`network_dataset_migration_plan.md`](network_dataset_migration_plan.md).
 
+**Where this stands as of 2026-09-15:** QA's network dataset is built, editable, and both
+restriction types are proven with real solves. Independent acceptance testing by Robbie Evans
+started 2026-09-09 and **stopped on 2026-09-11 after roughly 500 source-geometry errors**
+(segments extended past intersections) were found in the LRS data. Those are upstream defects,
+not network dataset defects, but they block sign-off. Testing resumes after the LRS
+corrections land and QA is refreshed. Two documents were added for the 2026-09-16 check-in:
+
+| Document | Answers |
+|---|---|
+| [`junction_network_workflow_esri_case.html`](junction_network_workflow_esri_case.html) | Ryan Lowe / Esri Case #04248942: the high-level workflow for creating the junction network, every error encountered, and a draft reply |
+| [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html) | Robbie Evans / Jillian Landry: how to refresh QA, and why it is not a simple truncate-and-load |
+
 **Feature dataset separation (in progress, 2026-07-14):** the network source FCs and
 `TRNLRS_street_network` are being moved out of `SDEADM.TRNLRS` (the LRS feature
 dataset) into a dedicated `SDEADM.TRNLRS_network` feature dataset.
@@ -57,7 +69,7 @@ superseded by the 2026-09-01 rebuild — see [the 2026-09-01 update](#update-202
 | 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ **QA rebuilt from scratch 2026-09-01** (interactive wizard, Python evaluators). Dev still on its original 2026-06-26 build — VBScript, permanently read-only, not rebuilt. Prod: nothing built. |
-| 5 | Validation | 🔄 Properties ✅; service area ✅; **turn-restriction solve ✅ (2026-09-01)**; **one-way solve ✅ (2026-09-02/03, after a real multi-day debugging saga — see below)**; route comparison / address-range pending |
+| 5 | Validation | 🔄 Properties ✅; service area ✅; **turn-restriction solve ✅ (2026-09-01)**; **one-way solve ✅ (2026-09-02/03, after a real multi-day debugging saga — see below)**; route comparison / address-range pending. **Robbie Evans's expert acceptance testing is PAUSED (2026-09-11)**: ~500 source-geometry errors found in the first minutes; QA must be refreshed after the LRS fixes land before he can retest. |
 | 5a | Traffic turn rebuild | ✅ **Re-verified 2026-09-01** — 1,189 turns written, 99.7% Edge1End agreement, all 10 verifier checks clean, 5 spatial spot checks correct, **1,180 built as live turn elements** (9 rejected at build, see the 2026-09-01 update) |
 
 ### Update 2026-09-01 — QA network dataset rebuilt from scratch
@@ -388,7 +400,55 @@ following Tuesday (2026-09-15, derived from the 2026-09-09 send date — not sta
 in the email). Suggested focus: turn and one-way restrictions — both already confirmed working
 above, so this is Robbie's independent sign-off on top of the checks already run here.
 
-- [ ] Robbie's expert network testing results (requested 2026-09-09, due ~2026-09-11)
+**2026-09-11, Robbie's testing stopped early: ~500 source-geometry errors.** Within the first
+two minutes of testing, Robbie found streets "that aren't getting calculated due to dangles in
+the segments when editing." He asked whether to keep testing or identify all of them for the
+LRS folks to fix and then rebuild; Jillian Landry's answer was to identify all of them, since
+the corrected version has to be retested anyway. By the end of the day **about 500 were
+flagged**. Robbie's own characterisation of what he had looked at so far:
+
+> Most of the ones I'm looked at are just simple fixes though. The segment is extended past
+> the intersection.
+
+The list is going to Melanie Parker. Jillian's direction (2026-09-11, to Robbie and Alex):
+*"no sense in your continuing on until these are fixed. Can you also send to Ryan as they most
+likely will share the fixing."*
+
+**What this means for this project.** These are defects in the **LRS source data**, upstream of
+everything the network build does, not network dataset defects. Three consequences:
+
+1. **QA acceptance testing is paused**, not failed. Nothing found so far contradicts the
+   restriction and turn evidence recorded above; Robbie never got far enough to exercise it.
+2. **This is the same class of defect as the 7 sub-metre turn-build gaps** (0.006–0.41 m,
+   see the runbook's §3.3) and the 4 plain-street junction anomalies from the 2026-08-31
+   alignment check, seen at editing scale and much higher volume. Worth checking the overlap
+   once Mel has the list, since the corrections may close some of the 9 `Cannot find at junction`
+   turn failures for free.
+3. **A QA refresh is required before Robbie can retest**, and it is not a simple truncate/load.
+   Procedure, and why, in [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html).
+
+**2026-09-10, Ryan Lowe asked for the junction-network workflow for Esri Case #04248942.**
+Esri Canada (Sukhjit P.) has reproduced HRM's LRS intersection behaviour in-house and reports
+it as **data-specific, not ArcGIS Pro version-specific**. Esri asked twice (2026-09-01 and
+2026-09-09) for the high-level workflow the "coworker" (Alex) follows to create the junction
+network, plus any error messages with screenshots. Written up in
+[`junction_network_workflow_esri_case.html`](junction_network_workflow_esri_case.html),
+including a draft reply to Ryan. Two Esri questions remain for others to answer: whether a
+datum warning appears in the editing map (nobody has checked), and whether all three of Ryan's
+scenarios still reproduce on Pro 3.5.8.
+
+- [x] Robbie's expert network testing results (requested 2026-09-09): **stopped 2026-09-11
+      after ~500 source-geometry errors; not a pass or fail, testing is paused**
+- [ ] Robbie sends the ~500 flagged locations to Melanie Parker
+- [ ] LRS team corrects the flagged geometry; confirm the fixes land in prod's
+      `TRNLRS_TRN_STREET_VW` before refreshing QA
+- [ ] Refresh QA per [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html),
+      then hand back to Robbie for a retest
+- [ ] Check whether Robbie's ~500 overlap the 7 sub-metre turn-build gaps and the 4 plain-street
+      junction anomalies
+- [ ] Send the junction-network workflow write-up to Ryan for Esri Case #04248942
+- [ ] Decide the turn-OID-stability question before prod cutover (see
+      [`network_dataset_script_review.md` §D](network_dataset_script_review.md#d-turn-references-do-not-survive-an-lrs-refresh-structural))
 
 ---
 
