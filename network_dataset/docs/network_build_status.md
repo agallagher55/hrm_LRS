@@ -13,10 +13,14 @@ started 2026-09-09 and **stopped on 2026-09-11 after roughly 500 source-geometry
 not network dataset defects, but they block sign-off. Testing resumes after the LRS
 corrections land and QA is refreshed. Two documents were added for the 2026-09-16 check-in:
 
-| Document | Answers |
-|---|---|
-| [`junction_network_workflow_esri_case.html`](junction_network_workflow_esri_case.html) | Ryan Lowe / Esri Case #04248942: the high-level workflow for creating the junction network, every error encountered, and a draft reply |
-| [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html) | Robbie Evans / Jillian Landry: how to refresh QA, and why it is not a simple truncate-and-load |
+| Document | Answers | Shareable link |
+|---|---|---|
+| [`junction_network_workflow_esri_case.html`](junction_network_workflow_esri_case.html) | Ryan Lowe / Esri Case #04248942: the high-level workflow for creating the junction network, every error encountered, and a draft reply | [Junction Network Workflow](https://claude.ai/artifact/NP2uxjdLuuRJr8uCzNJwgf) |
+| [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html) | Robbie Evans / Jillian Landry: how to refresh QA, and why it is not a simple truncate-and-load | [QA Network Refresh](https://claude.ai/artifact/T5J6zb7B8UUqa61Ns93v4P) |
+
+The shareable links are the same documents published as standalone web pages for people who
+do not have this repository. The repository copies are the source of truth; if a document
+changes here, the published page has to be republished to match.
 
 **Feature dataset separation (in progress, 2026-07-14):** the network source FCs and
 `TRNLRS_street_network` are being moved out of `SDEADM.TRNLRS` (the LRS feature

@@ -30,8 +30,8 @@ hrm_LRS/
 | The current picture, visually | [`network_dataset/docs/roadmap_lrs_network.html`](network_dataset/docs/roadmap_lrs_network.html) |
 | A stakeholder-facing status summary | [`network_dataset/docs/street_network_meeting_overview.md`](network_dataset/docs/street_network_meeting_overview.md) |
 | Detailed build status and open items | [`network_dataset/docs/network_build_status.md`](network_dataset/docs/network_build_status.md) |
-| How to refresh the network in QA | [`network_dataset/docs/qa_network_refresh_runbook.html`](network_dataset/docs/qa_network_refresh_runbook.html) |
-| The junction-network workflow and every error hit building it | [`network_dataset/docs/junction_network_workflow_esri_case.html`](network_dataset/docs/junction_network_workflow_esri_case.html) |
+| How to refresh the network in QA | [`network_dataset/docs/qa_network_refresh_runbook.html`](network_dataset/docs/qa_network_refresh_runbook.html) ([shareable version](https://claude.ai/artifact/T5J6zb7B8UUqa61Ns93v4P)) |
+| The junction-network workflow and every error hit building it | [`network_dataset/docs/junction_network_workflow_esri_case.html`](network_dataset/docs/junction_network_workflow_esri_case.html) ([shareable version](https://claude.ai/artifact/NP2uxjdLuuRJr8uCzNJwgf)) |
 | Architecture and phase-by-phase history | [`network_dataset/docs/network_dataset_migration_plan.md`](network_dataset/docs/network_dataset_migration_plan.md) |
 | Known script defects and their diagnoses | [`network_dataset/docs/network_dataset_script_review.md`](network_dataset/docs/network_dataset_script_review.md) |
 
