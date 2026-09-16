@@ -15,12 +15,13 @@ Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
   TRNLRS_TRN_STREET_VW is created by LRS_updates.py as a standalone SDE feature
   class (not inside a feature dataset). Prod's copy is authoritative -- it is
   fed by prod's LRSN_Route/event tables and is what this script always reads
-  from. A same-named standalone FC was also confirmed present in QA via Pro
-  Catalog on 2026-09-16; its origin (a one-off LRS_updates.py test run against
-  QA?) and freshness are unconfirmed, and nothing in this script or the wider
-  network build reads from it -- PROD_SDE_CONNECTION below is hardcoded
-  regardless of which environment SDE_CONNECTION_UPDATE targets, specifically
-  so a QA/Dev copy (fresh or stale) is never accidentally used as the source.
+  from. A same-named standalone FC also exists in QA (confirmed via Pro
+  Catalog 2026-09-16) -- QA is a one-to-one mirror of prod without scheduled
+  updates, so LRS_updates.py gets run there manually and QA's copy's currency
+  is never guaranteed. Nothing in this script or the wider network build
+  reads from it -- PROD_SDE_CONNECTION below is hardcoded regardless of which
+  environment SDE_CONNECTION_UPDATE targets, specifically so QA/Dev's copy
+  (whatever its current staleness) is never accidentally used as the source.
   Network datasets require all sources to live inside the target feature
   dataset, so
   this script always reads the standalone FC from PROD_SDE_CONNECTION and

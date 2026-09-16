@@ -115,11 +115,16 @@ What is and isn't known:
 - **Confirmed:** the FC exists in QA. Its Prod counterpart remains the one every tracked
   script (03, 04, `sync_network_edge_source()`) is hardcoded to read from, regardless of which
   environment they build into -- so this does not change how the network dataset gets built.
-- **Not confirmed:** whether QA's copy is kept current by a QA-scoped run of `LRS_updates.py`
-  (and if so, on what cadence, and whether it overlays QA's own `LRSN_Route`/event tables or
-  something else), or whether it is a stale one-off from testing the script before its
-  eventual prod deployment. Also not confirmed: whether anything besides the network build
-  (another script, a map service, ad-hoc QA work) currently reads QA's copy directly.
+- **Confirmed (Alex, 2026-09-16): QA is a one-to-one mirror of prod, just without scheduled
+  updates.** QA is meant to be a like-for-like environment to test changes against before they
+  reach prod -- it isn't independent QA-only data. `LRS_updates.py` runs against it manually
+  (or on request), not on a fixed cadence, which is why its `TRNLRS_TRN_STREET_VW` can be
+  arbitrarily stale relative to prod's at any given moment: it reflects whenever someone last
+  ran the script there, not the current state. This confirms (rather than just motivates)
+  every script's decision to always read Prod's copy specifically -- QA's own copy isn't a
+  usable substitute, since its currency isn't guaranteed by anything.
+- **Still not confirmed:** whether anything besides the network build (another script, a map
+  service, ad-hoc QA work) currently reads QA's copy of `TRNLRS_TRN_STREET_VW` directly.
 - **Practical risk:** anyone doing the QA rebuild by hand in Pro Catalog rather than via the
   scripts could pick QA's own `_VW` by mistake instead of Prod's -- worth a specific callout in
   the rebuild procedure, not just a note here.
