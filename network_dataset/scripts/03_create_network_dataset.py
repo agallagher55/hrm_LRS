@@ -13,8 +13,17 @@ Prerequisites (run in order):
 
 Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
   TRNLRS_TRN_STREET_VW is created by LRS_updates.py as a standalone SDE feature
-  class (not inside a feature dataset), and it only exists in prod. Network
-  datasets require all sources to live inside the target feature dataset, so
+  class (not inside a feature dataset). Prod's copy is authoritative -- it is
+  fed by prod's LRSN_Route/event tables and is what this script always reads
+  from. A same-named standalone FC also exists in QA (confirmed via Pro
+  Catalog 2026-09-16) -- QA is a one-to-one mirror of prod without scheduled
+  updates, so LRS_updates.py gets run there manually and QA's copy's currency
+  is never guaranteed. Nothing in this script or the wider network build
+  reads from it -- PROD_SDE_CONNECTION below is hardcoded regardless of which
+  environment SDE_CONNECTION_UPDATE targets, specifically so QA/Dev's copy
+  (whatever its current staleness) is never accidentally used as the source.
+  Network datasets require all sources to live inside the target feature
+  dataset, so
   this script always reads the standalone FC from PROD_SDE_CONNECTION and
   copies it into SDEADM.TRNLRS_network (in whichever environment
   SDE_CONNECTION_UPDATE points at) under the name TRNLRS_TRN_STREET (without
@@ -69,10 +78,13 @@ SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 # 05_rebuild_traffic_turns.py to match).
 # SDE_CONNECTION_UPDATE = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
 
-# Prod is always the read source for the edge FC: TRNLRS_TRN_STREET_VW (the
-# authoritative standalone FC refreshed by LRS_updates.py) only exists in prod,
-# so this script pulls from here regardless of which environment
-# SDE_CONNECTION_UPDATE points at above.
+# Prod is always the read source for the edge FC: TRNLRS_TRN_STREET_VW's
+# Prod copy is the authoritative one, refreshed by LRS_updates.py from prod's
+# own LRS tables. A copy of the same name also exists in QA (confirmed via
+# Pro Catalog 2026-09-16) -- unconfirmed whether it is fresh, and not read by
+# this script or any other tracked script. This script pulls from Prod
+# regardless of which environment SDE_CONNECTION_UPDATE points at above, so a
+# stale or divergent QA/Dev copy is never accidentally used instead.
 PROD_SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
 
 # Feature dataset that will contain the new network dataset. This is a
@@ -83,7 +95,9 @@ FEATURE_DATASET = os.path.join(SDE_CONNECTION_UPDATE, "SDEADM.TRNLRS_network")
 NEW_ND_NAME     = "TRNLRS_street_network"
 
 # TRNLRS_TRN_STREET_VW is the authoritative standalone FC (outside any feature
-# dataset), populated by LRS_updates.py, and it only exists in prod.  It must
+# dataset) in Prod, populated by LRS_updates.py from prod's own LRS tables.
+# (A same-named FC also exists in QA -- see the note above; it is not this
+# constant's source and is not read anywhere in this script.)  It must
 # be copied into FEATURE_DATASET before the network dataset can be created.
 # SDE enforces unique FC names across the entire geodatabase, so the copy is
 # stored under a different name (TRNLRS_TRN_STREET, without the _VW suffix)

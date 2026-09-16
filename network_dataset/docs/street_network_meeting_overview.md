@@ -1,9 +1,47 @@
 # Street Network Build — Meeting Overview
 
-**Prepared:** 2026-09-08<br>
+**Prepared:** 2026-09-08 · **Updated:** 2026-09-15 for the 2026-09-16 check-in<br>
 **Scope:** Repository-based status of the LRS-derived street network (`TRNLRS_street_network`)<br>
-**Status date:** The latest network evidence committed to this repository is from 2026-09-03.
-This is not a live check of Dev, QA, or Prod.
+**Status date:** The latest network *execution* evidence committed to this repository is from
+2026-09-03; the latest *acceptance-testing* evidence is from 2026-09-11. This is not a live
+check of Dev, QA, or Prod.
+
+## What changed since 2026-09-08
+
+Two things, both external to the repository, and between them they reset the near-term plan.
+
+**1. Acceptance testing stopped on day one (2026-09-11).** Robbie Evans began the expert
+testing requested on 2026-09-09 and within the first two minutes found streets "that aren't
+getting calculated due to dangles in the segments when editing." By end of day **roughly 500
+were flagged**. His characterisation: *"Most of the ones I'm looked at are just simple fixes
+though. The segment is extended past the intersection."* Jillian Landry's direction was to
+identify all of them rather than keep testing, since the corrected version has to be retested
+anyway, and to loop Ryan in because the fixing will likely be shared. The list goes to
+Melanie Parker.
+
+This is **paused, not failed**. These are defects in the LRS source data, upstream of
+everything the network build does. Nothing found contradicts the restriction and turn evidence
+below; Robbie never got far enough to exercise it. But it does mean:
+
+- QA acceptance testing has a new, earlier blocker that is not an engineering task.
+- QA has to be **refreshed** before Robbie can retest, and that refresh is a half-day rebuild
+  (sync, re-remap turns, verify, swap, recreate, force full build, re-grant), not a reload.
+  This promotes the turn-OID-stability question from a theoretical design gap to a live
+  operational cost. See [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html).
+- The roughly 500 are the **same class of defect** as the 7 sub-metre turn-build gaps and the
+  4 plain-street junction anomalies already tracked here, at much larger scale. Worth checking
+  the overlap once Mel has the list.
+
+**2. Esri Canada has reproduced the intersection behaviour in-house (Esri Case #04248942).**
+Sukhjit P. at Esri Canada confirms the behaviour is **data-specific, not ArcGIS Pro
+version-specific**, and has twice asked for the high-level workflow used to create the
+junction network plus any error messages with screenshots. Written up, with a draft reply to
+Ryan Lowe, in
+[`junction_network_workflow_esri_case.html`](junction_network_workflow_esri_case.html). Two of
+Esri's questions are still open on our side: whether a datum warning appears in the editing
+map (nobody has checked), and whether all three of Ryan's scenarios still reproduce on Pro
+3.5.8. Jillian also raised on 2026-09-09 whether the Pro upgrade proceeds before this case
+closes.
 
 ## Executive summary
 
@@ -19,9 +57,15 @@ Prod has not been built; the automated post-LRS-refresh sync/rebuild code is in 
 but has not been deployed or exercised end to end; and comparison routing, address-range checks,
 permissions, and several data-policy decisions remain open.
 
-**Suggested message for the meeting:** the QA proof of concept is successful and the difficult
-turn/one-way problems have been solved, but the team should treat this as **late validation /
-pre-production**, not production-ready.
+**Suggested message for the meeting (updated 2026-09-15):** the QA proof of concept is
+successful and the difficult turn and one-way problems have been solved. The project is now
+blocked on something else entirely: **the quality of the underlying LRS street geometry**.
+Roughly 500 streets with overshooting or dangling segments stopped acceptance testing on
+2026-09-11, Esri has independently reproduced the same class of problem and calls it
+data-specific, and the repository's own diagnostics were already pointing at it from a
+different direction (7 sub-metre gaps failing turn creation, 4 plain-street junction offsets of
+6 to 9 metres). That is one problem showing up in three places, and it needs a data owner and a
+correction plan, not more engineering on the network dataset.
 
 ## What is being built
 
@@ -77,6 +121,7 @@ The initial network intentionally reproduces the legacy network's limited routin
 | One-way solve | Pass | Confirmed on 2026-09-02/03 after a forced full build, including a two-way control test that ruled out an accidentally always-true evaluator. |
 | Legacy route comparison | Pending | No documented side-by-side route/path and cost comparison against `TRN_street_network`. |
 | Address ranges/geocoding | Pending | `FROM_LEFT`, `TO_LEFT`, `FROM_RIGHT`, and `TO_RIGHT` have not received the documented acceptance check. |
+| **Expert acceptance testing** | **Paused 2026-09-11** | Robbie Evans stopped after roughly 500 LRS source-geometry errors. Not a pass or a fail; the restriction tests were never reached. Resumes after the source corrections land and QA is refreshed. |
 
 ## What has been accomplished
 
@@ -129,8 +174,27 @@ sections of the status documents are explicitly superseded. In QA, confirm the b
 source counts, turn count, evaluator definitions, and a current build-error file. Record the
 result in one concise run report.
 
-### 2. Close QA acceptance testing
+### 2. Fix the LRS source geometry, refresh QA, then close acceptance testing
 
+**Reordered 2026-09-15.** The first four items below are new and block everything after them.
+
+- **Robbie** sends the roughly 500 flagged locations to Melanie Parker.
+- **LRS team (Mel, Ryan)** correct the geometry at source. Volume and effort are unknown until
+  the list lands.
+- **Alex** confirms the corrections are actually present in Prod's `TRNLRS_TRN_STREET_VW` by
+  spot-checking Robbie's own FDMIDs, not just by confirming a refresh ran.
+- **Alex** refreshes QA per [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html):
+  sync the edge copy, re-remap turns, verify, swap, recreate, force full build, re-apply the SQL
+  grants. Roughly half a day. This is not a truncate-and-load, for three separate reasons set
+  out in that document.
+- **Decide:** refresh QA once at the end, or in batches as corrections land? Each refresh is a
+  half-day rebuild, so batching is much cheaper. But one early partial refresh would confirm
+  that a fixed segment actually resolves the editing error, before the LRS team works through
+  all 500 on that assumption.
+- Check whether Robbie's roughly 500 overlap the seven sub-metre turn-build gaps and the four
+  plain-street junction anomalies. If they do, the corrections may close some of the nine
+  rejected turns for free.
+- **Robbie retests** the refreshed network.
 - Run side-by-side representative Route solves against the legacy network and compare path and
   length cost. Include ordinary streets, divided roads, bridges/underpasses, and rural roads.
 - Perform the documented address-range/geocoding checks.
@@ -174,6 +238,9 @@ result in one concise run report.
 
 | Topic | Current risk | Decision or owner needed |
 |---|---|---|
+| **LRS source geometry quality** | Roughly 500 streets with overshooting or dangling segments stopped acceptance testing. Upstream of everything this project builds, and the same defect class as the seven sub-metre turn gaps and four junction offsets already tracked. | Confirm who corrects them and by when. Decide whether QA is refreshed once or in batches. Decide whether a source-geometry check belongs in the LRS refresh QC, which today checks duplicate and null FDMID, null GSA, and short segments, but not dangles. |
+| **Esri Case #04248942** | Esri has reproduced the behaviour in-house and calls it data-specific. Two of the nine rejected turns are at exact 0.0000 m coincidence and remain unexplained on our side. | Alex sends the workflow write-up to Ryan. Team decides whether to push Esri on the two coincident-endpoint failures, and whether the Pro upgrade proceeds before the case closes. |
+| **Turn OID stability** | Every edge refresh reassigns edge `OBJECTID`s and silently breaks all 1,180 turn references. This is what makes Robbie's retest a half-day rebuild rather than a ten-minute reload. | Pick one of the three options (remap every cycle, stable OBJECTIDs via keyed update, or turns stored against a stable street key) before Prod cutover, not after. |
 | Production readiness | Core QA behavior works, but Prod does not exist and automation is unproven end to end. | Agree on entry/exit criteria and a target cutover sequence. |
 | Nine missing turn restrictions | Up to 0.76% of migrated restrictions are not live; two failures are unexplained. | Accept for first release, fix source geometry, or block cutover. |
 | No elevation model | Potential false connectivity at grade-separated crossings. | Confirm release acceptance and define test coverage/remediation. |
@@ -184,31 +251,51 @@ result in one concise run report.
 | Environment configuration | Several scripts still rely on manually edited connection constants. | Decide whether parameterization is required before Prod. |
 | SQL permissions | Grants are network-instance-specific and Dev remains pending. | Assign DBA/GIS ownership and add grants to the cutover checklist. |
 
-## Suggested meeting agenda (45 minutes)
+## Suggested meeting agenda (45 minutes, revised 2026-09-15)
 
-1. **5 min — Outcome and current position:** QA proof of concept works; project is in late
-   validation/pre-production.
-2. **10 min — Demo/evidence:** QA sources and properties, one-way route in both directions,
-   prohibited-turn detour, and current build errors/turn count.
-3. **10 min — Acceptance gaps:** legacy route comparisons, geocoding/address ranges, nine turn
-   rejects, elevation limitation, and road exclusions.
-4. **10 min — Operational readiness:** corrected template test, full refresh rehearsal, Prod
-   feature-dataset setup, permissions, and rollback.
-5. **10 min — Decisions and owners:** approve first-release scope, assign data-quality items,
-   agree Dev/Prod sequence, and set evidence required for cutover.
+1. **5 min, where we actually are:** the network works; the data underneath it is what stopped
+   testing. State that plainly up front so the rest of the meeting is about the data, not the
+   build.
+2. **10 min, the roughly 500 errors:** what Robbie found, who corrects them, by when, and
+   whether a dangle check belongs in the LRS refresh QC. This is the meeting's main decision.
+3. **5 min, Esri case:** their finding that it is data-specific, what Alex is sending Ryan, the
+   two unexplained coincident-endpoint failures, and whether the Pro upgrade waits.
+4. **10 min, the QA refresh:** why it is a half-day rebuild rather than a reload, batch versus
+   one-shot, and the turn-OID-stability decision this forces before Prod.
+5. **5 min, evidence already banked:** one-way and prohibited-turn solves, 1,180 live turns,
+   service area. Short, because none of it is in dispute.
+6. **10 min, decisions and owners:** data-quality ownership, refresh cadence, first-release
+   scope, and what evidence is required for cutover.
 
 ## Questions to ask in the room
 
-1. Is the first release expected to optimize **distance only**, or is travel time a requirement?
-2. Is 1,180 of 1,189 migrated turn restrictions acceptable if the nine exceptions are listed and
+*Added 2026-09-15, in priority order for this meeting:*
+
+1. Who owns correcting Robbie's roughly 500 flagged segments, and what is a realistic timeline?
+   Does that change the HRFE dependency?
+2. Should a dangle / overshoot check be added to the LRS refresh QC in `LRS_updates.py`? It
+   currently catches duplicate and null FDMID, null GSA, and short segments, and would not have
+   caught any of these.
+3. Do we refresh QA once when the corrections are complete, or in batches so Robbie can confirm
+   early that a fixed segment actually resolves the editing error?
+4. Are these roughly 500 defects new, or did they predate the LRS migration? Nobody has compared
+   a sample against the legacy `TRN_street` geometry, and the answer changes whether this is a
+   pipeline problem or an inherited one.
+5. Does the ArcGIS Pro upgrade proceed before Esri Case #04248942 closes? Raised by Jillian on
+   2026-09-09 and not yet answered.
+
+*Carried forward from 2026-09-08:*
+
+6. Is the first release expected to optimize **distance only**, or is travel time a requirement?
+7. Is 1,180 of 1,189 migrated turn restrictions acceptable if the nine exceptions are listed and
    risk-assessed, or must all be resolved before Prod?
-3. Who can approve routing exclusions for transit access, water access, island roads, and emergency
+8. Who can approve routing exclusions for transit access, water access, island roads, and emergency
    turnarounds?
-4. Who owns correction and validation of street geometry/digitized direction?
-5. Is endpoint-only connectivity acceptable at launch, and which grade-separated locations must be
-   included in acceptance tests?
-6. Who owns the Prod build, SQL grants, deployment of `LRS_updates.py`, monitoring, and rollback?
-7. Should environment selection be parameterized before anyone runs the rebuild tools in Prod?
+9. Who owns correction and validation of street geometry/digitized direction?
+10. Is endpoint-only connectivity acceptable at launch, and which grade-separated locations must be
+    included in acceptance tests?
+11. Who owns the Prod build, SQL grants, deployment of `LRS_updates.py`, monitoring, and rollback?
+12. Should environment selection be parameterized before anyone runs the rebuild tools in Prod?
 
 ## Definition of “ready for Prod” proposed for discussion
 
@@ -227,6 +314,9 @@ result in one concise run report.
 
 | Need | Primary file |
 |---|---|
+| Visual roadmap, milestones, open decisions | `network_dataset/docs/roadmap_lrs_network.html` |
+| How to refresh QA, and why it is not a reload | `network_dataset/docs/qa_network_refresh_runbook.html` |
+| Junction-network workflow and errors, for Esri Case #04248942 | `network_dataset/docs/junction_network_workflow_esri_case.html` |
 | Detailed status and open items | `network_dataset/docs/network_build_status.md` |
 | Migration architecture/history | `network_dataset/docs/network_dataset_migration_plan.md` |
 | QA execution procedure and evidence | `network_dataset/docs/turn_rebuild_qa_test_runbook.md` |
@@ -243,7 +333,12 @@ result in one concise run report.
 ## Confidence and caveats
 
 - **High confidence:** repository implementation, QA results recorded through 2026-09-03, known
-  ArcGIS/SDE failure modes, and documented open checklist items.
+  ArcGIS/SDE failure modes, and documented open checklist items. The 2026-09-11 and 2026-09-10
+  updates above are quoted directly from the email threads.
+- **Not yet seen by this repository:** Robbie's roughly 500 flagged locations. There is no list,
+  no FDMIDs, and no overlap analysis against the defects already tracked here. The
+  characterisation above is his, from the email. Everything downstream of it (effort, timeline,
+  whether the corrections close any of the nine rejected turns) is unknown until the list lands.
 - **Medium confidence:** the exact current state of QA and Dev, because it was not queried live for
   this overview.
 - **Low/no evidence:** current Prod readiness beyond code and plans; the repository explicitly says

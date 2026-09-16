@@ -12,6 +12,29 @@ verification** (requires an arcpy/SDE session, which this review did not have).
 Each section below is marked accordingly and records what changed. Findings C, D, E, F and
 G are still open.
 
+**Update 2026-09-15: external evidence now corroborates A0b, and D is no longer theoretical.**
+Two developments outside this repository:
+
+- **Robbie Evans's acceptance testing found roughly 500 streets with overshooting or dangling
+  segments (2026-09-11)**, which stopped QA testing on day one. That is the same defect class
+  as [A0b](#a0b-junction-alignment-check-run-2026-08-31----grade-separation-not-a-transform-bug-a-handful-of-real-anomalies)'s
+  four unexplained plain-street anomalies and the seven sub-metre gaps behind the nine
+  `Cannot find at junction` turn failures, at far larger scale. A0b's conclusion stands (no
+  systematic transform, mostly grade separation), but its "handful of real anomalies" caveat
+  turns out to have been the visible edge of a much bigger population. Worth re-running
+  `06_check_junction_alignment.py` after the corrections land, and checking whether Robbie's
+  list overlaps the 249.
+- **Esri Canada has reproduced the behaviour in-house** on Case #04248942 and assesses it as
+  data-specific rather than ArcGIS Pro version-specific.
+- **[D](#d-turn-references-do-not-survive-an-lrs-refresh-structural) is now an operational
+  cost, not a design concern.** Refreshing QA so Robbie can retest requires the full
+  remap-swap-recreate-rebuild-regrant cycle precisely because of D. The incorrect claim in
+  `network_dataset_migration_plan.md`'s Rebuild Cadence section has been corrected there. The
+  three-way choice D lays out still needs a decision before prod cutover.
+
+Records: [`meetings/2026-09-11_LRS_network_dataset_email_threads.md`](meetings/2026-09-11_LRS_network_dataset_email_threads.md).
+Procedure: [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html).
+
 ---
 
 ## TL;DR
@@ -432,7 +455,7 @@ and they currently disagree:
 | `01_extract_network_config.py` | QA |
 | `02_compare_schemas.py` | QA |
 | `03_create_network_dataset.py` | **Dev** (`SDE_CONNECTION_UPDATE`) + prod (read-only, edge source) |
-| `04_sync_and_rebuild_network.py` | prod only (by design) |
+| `04_sync_and_rebuild_network.py` | prod only (by design -- reads Prod's `TRNLRS_TRN_STREET_VW` specifically; a same-named FC also exists in QA, see the 2026-09-16 note in `network_build_status.md`) |
 | `05_rebuild_traffic_turns.py` | **QA** |
 | `06_migrate_network_fd.py` | Dev (hardcoded) |
 

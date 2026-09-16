@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Junction Network Workflow: Esri Case 04248942</title>
+<style>
+  :root {
+    --bg: #f5f6f3;
+    --surface: #ffffff;
+    --surface-2: #fafaf8;
+    --border: #dfe3dd;
+    --text: #1c211d;
+    --text-muted: #5f6b62;
+    --accent: #3a6b52;
+    --accent-soft: #e8f0ea;
+    --link: #2a5f8f;
+    --done: #227a4a;
+    --done-bg: #e5f4ea;
+    --partial: #9a6400;
+    --partial-bg: #fbf1dc;
+    --blocked: #ad2b21;
+    --blocked-bg: #fbe8e6;
+    --notstarted: #626b64;
+    --notstarted-bg: #ececea;
+    --code-bg: #eef0ec;
+    --shadow: 0 1px 2px rgba(20, 30, 22, 0.06), 0 1px 8px rgba(20, 30, 22, 0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --surface: #1c2023;
+      --surface-2: #20242a;
+      --border: #33383d;
+      --text: #e7ebe6;
+      --text-muted: #a2aca4;
+      --accent: #6fbf95;
+      --accent-soft: #1f2e26;
+      --link: #7ab6e8;
+      --done: #63c88f;
+      --done-bg: #163425;
+      --partial: #e0b04a;
+      --partial-bg: #362a12;
+      --blocked: #f0847a;
+      --blocked-bg: #3a1e1c;
+      --notstarted: #9aa39c;
+      --notstarted-bg: #262a2c;
+      --code-bg: #262b2f;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 10px rgba(0,0,0,0.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  a { color: var(--link); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 80px; }
+  nav.topnav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  nav.topnav .inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 10px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+  nav.topnav strong { font-size: 14px; white-space: nowrap; }
+  nav.topnav .links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13.5px; }
+  nav.topnav .links a { text-decoration: none; color: var(--text-muted); }
+  nav.topnav .links a:hover { color: var(--accent); }
+  nav.topnav button {
+    margin-left: auto;
+    font-size: 12.5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  header.hero { padding: 36px 0 8px; }
+  header.hero h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.hero .meta { color: var(--text-muted); font-size: 14px; margin: 4px 0; }
+  header.hero .meta strong { color: var(--text); }
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 18px 0 28px;
+    box-shadow: var(--shadow);
+    font-size: 15px;
+  }
+  .callout strong.tag {
+    display: inline-block;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  section { margin: 42px 0; }
+  section > h2 {
+    font-size: 21px;
+    margin: 0 0 4px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  section > p.section-sub { color: var(--text-muted); margin-top: 6px; font-size: 14.5px; }
+
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+  @media (max-width: 800px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .card h3 { margin: 0 0 8px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .card ul { margin: 10px 0 0; padding-left: 20px; font-size: 13.8px; }
+  .card li { margin-bottom: 5px; }
+
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .pill-done { background: var(--done-bg); color: var(--done); }
+  .pill-partial { background: var(--partial-bg); color: var(--partial); }
+  .pill-blocked { background: var(--blocked-bg); color: var(--blocked); }
+  .pill-notstarted { background: var(--notstarted-bg); color: var(--notstarted); }
+
+  .pipeline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 20px 0 6px;
+    font-size: 13px;
+  }
+  .pipeline .box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow);
+    max-width: 190px;
+  }
+  .pipeline .box.dim { opacity: 0.7; }
+  .pipeline .box .label { font-weight: 600; }
+  .pipeline .box .sub { color: var(--text-muted); font-size: 11.5px; margin-top: 3px; }
+  .pipeline .arrow { color: var(--text-muted); font-size: 16px; }
+  .pipeline .fd {
+    border: 1px dashed var(--accent);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .pipeline .fd-label { width: 100%; font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+
+  details.phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 10px 0;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  details.phase > summary {
+    cursor: pointer;
+    padding: 13px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    list-style: none;
+  }
+  details.phase > summary::-webkit-details-marker { display: none; }
+  details.phase > summary::before {
+    content: "▸";
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    font-size: 12px;
+  }
+  details.phase[open] > summary::before { transform: rotate(90deg); }
+  details.phase .body { padding: 2px 16px 16px; font-size: 14px; }
+  details.phase .body p { margin: 8px 0; }
+  details.phase .body ul { margin: 8px 0; padding-left: 22px; }
+  details.phase .body li { margin-bottom: 6px; }
+  details.phase .stat-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+  .stat {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    min-width: 120px;
+  }
+  .stat .n { font-size: 17px; font-weight: 700; display: block; }
+  .stat .l { color: var(--text-muted); }
+
+  .milestone {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 14px 0;
+    box-shadow: var(--shadow);
+  }
+  .milestone h3 { margin: 0 0 4px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .milestone .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .milestone p.why { color: var(--text-muted); font-size: 13.5px; margin: 4px 0 10px 34px; }
+  ul.todo { list-style: none; margin: 0; padding-left: 34px; }
+  ul.todo li {
+    position: relative;
+    padding-left: 26px;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  ul.todo li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 3px;
+    width: 15px; height: 15px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 4px;
+  }
+  ul.todo li.done { color: var(--text-muted); text-decoration: line-through; }
+  ul.todo li.done::before { content: "✓"; border-color: var(--done); color: var(--done); font-size: 11px; text-align: center; line-height: 13px; text-decoration: none; }
+  ul.todo li .tag {
+    display: inline-block;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 5px;
+    padding: 1px 6px;
+    margin-right: 6px;
+    position: relative;
+    top: -1px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 10px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  tr:last-child td { border-bottom: none; }
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px 14px; box-shadow: var(--shadow); }
+
+  code, .code {
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+  }
+  pre {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  .ready-list { list-style: none; padding-left: 0; margin: 10px 0; }
+  .ready-list li {
+    position: relative;
+    padding: 6px 0 6px 28px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .ready-list li:last-child { border-bottom: none; }
+  .ready-list li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 9px;
+    width: 15px; height: 15px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 4px;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 50px;
+    padding-top: 18px;
+    color: var(--text-muted);
+    font-size: 12.8px;
+  }
+</style>
+<style>
+  .answer {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blocked);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 18px 0 28px;
+    box-shadow: var(--shadow);
+    font-size: 15px;
+  }
+  .answer strong.tag { display: inline-block; color: var(--blocked); text-transform: uppercase; font-size: 11.5px; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .note {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--partial);
+    border-radius: 6px;
+    padding: 11px 14px;
+    margin: 14px 0;
+    font-size: 13.8px;
+  }
+  .email {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .email .hdr {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+  .email .hdr div { margin: 2px 0; }
+  .email .hdr span.k { color: var(--text-muted); display: inline-block; min-width: 62px; }
+  .email .bdy { padding: 16px 18px; font-size: 14.2px; line-height: 1.6; }
+  .email .bdy p { margin: 0 0 12px; }
+  .email .bdy ul, .email .bdy ol { margin: 0 0 12px; padding-left: 22px; }
+  .email .bdy li { margin-bottom: 6px; }
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 14px 0;
+    box-shadow: var(--shadow);
+  }
+  .step h3 { margin: 0 0 6px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .step .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 12.5px; font-weight: 700; flex-shrink: 0;
+  }
+  .step .why { color: var(--text-muted); font-size: 13.5px; margin: 2px 0 10px 36px; }
+  .step .body { padding-left: 36px; font-size: 14px; }
+  .step .body p { margin: 8px 0; }
+  .step .body ul { margin: 8px 0; padding-left: 20px; }
+  .step .body li { margin-bottom: 6px; }
+  @media (max-width: 700px) { .step .why, .step .body { padding-left: 0; margin-left: 0; } }
+  .sev-hi { color: var(--blocked); font-weight: 600; }
+  .sev-md { color: var(--partial); font-weight: 600; }
+  .sev-lo { color: var(--text-muted); }
+  ul.plain { list-style: none; padding-left: 0; }
+  ul.plain li { padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  ul.plain li:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="inner">
+    <strong>Junction Network Workflow</strong>
+    <div class="links">
+      <a href="#ask">The ask</a>
+      <a href="#env">Environment</a>
+      <a href="#workflow">Workflow</a>
+      <a href="#geometry">Geometry findings</a>
+      <a href="#errors">Errors</a>
+      <a href="#questions">Esri's questions</a>
+      <a href="#email">Email draft</a>
+      <a href="#gaps">Gaps</a>
+    </div>
+    <button id="toggleAll" type="button">Expand all</button>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero" id="ask">
+  <h1>Building the Junction Network from LRS Data</h1>
+  <p class="meta">Prepared <strong>2026-09-15</strong> for <strong>Ryan Lowe</strong>, to relay to Sukhjit P. at Esri Canada &middot; Case <strong>#04248942</strong> &ndash; ArcGIS Pro &ndash; LRS Errors</p>
+  <p class="meta">Compiled from what is committed to this repository. Network execution evidence runs to 2026-09-03; the acceptance-testing evidence is from 2026-09-11.</p>
+
+  <div class="callout">
+    <strong class="tag">What Esri asked for</strong>
+    Esri's 2026-09-01 and 2026-09-09 emails ask the same two things twice: <strong>(1)</strong> the high-level workflow the coworker follows to create the junction network, and <strong>(2)</strong> any error messages hit along the way, with screenshots. The "coworker" is Alex Gallagher, and the workflow is the one documented here. Esri's read so far is that the behaviour is <em>data-specific, not version-specific</em>, and the evidence below is consistent with that.
+  </div>
+
+  <div class="note">
+    <strong>Terminology:</strong> what the case calls the "junction network" is the ArcGIS <strong>network dataset</strong> <code>TRNLRS_street_network</code>, built inside the feature dataset <code>SDEADM.TRNLRS_network</code>. Junctions are one of its three sources. The small intersection errors matter because network datasets connect edges by <strong>coincident endpoints</strong>, so a segment that overshoots or falls short of an intersection does not form a junction there at all.
+  </div>
+</header>
+
+<section id="env">
+  <h2>Environment</h2>
+  <p class="section-sub">Restating the environment facts precisely, since a couple were only given loosely earlier in the case.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Item</th><th>Value</th><th>Note</th></tr>
+    <tr><td>ArcGIS Pro</td><td>3.3.5 for the original build (2026-06-26); 3.5.8 for the QA rebuild and all work from 2026-09-01 onward</td><td>The rebuild had to move to 3.5.8, see <code>ERROR 030386</code> below</td></tr>
+    <tr><td>Enterprise geodatabase</td><td>QA 11.5.0, Prod 11.3.0</td><td>All network work to date is in QA. Nothing is built in Prod yet.</td></tr>
+    <tr><td>RDBMS</td><td>SQL Server 2022</td><td>QA instance <code>ms-gis-sql-q21</code>, Prod <code>ms-gis-sql-p21</code></td></tr>
+    <tr><td>Coordinate system</td><td><code>NAD_1983_CSRS_2010_MTM_5_Nova_Scotia</code></td><td><strong>Projected, not geographic.</strong> This answers Esri's original question 3. XY tolerance 0.001 m, XY resolution 0.0001 m.</td></tr>
+    <tr><td>Feature dataset spatial references</td><td>Identical across <code>SDEADM.TRNLRS</code>, <code>SDEADM.TRNLRS_network</code>, and the legacy <code>SDEADM.TRN_streets_routes</code></td><td>Confirmed. No reprojection happens on any copy step in this workflow, so no on-the-fly transform is introduced by it.</td></tr>
+    <tr><td>Extensions</td><td>Location Referencing (LRS pipeline), Network Analyst (build and solve)</td><td></td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="workflow">
+  <h2>High-level workflow</h2>
+  <p class="section-sub">This is the answer to Esri's question 1. Nine steps, in order. Each is a real script or a real dialog in Pro, not a summary of intent.</p>
+
+  <div class="pipeline">
+    <div class="box"><span class="label">LRSN_Route</span><div class="sub">+ 7 event tables (direction, class, address range, PSAB, ownership, status, winter maintenance)</div></div>
+    <span class="arrow">&rarr;</span>
+    <div class="box"><span class="label">OverlayEvents</span><div class="sub">dynamic segmentation, Location Referencing</div></div>
+    <span class="arrow">&rarr;</span>
+    <div class="box"><span class="label">TRNLRS_segmented_street_events</span><div class="sub">intermediate FC</div></div>
+    <span class="arrow">&rarr;</span>
+    <div class="box"><span class="label">TRNLRS_TRN_STREET_VW</span><div class="sub">standalone, authoritative edge source. Truncated and reloaded every LRS refresh.</div></div>
+    <span class="arrow">&rarr;</span>
+    <div class="pipeline fd">
+      <span class="fd-label">SDEADM.TRNLRS_network</span>
+      <div class="box"><span class="label">TRNLRS_TRN_STREET</span><div class="sub">edge source</div></div>
+      <div class="box"><span class="label">TRNLRS_street_junction</span><div class="sub">user junction source</div></div>
+      <div class="box"><span class="label">TRNLRS_traffic_turn</span><div class="sub">prohibited-turn source</div></div>
+      <div class="box"><span class="label">TRNLRS_street_network</span><div class="sub">the network dataset</div></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">1</span> Build the edge source from the LRS</h3>
+    <p class="why">Script: <code>scripts/LRS_updates.py</code>. Runs on the LRS refresh cycle.</p>
+    <div class="body">
+      <p><code>arcpy.locref.OverlayEvents</code> overlays <code>LRSN_Route</code> with seven event tables to produce <code>TRNLRS_segmented_street_events</code>. A SQL query layer then joins <code>E_AddressRange</code> for audit dates and filters to <code>TO_DATE IS NULL</code> (active streets only). The result is truncated into and appended to <code>SDEADM.TRNLRS_TRN_STREET_VW</code>, a real standalone SDE feature class despite the <code>_VW</code> suffix.</p>
+      <p>Roughly 18,600 edge features citywide. <strong>This is the step that produces the geometry Esri is looking at.</strong> The street segments the network consumes are reconstructed from route measures, they are not hand-digitized street centrelines.</p>
+      <p>A QC pass runs before anything downstream: duplicate <code>FDMID</code>, null <code>FDMID</code>, null GSA, and segments below a short-segment threshold. It does <strong>not</strong> currently check for dangles or for segments that overshoot an intersection, which is the class of defect this case is about.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">2</span> Copy the three sources into one feature dataset</h3>
+    <p class="why">Script: <code>network_dataset/scripts/03_create_network_dataset.py</code>, <code>copy_fc_to_fd()</code>.</p>
+    <div class="body">
+      <p>ArcGIS requires every network source to live inside the same feature dataset, and SDE enforces unique feature class names across the whole geodatabase, so the standalone <code>_VW</code> class cannot simply be moved. Three <code>arcpy.management.CopyFeatures</code> calls:</p>
+      <ul>
+        <li><code>SDEADM.TRNLRS_TRN_STREET_VW</code> (Prod) &rarr; <code>SDEADM.TRNLRS_network\TRNLRS_TRN_STREET</code></li>
+        <li><code>SDEADM.TRN_streets_routes\TRN_street_junction</code> &rarr; <code>SDEADM.TRNLRS_network\TRNLRS_street_junction</code></li>
+        <li><code>SDEADM.TRN_streets_routes\TRN_traffic_turn</code> &rarr; <code>SDEADM.TRNLRS_network\TRNLRS_traffic_turn</code></li>
+      </ul>
+      <p>The junction and turn classes are carried forward unchanged from the legacy <code>TRN_street_network</code>, which was built on the old hand-maintained <code>TRN_street</code> centrelines. That mismatch (legacy junctions and turns against LRS-derived edges) is the origin of most of the findings in the next section.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">3</span> Remap the turn feature class onto the new edge ObjectIDs</h3>
+    <p class="why">Script: <code>network_dataset/scripts/05_rebuild_traffic_turns.py</code>, verified by <code>verify_turn_rebuild.py</code>.</p>
+    <div class="body">
+      <p>A turn feature stores its edge references as <code>Edge{N}FID</code>, which is the <strong>OBJECTID</strong> of a feature in the registered edge source, plus <code>Edge{N}FCID</code> (the source class ID) and <code>Edge{N}Pos</code>. Copied straight across, every one of those OBJECTIDs points at a feature in the old <code>TRN_street</code> class and means nothing in <code>TRNLRS_TRN_STREET</code>.</p>
+      <p>The remap resolves each turn spatially: find the junction shared by the old Edge1 and Edge2 geometry, find the new edges meeting at that junction, break ties by local tangent bearing and by the turn feature's own recorded point, and write the new OBJECTIDs. It writes to a staging class first, and an independent ten-check verifier runs before anything is swapped in.</p>
+      <p>Latest QA run: 1,238 input turns, <strong>1,189 written</strong> (4.0% skipped, reasons logged per category), 99.7% agreement with the source's own <code>Edge1End</code> values, all ten verifier checks clean.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">4</span> Create the network dataset</h3>
+    <p class="why">Originally <code>arcpy.na.CreateNetworkDatasetFromTemplate</code>; since 2026-09-01, Pro's interactive New Network Dataset wizard.</p>
+    <div class="body">
+      <p>The original path exported an XML template off the legacy network with <code>CreateTemplateFromNetworkDataset</code>, edited it (renamed sources, cleared elevation field references), and recreated from it. That path is currently blocked, see <code>ERROR 030386</code> in the error table.</p>
+      <p>QA's current network dataset was therefore created by hand: right-click <code>SDEADM.TRNLRS_network</code> &rarr; New &rarr; Network Dataset, add the three sources, configure attributes and evaluators, finish.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">5</span> Configure connectivity, attributes, and evaluators</h3>
+    <div class="body">
+      <ul>
+        <li><strong>Connectivity:</strong> endpoint only, one connectivity group, version 1 policy on both edge and junction sources.</li>
+        <li><strong>Elevation:</strong> <code>NetworkElevationModel</code> = 0 (none). The LRS pipeline does not segment elevation, so <code>FROM_ELEV</code> / <code>TO_ELEV</code> do not exist on the new edge source and all elevation field references were cleared. <strong>This matters for this case:</strong> with no elevation model, connectivity is decided purely by whether two endpoints coincide.</li>
+        <li><strong><code>Length</code></strong> cost attribute, metres, Python Field Script <code>!Shape!</code> on both directions.</li>
+        <li><strong><code>OneWay</code></strong> restriction, prohibited, Python Field Script reading <code>STR_DIR</code>.</li>
+        <li><strong><code>TrafficTurn</code></strong> restriction, prohibited, constant <code>True</code> on the turn source.</li>
+        <li><strong>Directions:</strong> Base Name &rarr; <code>STR_NAME</code>, Suffix Type &rarr; <code>STR_TYPE</code>, Full Name &rarr; <code>FULL_NAME</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">6</span> Build the network</h3>
+    <div class="body">
+      <p><code>arcpy.na.BuildNetwork</code>, or Build Network in Pro with <strong>Force Full Build</strong> checked. A full build of this network (about 37,700 edges) completes in roughly 90 seconds to two minutes.</p>
+      <p>This is the step that emits <code>BuildErrors_&lt;guid&gt;.txt</code>, which is where the junction and turn geometry problems actually surface.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">7</span> Grant SQL Server permissions</h3>
+    <div class="body">
+      <p>OS-authentication users cannot open the network dataset until <code>PUBLIC SELECT</code> is granted on two families of backing tables (<code>N_&lt;id&gt;_*</code> metadata and <code>ND_&lt;id&gt;_*</code> dirty-area tracking) plus the four source feature classes. Registration IDs are per network dataset instance and change on every delete-and-recreate.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">8</span> Validate with real solves</h3>
+    <div class="body">
+      <p>Route and Service Area solves with <code>OneWay</code> and <code>TrafficTurn</code> explicitly enabled in the layer's Travel Mode. A clean build message alone proves nothing about whether restrictions are enforced.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">9</span> Steady state after each LRS refresh</h3>
+    <div class="body">
+      <p>Each LRS refresh truncates and reloads <code>TRNLRS_TRN_STREET_VW</code>, so the feature dataset copy goes stale. The copy is re-synced with <code>DeleteRows</code> + <code>Append</code> and the network rebuilt. This part is coded but has not been deployed to Prod yet.</p>
+    </div>
+  </div>
+</section>
+
+<section id="geometry">
+  <h2>Where the intersection geometry actually bites</h2>
+  <p class="section-sub">This is the part of the workflow that connects to Esri's case. Five independent pieces of evidence, listed strongest first.</p>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-blocked">Strongest evidence</span> Nine turn restrictions rejected at build with <code>Cannot find at junction</code></summary>
+    <div class="body">
+      <p>On the 2026-09-01 QA build, 9 of 1,189 remapped turn features (0.76%) failed to become live turn elements:</p>
+      <pre><code>Source table [SDEADM.TRNLRS_traffic_turn], Object ID [N]: Cannot find at junction.</code></pre>
+      <p>Each of the nine was diagnosed directly against the live data, measuring the true minimum distance across all four first-point / last-point pairings between the turn's consecutive edges:</p>
+      <ul>
+        <li><strong>Seven of nine:</strong> a real gap of <strong>0.006 m to 0.41 m</strong> between two consecutive edges in <code>TRNLRS_TRN_STREET</code> that should meet at one junction. Our remap's snap tolerance is 0.5 m, so the remap accepted the pair as adjacent, but the network's XY tolerance is 0.001 m, so Build Network would not merge them into a single junction. <strong>These are genuine pre-existing digitizing gaps in the edge source, at exactly the scale this case is about.</strong></li>
+        <li><strong>Two of nine:</strong> an exact <strong>0.0000 m</strong> coincidence that still failed. Unexplained. This is the one finding we would most like Esri's opinion on, since coincident endpoints within XY tolerance should build a junction.</li>
+      </ul>
+      <p>Practical impact: up to 9 prohibited-turn restrictions go unenforced in solves. Every edge and every other turn built correctly.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-blocked">Independent confirmation, large scale</span> A large volume of the same defect found during acceptance testing (2026-09-11)</summary>
+    <div class="body">
+      <p>Expert acceptance testing of the QA network began on 2026-09-09. Within the first few minutes it surfaced streets that fail to calculate during editing because of dangling segments, and testing was stopped the same week so the full set could be identified and corrected at source rather than worked around. <strong>The dominant pattern is a segment digitized past the intersection</strong> rather than terminating at it, and most are assessed as straightforward to correct.</p>
+      <p>A segment extended past an intersection is precisely the failure mode the previous item describes at sub-metre scale, seen here at editing scale and at substantially higher volume. Testing is paused until these are corrected in the LRS source.</p>
+      <p><strong>This is new information that post-dates everything else in this document and was not available when the case was opened.</strong> It is the single best argument that the behaviour is data-specific rather than version-specific.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
+    <summary><span class="pill pill-partial">Citywide audit</span> 249 route intersections with no aligned edge endpoint</summary>
+    <div class="body">
+      <p><code>network_dataset/scripts/06_check_junction_alignment.py</code> is a read-only diagnostic that compares every <code>TRNLRS_TRN_STREET</code> edge endpoint against <code>SDEADM.INT_RouteOnRoute</code>, the Route Intersection Class generated independently from <code>LRSN_Route</code> by <code>arcpy.locref.GenerateIntersections</code>. Run citywide on 2026-08-31:</p>
+      <div class="stat-row">
+        <div class="stat"><span class="n">249</span><span class="l">active route intersections with no edge endpoint within 1 cm</span></div>
+        <div class="stat"><span class="n">221</span><span class="l">of those with no edge endpoint within 10 m at all</span></div>
+        <div class="stat"><span class="n">28</span><span class="l">matched but misaligned, 0.03 m to 10.0 m</span></div>
+      </div>
+      <p><strong>It is not a systematic coordinate transform.</strong> The offset vectors point in every direction with no shared sign or ratio, for example <code>(-0.445, 9.984)</code>, <code>(-8.973, 2.663)</code>, <code>(9.165, -0.516)</code>, <code>(-3.612, -7.914)</code> on the four largest. A transform bug would repeat one vector or a small family of them. The pooled mean is near <code>(0, 0)</code> with large standard deviation, which is what unrelated small errors look like. This was worth establishing because three hand-picked spot checks had originally suggested otherwise.</p>
+      <p><strong>Most of it is explained.</strong> Both the no-match population and the largest offsets are dominated by highway ramps and interchanges (<code>ALM-A RAMP</code>, <code>HIGHWAY 102 NB EXIT 4B OFF RAMP</code>, <code>HIGHWAY 111 WB EXIT 6 ON RAMP</code>). With no elevation model, a highway passing over a ramp is flagged as a crossing by the route intersection class but correctly has no shared edge endpoint at street level. That is an accepted limitation of this network, not a defect.</p>
+      <p><strong>Four are not explained.</strong> Plain surface-street pairs with no grade-separation excuse, and real candidates for a defect in the edge geometry:</p>
+      <ul>
+        <li>Hemlock Dr / High Timber Dr &ndash; 8.7 m</li>
+        <li>Wright Ave / Countryview Dr &ndash; 9.36 m</li>
+        <li>Skreia Rd / Sailview Lane &ndash; 6.26 m</li>
+        <li>Massachusetts Ave / Lady Hammond Rd &ndash; 7.44 m</li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="phase">
+    <summary><span class="pill pill-partial">Expected but worth reporting</span> Hundreds of standalone junction warnings on every build</summary>
+    <div class="body">
+      <p>Every build writes a large number of these into <code>BuildErrors_&lt;guid&gt;.txt</code>:</p>
+      <pre><code>Standalone user-defined junction is detected</code></pre>
+      <p>for <code>TRNLRS_street_junction</code>. Cause: the junction class was carried forward from the legacy network, where it was placed against the old hand-maintained centrelines. LRS resegmentation moved edge endpoints, so those manually placed junctions are no longer coincident with any edge. They are ignored during solves and do not affect results, but the <strong>count is itself a measure of how far the LRS-derived endpoints have drifted from the legacy intersection positions</strong>, which may be useful to the case.</p>
+    </div>
+  </details>
+
+  <details class="phase">
+    <summary><span class="pill pill-partial">Related data-quality finding</span> One edge digitized backwards relative to its real-world sign</summary>
+    <div class="body">
+      <p>Bishop St between Barrington St and Hollis St (<code>TRNLRS_TRN_STREET</code> OID 12002) carries <code>STR_DIR = 'FOTD'</code>, and the one-way evaluator reads it correctly, but the line geometry is digitized in the opposite direction to the real-world one-way sign. Along Digitized and Against Digitized therefore map to the wrong compass direction on that one edge. Confirmed with HRM's GIS team on 2026-09-03. It is a source-geometry issue, not a network dataset issue. Scope is unknown; only this one edge has been checked.</p>
+    </div>
+  </details>
+</section>
+
+<section id="errors">
+  <h2>Every error encountered, with cause and resolution</h2>
+  <p class="section-sub">Esri's question 2. Split into the ones that bear on this case and the ones that are environment or tooling issues we already resolved, so the case does not get buried.</p>
+
+  <h3 style="font-size:16px;margin-top:22px;">Relevant to this case (geometry and connectivity)</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Message</th><th>When</th><th>Cause</th><th>Status</th></tr>
+    <tr>
+      <td><code>Source table [SDEADM.TRNLRS_traffic_turn], Object ID [N]: Cannot find at junction.</code></td>
+      <td>Build Network, 9 occurrences on 2026-09-01</td>
+      <td>7 are real 0.006&ndash;0.41 m gaps between consecutive edges; 2 are exact 0.0000 m coincidences that still failed</td>
+      <td><span class="sev-hi">Open.</span> The 2 coincident cases are unexplained and are our main question for Esri.</td>
+    </tr>
+    <tr>
+      <td><code>Standalone user-defined junction is detected</code></td>
+      <td>Build Network, hundreds every build</td>
+      <td>Legacy junction features no longer coincident with any LRS-derived edge endpoint</td>
+      <td><span class="sev-lo">Expected, non-fatal.</span> Counted, not fixed.</td>
+    </tr>
+    <tr>
+      <td><code>Cannot find edge element corresponding to turn identifier N</code></td>
+      <td>Build Network; at one point all 1,209 turns</td>
+      <td>Turn <code>Edge{N}FID</code> values still pointed at legacy <code>TRN_street</code> ObjectIDs</td>
+      <td><span class="sev-lo">Resolved</span> by the spatial remap (step 3). Not an Esri defect.</td>
+    </tr>
+    <tr>
+      <td>Streets not calculating during editing, dangling segments</td>
+      <td>Acceptance testing, 2026-09-11</td>
+      <td>Segments extended past the intersection in the LRS source</td>
+      <td><span class="sev-hi">Open.</span> Being identified in full and corrected at source by the LRS team.</td>
+    </tr>
+  </table>
+  </div>
+
+  <h3 style="font-size:16px;margin-top:26px;">Environment and tooling, encountered and resolved</h3>
+  <p class="section-sub" style="margin-bottom:4px;">Listed for completeness because Esri asked for every error. None of these are the subject of the case.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Message</th><th>Cause</th><th>Resolution</th></tr>
+    <tr><td><code>ERROR 030347: The system junction class does not have the elevation field</code></td><td>System junction source still referenced <code>ZELEV</code> after the elevation model was set to none</td><td>Cleared <code>ElevationFieldName</code> on <code>SystemJunctionSource</code> in the template</td></tr>
+    <tr><td><code>ERROR 030386</code> on <code>CreateNetworkDatasetFromTemplate</code></td><td>The template's <code>Length</code> and <code>OneWay</code> evaluators were VBScript. Pro 3.5 refuses to build a network dataset from a VBScript-bearing template.</td><td>Rebuilt QA from scratch with Python evaluators via the interactive wizard, then re-exported a corrected template. Confirmed against Esri KB 000034955 / FAQ 000034321.</td></tr>
+    <tr><td>Network dataset Properties opens permanently <strong>read-only</strong></td><td>Any network dataset carrying VBScript evaluators, opened in Pro 3.4 or later. Deliberate Esri behaviour, no in-place fix.</td><td>Rebuild from scratch. Four other hypotheses (stale locks, Pro version, project state, schema version) were each tested and ruled out first. Dev is still stuck in this state.</td></tr>
+    <tr><td><code>ERROR 001919: cannot be deleted because it participates in a controller dataset</code></td><td><code>Delete</code> or <code>Rename</code> on a registered network source while the network dataset exists</td><td>Delete the network dataset first, swap, then recreate</td></tr>
+    <tr><td><code>ERROR 001395: Operation not supported on a feature class in a controller dataset</code></td><td><code>TruncateTable</code> on the registered edge source</td><td>Use <code>DeleteRows</code>, which is a normal edit operation and is supported</td></tr>
+    <tr><td><code>ERROR 030212: Solve did not find a solution</code></td><td>Expected when a restriction correctly blocks the only path. Also produced deliberately by a hardcoded test evaluator during diagnosis.</td><td>Not a defect. Used as positive evidence that restrictions fire.</td></tr>
+    <tr><td><code>DBMS table not found [SDEADM.N_3_Props]</code>, then <code>[SDEADM.ND_37029_DirtyObjects]</code></td><td>OS-auth users lack SELECT on the network's backing tables</td><td><code>GRANT SELECT ... TO PUBLIC</code> on both families plus the four source classes. IDs change on every rebuild.</td></tr>
+    <tr><td>Build Network ran 18 hours with no error and near-idle CPU</td><td>Blocked server-side on a SQL Server session running <code>UPDATE ... GDB_ITEMS</code> under the <code>SDEADM</code> login. Pro never surfaced the block.</td><td>DBA killed the blocking session. The build itself had already committed in normal time; only a trailing client step was hung.</td></tr>
+    <tr><td><strong>No error at all:</strong> an evaluator edit silently having zero effect</td><td>An incremental Build Network after editing a Field Script evaluator leaves the precomputed per-edge weight tables stale. Clean build message, restriction never fires.</td><td>Check <strong>Force Full Build</strong> after any evaluator edit. This one cost most of a day to diagnose and is worth Esri knowing about.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="questions">
+  <h2>Esri's three open questions</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>#</th><th>Question</th><th>Answer</th></tr>
+    <tr>
+      <td>1</td>
+      <td>Do you see a datum warning for your editing map?</td>
+      <td><span class="sev-md">Ryan / Alex to confirm from the editing map.</span> What we can state from the build side: every feature class and feature dataset in this workflow is <code>NAD_1983_CSRS_2010_MTM_5_Nova_Scotia</code>, the LRS feature dataset and the network feature dataset share it exactly, and no copy step in the workflow reprojects. If a datum warning appears, it comes from something else in the map, not from a mismatch between these datasets.</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Same behaviour on Pro 3.5.8 for all three scenarios?</td>
+      <td><span class="sev-md">Ryan's to answer</span> for the three scenarios in the case. Worth adding from our side: the network dataset work moved from Pro 3.3.5 to 3.5.8 on 2026-09-01, and the intersection and junction findings above were reproduced on <strong>3.5.8</strong>. That is consistent with Esri's own read that this is data-specific, not version-specific.</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>High-level workflow for creating the junction network, and any errors, with screenshots</td>
+      <td>This document. Screenshot list below.</td>
+    </tr>
+  </table>
+  </div>
+
+  <h3 style="font-size:16px;margin-top:24px;">Screenshots worth attaching</h3>
+  <ul class="plain">
+    <li><strong>1.</strong> The <code>BuildErrors_&lt;guid&gt;.txt</code> from the 2026-09-01 QA build, showing the nine <code>Cannot find at junction</code> lines together with the standalone-junction warnings. Confirm the GUID matches the run before sending, a stale file sent an earlier investigation off course for an afternoon.</li>
+    <li><strong>2.</strong> Pro, zoomed to one of the seven real-gap locations, with the two edges selected and the measured gap shown. Best single illustration of the failure mode at its actual scale.</li>
+    <li><strong>3.</strong> Pro, zoomed to one of the two exact-coincidence failures, showing the endpoints are coincident and the turn still failed. This is the one we want Esri to explain.</li>
+    <li><strong>4.</strong> <code>TRNLRS_junction_offset_points</code> and <code>TRNLRS_junction_offset_lines</code> symbolized by <code>BAND</code>, citywide, then zoomed to one of the four plain-street anomalies.</li>
+    <li><strong>5.</strong> One of the dangles found during acceptance testing: a segment visibly extended past the intersection, with the editing error it produces.</li>
+    <li><strong>6.</strong> Network Dataset Properties &rarr; Sources, showing the three sources and the turn count, and Travel Attributes showing the evaluator definitions.</li>
+  </ul>
+</section>
+
+<section id="email">
+  <h2>Email draft to Ryan</h2>
+  <p class="section-sub">Written to be forwarded to Esri largely as is. Trim the detail if Ryan would rather summarize.</p>
+
+  <div class="email">
+    <div class="hdr">
+      <div><span class="k">To:</span> Lowe, Ryan &lt;Ryan.Lowe@halifax.ca&gt;</div>
+      <div><span class="k">Cc:</span> Landry, Jillian &lt;Jillian.Landry@halifax.ca&gt;; Parker, Melanie &lt;Melanie.Parker@halifax.ca&gt;</div>
+      <div><span class="k">Subject:</span> RE: Esri Case #04248942 - ArcGIS Pro - LRS Errors</div>
+    </div>
+    <div class="bdy">
+      <p>Hey Ryan,</p>
+
+      <p>Here's the workflow and the errors for Sukhjit. Happy for you to forward this straight through.</p>
+
+      <p><strong>What I'm building.</strong> What the case calls the junction network is an ArcGIS network dataset, <code>TRNLRS_street_network</code>, in the feature dataset <code>SDEADM.TRNLRS_network</code>. It's a rebuild of our legacy <code>TRN_street_network</code> onto an LRS-derived edge source instead of the old hand-maintained street centrelines. It's built in QA only so far, nothing in Prod.</p>
+
+      <p><strong>High-level workflow:</strong></p>
+      <ol>
+        <li>The LRS refresh overlays <code>LRSN_Route</code> with seven event tables using <code>arcpy.locref.OverlayEvents</code>, filters to active streets, and loads the result into <code>SDEADM.TRNLRS_TRN_STREET_VW</code>. About 18,600 segments. This is where the geometry in question comes from: the street segments are reconstructed from route measures, they aren't digitized centrelines.</li>
+        <li>That class plus the legacy junction and traffic-turn classes are copied into <code>SDEADM.TRNLRS_network</code>, since all network sources have to live in the same feature dataset.</li>
+        <li>The traffic-turn class's edge references are spatially remapped onto the new edge ObjectIDs (they're stored as OBJECTIDs, so they mean nothing after the edge source changes). 1,238 in, 1,189 written, verified by an independent ten-check script.</li>
+        <li>The network dataset is created (currently by hand in Pro's New Network Dataset wizard, see the 030386 note below), configured with endpoint-only connectivity, <strong>no elevation model</strong>, a Length cost, and OneWay and TrafficTurn restrictions.</li>
+        <li>Build Network with Force Full Build, then SQL grants, then Route and Service Area solves to validate.</li>
+      </ol>
+
+      <p><strong>The errors that relate to this case.</strong> All of these were reproduced on Pro 3.5.8, which lines up with Sukhjit's read that it's data-specific rather than version-specific.</p>
+      <ul>
+        <li><strong>Nine turn restrictions rejected at build</strong> with <code>Source table [SDEADM.TRNLRS_traffic_turn], Object ID [N]: Cannot find at junction.</code> (9 of 1,189). I measured every one. Seven are a real gap of <strong>0.006 m to 0.41 m</strong> between two edges that should meet at one junction. Our remap's snap tolerance is 0.5 m so it accepted them as adjacent, but the network's XY tolerance is 0.001 m so Build Network wouldn't merge them. That's exactly the small-error-at-intersections problem in the case, measured. <strong>The other two are an exact 0.0000 m coincidence that still failed, and I can't explain that one. That's my main question for Esri.</strong></li>
+        <li><strong>Hundreds of <code>Standalone user-defined junction is detected</code> warnings</strong> on every build, for <code>TRNLRS_street_junction</code>. The junction class came from the legacy network where it was placed against the old centrelines; the LRS resegmentation moved endpoints, so those junctions no longer sit on an edge. Harmless in solves, but the count is a decent measure of how far the LRS-derived endpoints have drifted.</li>
+        <li><strong>A citywide audit</strong> comparing edge endpoints against the Route Intersection Class (generated independently from <code>LRSN_Route</code> via <code>GenerateIntersections</code>) found 249 active intersections with no edge endpoint within 1 cm, 221 of those with nothing within 10 m. I checked whether it was a systematic coordinate transform and it isn't: the offset vectors point in every direction, pooled mean near zero with a big spread. Most of it is highway ramps and interchanges, which is expected since we have no elevation model. But four are plain surface-street pairs with no excuse: Hemlock/High Timber 8.7 m, Wright/Countryview 9.36 m, Skreia/Sailview 6.26 m, Massachusetts/Lady Hammond 7.44 m.</li>
+        <li><strong>New since the case was opened:</strong> our expert acceptance testing on the QA network hit this at scale on Sept 11. Testing was stopped in the first few minutes because streets weren't calculating during editing, and we're now identifying the full set rather than working around them. <strong>The dominant pattern is a segment digitized past the intersection instead of terminating at it</strong>, and most look straightforward to fix. Same failure mode as the sub-metre gaps above, at a much larger scale. Our LRS team is correcting them at source.</li>
+      </ul>
+
+      <p><strong>Other errors I hit, for completeness, but that aren't what the case is about:</strong> <code>ERROR 030347</code> (system junction elevation field, fixed by clearing the elevation reference); <code>ERROR 030386</code> and a permanently read-only network dataset, both because the old template's evaluators were VBScript and Pro 3.4+ won't have it, fixed by rebuilding from scratch with Python evaluators; <code>ERROR 001919</code> and <code>ERROR 001395</code> from controller-dataset restrictions on registered network sources; and a Build Network that ran 18 hours because it was blocked on a SQL Server session that Pro never surfaced.</p>
+
+      <p><strong>On Sukhjit's other two questions:</strong> for the datum warning, I can't speak to the editing map, but on the build side everything is <code>NAD_1983_CSRS_2010_MTM_5_Nova_Scotia</code> end to end, the LRS and network feature datasets share it exactly, and no step in my workflow reprojects. So if a datum warning is showing up it's coming from something else in the map. For the Pro version question, that's yours to answer, but as above, all my findings were on 3.5.8.</p>
+
+      <p><strong>Screenshots.</strong> I can pull together: the build errors file with the nine junction failures, Pro zoomed to one of the real sub-metre gaps, Pro zoomed to one of the two exact-coincidence failures, the citywide junction offset layers symbolized by severity, and one of the dangles from acceptance testing. Let me know which of those Sukhjit wants and I'll get them over.</p>
+
+      <p>Cheers,<br>Alex</p>
+    </div>
+  </div>
+</section>
+
+<section id="gaps">
+  <h2>What this document cannot answer</h2>
+  <p class="section-sub">Stated plainly so nothing here reads as more settled than it is.</p>
+  <ul class="plain">
+    <li><strong>The two exact-coincidence turn failures.</strong> Genuinely unexplained. Build Network's error attribution during turn-element creation may not be strictly one-to-one, so it is worth checking whether a third turn references the same shared edge, but that has not been done.</li>
+    <li><strong>The datum warning.</strong> Nobody has checked the editing map for it. The statement above is about the build-side datasets only.</li>
+    <li><strong>The three original spot-check intersections</strong> (Blowers/Barrington, Barrington/Salter, Upper Water/Hollis) do not appear by name in the 28 misaligned rows or in the sample of no-match rows that was printed. Whether they came in aligned or are simply buried in the roughly 200 unprinted rows has never been checked with a targeted query.</li>
+    <li><strong>The acceptance-testing findings have not been seen by this repository.</strong> The characterisation above is second-hand; there is no list, no FDMIDs, and no overlap analysis against the four plain-street anomalies or the seven sub-metre gaps. That overlap would be worth doing once the list is compiled.</li>
+    <li><strong>The full 249 no-match set has never been classified.</strong> The grade-separation conclusion is from a 20-row sample judged by name, not from a heuristic run over all of them.</li>
+    <li><strong>Whether these errors are caused by the LRS pipeline or predate it</strong> has not been established. The edge geometry is reconstructed from route measures by <code>OverlayEvents</code>, so a defect could be in <code>LRSN_Route</code>, in the event data, or introduced by the overlay itself. Nobody has compared a sample of flagged locations against the legacy <code>TRN_street</code> geometry to find out, and that is probably the single most useful next diagnostic for this case.</li>
+  </ul>
+</section>
+
+<footer>
+  Sources: <code>network_dataset/docs/network_build_status.md</code>, <code>network_dataset/docs/network_dataset_script_review.md</code>, <code>network_dataset/docs/turn_rebuild_qa_test_runbook.md</code>, <code>network_dataset/docs/network_dataset_migration_plan.md</code>, <code>network_dataset/scripts/06_check_junction_alignment.py</code>, <code>scripts/LRS_updates.py</code>, and the "RE: LRS Network dataset" and "FW: Esri Case #04248942" email threads of 2026-09-11 and 2026-09-10.
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('toggleAll');
+  if (!btn) return;
+  var expanded = false;
+  btn.addEventListener('click', function () {
+    expanded = !expanded;
+    document.querySelectorAll('details.phase').forEach(function (d) { d.open = expanded; });
+    btn.textContent = expanded ? 'Collapse all' : 'Expand all';
+  });
+})();
+</script>
+
+</body>
+</html>

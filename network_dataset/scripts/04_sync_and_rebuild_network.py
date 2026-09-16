@@ -1,11 +1,15 @@
 """
 Sync the network edge source and rebuild TRNLRS_street_network in prod.
 
-TRNLRS_TRN_STREET_VW is the authoritative edge source, refreshed by
-LRS_updates.py, and it only exists in prod. TRNLRS_TRN_STREET (the FD copy
-prod's network dataset references) goes stale every time TRNLRS_TRN_STREET_VW
-is refreshed, so this script re-syncs it and rebuilds TRNLRS_street_network --
-both within prod.
+TRNLRS_TRN_STREET_VW's Prod copy is the authoritative edge source, refreshed
+by LRS_updates.py from prod's own LRS tables. (A same-named standalone FC
+also exists in QA, confirmed via Pro Catalog 2026-09-16 -- QA is a
+one-to-one mirror of prod without scheduled updates, so QA's copy is never
+guaranteed current and is not this script's source or anyone else's; see
+03_create_network_dataset.py's docstring for the same note.)
+TRNLRS_TRN_STREET (the FD copy prod's network dataset references) goes stale
+every time Prod's TRNLRS_TRN_STREET_VW is refreshed, so this script re-syncs
+it and rebuilds TRNLRS_street_network -- both within prod.
 
 Dev and QA builds of TRNLRS_street_network are one-off/test builds created by
 network_dataset/scripts/03_create_network_dataset.py, which already loads a fresh copy of

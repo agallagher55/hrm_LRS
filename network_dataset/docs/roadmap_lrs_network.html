@@ -345,12 +345,17 @@
 
 <header class="hero" id="overview">
   <h1>TRNLRS Street Network: Build Roadmap</h1>
-  <p class="meta">Prepared <strong>2026-09-09</strong> · Reflects repository state at commit <code>4420ec6</code> (2026-09-08) · Latest network execution evidence in the repo is dated <strong>2026-09-03</strong></p>
+  <p class="meta">Prepared 2026-09-09 &middot; <strong>Updated 2026-09-15</strong> for the 2026-09-16 check-in &middot; Latest network execution evidence in the repo is dated <strong>2026-09-03</strong>; the latest acceptance-testing evidence is dated <strong>2026-09-11</strong></p>
   <p class="meta">This page is compiled entirely from what is committed to this repository (docs, scripts, data outputs). It is <strong>not</strong> a live query of Dev, QA, or Prod. Where the current QA environment and this page disagree, QA is the authority.</p>
 
   <div class="callout">
     <strong class="tag">Where things stand</strong>
     QA has a working, editable network dataset, and both hard restriction types (one-way and prohibited turns) are proven correct with real solve tests. That was the hard part, and it is done. What is left is acceptance testing, a handful of data-policy decisions that need a business owner rather than an engineer, and turning the rebuild into something that survives a Prod cutover unattended. Dev still runs the original VBScript-based build and cannot be edited in place. Prod has nothing built yet. Treat this as late validation and pre-production, not production-ready.
+  </div>
+
+  <div class="callout" style="border-left-color: var(--blocked);">
+    <strong class="tag" style="color: var(--blocked);">Changed since 2026-09-09</strong>
+    <strong>Acceptance testing is paused, not failed.</strong> Robbie Evans started expert testing on 2026-09-09 and stopped on <strong>2026-09-11</strong> after roughly <strong>500 streets</strong> were flagged as not calculating due to dangling segments while editing. His read: most are simple fixes, the segment is extended past the intersection. These are defects in the <strong>LRS source data</strong>, upstream of anything the network build does, and nothing found so far contradicts the restriction evidence below. The list goes to Melanie Parker; Jillian Landry's direction was to stop testing until they are fixed. QA then has to be refreshed before Robbie can retest, and that refresh is <strong>not</strong> a simple truncate-and-load, see <a href="qa_network_refresh_runbook.html">the QA refresh runbook</a>. Separately, Esri Canada has reproduced the intersection behaviour in-house on Case #04248942 and calls it data-specific rather than Pro-version-specific; the workflow and error write-up they asked for is in <a href="junction_network_workflow_esri_case.html">the junction network workflow document</a>.
   </div>
 
   <div class="cards">
@@ -363,7 +368,8 @@
         <li>1,180 of 1,189 remapped turns (99.2%) built as live elements</li>
         <li>50 km service area solve confirmed 2026-06-29</li>
         <li>SQL grants current: <code>N_3</code> / <code>ND_40171</code> (2026-09-01)</li>
-        <li>Robbie Evans's expert testing requested 2026-09-09, due ~2026-09-11 (ahead of the HRFE kickoff 2026-09-15)</li>
+        <li><strong>Robbie Evans's expert testing PAUSED 2026-09-11</strong> after ~500 LRS source-geometry errors; needs a refresh + retest</li>
+        <li>Needs a full refresh cycle once the LRS corrections land, not just an edge reload</li>
       </ul>
     </div>
     <div class="card">
@@ -402,7 +408,7 @@
     <span class="arrow">→</span>
     <div class="box dim"><span class="label">SQL filter</span><div class="sub">TO_DATE IS NULL, joins ADDDATE/MODDATE</div></div>
     <span class="arrow">→</span>
-    <div class="box"><span class="label">TRNLRS_TRN_STREET_VW</span><div class="sub">standalone, authoritative, prod only. Truncated + reloaded every LRS refresh.</div></div>
+    <div class="box"><span class="label">TRNLRS_TRN_STREET_VW</span><div class="sub">standalone. Prod's copy is authoritative and truncated + reloaded every LRS refresh; a same-named FC also exists in QA (confirmed 2026-09-16, origin/freshness unconfirmed, unused by any tracked script).</div></div>
     <span class="arrow">→</span>
     <div class="box dim"><span class="label">CopyFeatures</span><div class="sub">script 03 / sync_network_edge_source()</div></div>
     <span class="arrow">→</span>
@@ -548,10 +554,17 @@ End Select                                  End Select</code></pre>
   </div>
 
   <div class="milestone">
-    <h3><span class="num">3</span> Close QA acceptance testing</h3>
-    <p class="why">The hard restriction logic works. What's untested is whether the network as a whole reproduces the legacy network's routing behavior closely enough to cut over.</p>
+    <h3><span class="num">3</span> Fix the LRS source geometry, refresh QA, and close acceptance testing</h3>
+    <p class="why">Reframed 2026-09-15. The hard restriction logic works; what stopped acceptance testing was the quality of the underlying street geometry, which is upstream of everything this project builds. Nothing after the first four items can start until those four finish.</p>
     <ul class="todo">
-      <li><strong>In progress:</strong> Robbie Evans's independent expert network testing (turn and one-way restrictions), requested 2026-09-09 by email (cc Jillian Landry), due end of week (~2026-09-11), ahead of the HRFE kickoff meeting 2026-09-15</li>
+      <li class="done"><span class="tag">2026-09-11</span> Robbie Evans's independent expert testing, requested 2026-09-09 &ndash; <strong>stopped early</strong>, roughly 500 streets flagged as not calculating due to dangling segments while editing. Not a pass or a fail; he never reached the restriction tests.</li>
+      <li><span class="tag">Robbie</span> Send the roughly 500 flagged locations to Melanie Parker</li>
+      <li><span class="tag">LRS team</span> Correct the flagged geometry at source. Volume and effort unknown until the list lands. Mel and Ryan expected to share it.</li>
+      <li><span class="tag">Alex</span> Confirm the corrections are actually present in Prod's <code>TRNLRS_TRN_STREET_VW</code>, by spot-checking Robbie's own FDMIDs, not just by checking that a refresh ran</li>
+      <li><span class="tag">Alex</span> Refresh QA per <a href="qa_network_refresh_runbook.html">the QA refresh runbook</a>: sync edge copy &rarr; re-remap turns &rarr; verify &rarr; swap &rarr; recreate &rarr; Force Full Build &rarr; re-apply SQL grants. Roughly half a day. <strong>Not</strong> a truncate-and-load.</li>
+      <li><span class="tag">Decision</span> Refresh QA once at the end, or in batches as corrections land? Each refresh is a half-day rebuild, so batching is cheaper; one early partial refresh would confirm a fixed segment actually resolves the editing error before the LRS team works through all 500 on that assumption.</li>
+      <li>Check whether Robbie's roughly 500 overlap the 7 sub-metre turn-build gaps and the 4 plain-street junction anomalies. If they do, the corrections may close some of the 9 rejected turns for free, visible as that count dropping in the next build-errors file.</li>
+      <li>Robbie retests the refreshed QA network (turn and one-way restrictions)</li>
       <li>Run side-by-side Route solves against the legacy network and compare path and length cost: ordinary streets, divided roads, bridges/underpasses, and rural roads</li>
       <li>Perform the still-undone address-range / geocoding field checks</li>
       <li>Re-run a smaller service-area comparison framed consistently as distance (a genuine 5-minute test needs a time cost attribute, which doesn't exist yet)</li>
@@ -616,6 +629,11 @@ End Select                                  End Select</code></pre>
     <table>
       <tr><th>Item</th><th>Impact</th><th>Status</th></tr>
       <tr>
+        <td><strong>Roughly 500 streets with dangling / overshooting segments</strong> (Robbie Evans, 2026-09-11)</td>
+        <td>Streets not calculating during editing; segments extended past the intersection in the LRS source. Blocked QA acceptance testing on day one. Same class of defect as the 7 sub-metre turn-build gaps and the 4 plain-street junction anomalies below, at much larger scale. Reproduced in-house by Esri Canada on Case #04248942 and assessed by them as data-specific, not Pro-version-specific.</td>
+        <td><span class="pill pill-blocked">Blocking</span></td>
+      </tr>
+      <tr>
         <td>9 turns (0.76%) rejected at build with <em>Cannot find at junction</em></td>
         <td>Those 9 restrictions are unenforced in solves. 7 are explained by genuine 0.006–0.41 m digitizing gaps below the remap's snap tolerance; 2 are an exact 0.0000 m coincidence that still failed, unexplained.</td>
         <td><span class="pill pill-partial">Needs a decision</span></td>
@@ -674,12 +692,15 @@ End Select                                  End Select</code></pre>
   <div class="table-wrap">
     <table>
       <tr><th>Topic</th><th>Current risk</th><th>Decision or owner needed</th></tr>
+      <tr><td><strong>LRS source geometry quality</strong></td><td>Roughly 500 streets with overshooting/dangling segments stopped acceptance testing on 2026-09-11. Blocks Robbie's sign-off, and is upstream of everything this project builds. Effort to correct is unknown until the list reaches Melanie Parker.</td><td>Confirm who corrects them and by when; decide whether QA is refreshed once at the end or in batches; decide whether a source-geometry check belongs in the LRS refresh QC, which today checks duplicate/null FDMID, null GSA, and short segments but not dangles.</td></tr>
+      <tr><td><strong>Esri Case #04248942</strong></td><td>Esri Canada has reproduced the behaviour in-house and calls it data-specific rather than Pro-version-specific. Two of the nine rejected turns are at exact 0.0000 m coincidence and remain unexplained by us.</td><td>Alex to send the workflow and error write-up to Ryan; team to decide whether to push Esri on the two coincident-endpoint failures, and whether the Pro upgrade proceeds before the case closes (raised by Jillian on 2026-09-09).</td></tr>
       <tr><td>Production readiness</td><td>Core QA behavior works, but Prod does not exist and automation is unproven end to end.</td><td>Agree on entry/exit criteria and a target cutover sequence.</td></tr>
       <tr><td>9 missing turn restrictions</td><td>Up to 0.76% of migrated restrictions are not live; 2 failures are unexplained.</td><td>Accept for first release, fix source geometry, or block cutover.</td></tr>
       <tr><td>No elevation model</td><td>Potential false connectivity at grade-separated crossings.</td><td>Confirm release acceptance and define test coverage/remediation.</td></tr>
       <tr><td>No travel-time cost</td><td>Routing optimizes distance only; a "5-minute" service area isn't currently possible.</td><td>Confirm whether distance-only routing meets the initial business need.</td></tr>
       <tr><td>Road exclusions</td><td>Transit access, water access, island roads, and turnarounds may not belong in general vehicle routing.</td><td>GIS/transportation owner to approve inclusion rules.</td></tr>
-      <tr><td>Source data direction</td><td>At least one one-way edge is digitized backward.</td><td>Assign data-quality ownership and determine audit scope.</td></tr>
+      <tr><td>Source data direction</td><td>At least one one-way edge is digitized backward.</td><td>Assign data-quality ownership and determine audit scope. Worth folding into the same correction pass as Robbie's roughly 500, since it is the same team and the same feature class.</td></tr>
+      <tr><td><strong>Turn OID stability</strong></td><td>Every edge-source refresh reassigns edge <code>OBJECTID</code>s and breaks all 1,180 turn references, silently. Today that means every QA or Prod refresh is a half-day rebuild with a turn remap and a re-grant, not a reload.</td><td>Pick one of the three options in milestone 2 <strong>before</strong> Prod cutover, not after. This is now an operational cost, not a theoretical one: it is what makes Robbie's retest a half-day job rather than a ten-minute one.</td></tr>
       <tr><td>Refresh operations</td><td>Refresh automation code exists but is not deployed or proven through a full cycle.</td><td>Name a deployment owner, schedule a rehearsal, define monitoring and rollback.</td></tr>
       <tr><td>Environment configuration</td><td>Several scripts still rely on manually-edited connection constants rather than a flag or config.</td><td>Decide whether parameterization is required before Prod.</td></tr>
       <tr><td>SQL permissions</td><td>Grants are specific to each network dataset instance and change on every rebuild; Dev's are still pending.</td><td>Assign DBA/GIS ownership and add grants to the cutover checklist.</td></tr>
@@ -727,6 +748,8 @@ End Select                                  End Select</code></pre>
       <tr><td><a href="network_dataset_script_review.md">network_dataset_script_review.md</a></td><td>Line-by-line code review of every script; the most rigorous, self-correcting source for open bugs.</td></tr>
       <tr><td><a href="network_dataset_sql_permissions.md">network_dataset_sql_permissions.md</a></td><td>SQL grant procedure and per-environment registration ID history.</td></tr>
       <tr><td><a href="turn_rebuild_qa_test_runbook.md">turn_rebuild_qa_test_runbook.md</a></td><td>Step-by-step execution log for the 2026-08-31 turn-rebuild rewrite.</td></tr>
+      <tr><td><a href="qa_network_refresh_runbook.html">qa_network_refresh_runbook.html</a></td><td>How to refresh QA after an LRS source correction, and why it is not a truncate-and-load. Written 2026-09-15 for Robbie's retest. Shareable copy: <a href="https://claude.ai/artifact/T5J6zb7B8UUqa61Ns93v4P">QA Network Refresh</a>.</td></tr>
+      <tr><td><a href="junction_network_workflow_esri_case.html">junction_network_workflow_esri_case.html</a></td><td>High-level junction-network workflow and every error encountered, for Esri Case #04248942 via Ryan Lowe. Includes a draft reply. Written 2026-09-15. Shareable copy: <a href="https://claude.ai/artifact/NP2uxjdLuuRJr8uCzNJwgf">Junction Network Workflow</a>.</td></tr>
       <tr><td><a href="traffic_turn_staging_review_checklist.txt">traffic_turn_staging_review_checklist.txt</a></td><td>Manual review checklist run before swapping a remapped turn FC into place.</td></tr>
       <tr><td><a href="network_traffic_turns.md">network_traffic_turns.md</a></td><td>Original turn-remap diagnosis (chat transcript form; largely superseded by the script review above).</td></tr>
       <tr><td><a href="../data/network_template.xml">network_dataset/data/network_template.xml</a></td><td>Corrected Python-evaluator XML template, committed 2026-09-03. Not yet confirmed to work with <code>CreateNetworkDatasetFromTemplate</code>.</td></tr>
@@ -746,7 +769,8 @@ End Select                                  End Select</code></pre>
 </section>
 
 <footer>
-  <p>Compiled by reviewing every document in <code>docs/</code>, the pipeline outputs in <code>data/</code>, and the current contents of every script in <code>scripts/</code> as committed on this branch at commit <code>4420ec6</code> (2026-09-08). Specific bugs called out as "confirmed still present in the code today" (the <code>TruncateTable</code> call in <code>LRS_updates.py</code>, the QA-active environment constants in scripts 03/05) were re-checked directly against the source files while writing this page, not just taken from prior docs. This page does not reflect a live query of Dev, QA, or Prod; treat the current QA environment as the final authority when the two disagree.</p>
+  <p><strong>Updated 2026-09-15</strong> from the "RE: LRS Network dataset" thread of 2026-09-11 (Robbie Evans, Jillian Landry) and the "FW: Esri Case #04248942" thread of 2026-09-10 (Ryan Lowe). Those updates changed milestone 3, the QA card, the known-issues table, and the risks table; everything else on this page still reflects the repository state described next.</p>
+  <p>Originally compiled by reviewing every document in <code>docs/</code>, the pipeline outputs in <code>data/</code>, and the current contents of every script in <code>scripts/</code> as committed on this branch at commit <code>4420ec6</code> (2026-09-08). Specific bugs called out as "confirmed still present in the code today" (the <code>TruncateTable</code> call in <code>LRS_updates.py</code>, the QA-active environment constants in scripts 03/05) were re-checked directly against the source files while writing this page, not just taken from prior docs. This page does not reflect a live query of Dev, QA, or Prod; treat the current QA environment as the final authority when the two disagree.</p>
 </footer>
 
 </div>

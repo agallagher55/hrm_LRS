@@ -6,6 +6,22 @@
 
 For full technical details see [`network_dataset_migration_plan.md`](network_dataset_migration_plan.md).
 
+**Where this stands as of 2026-09-15:** QA's network dataset is built, editable, and both
+restriction types are proven with real solves. Independent acceptance testing by Robbie Evans
+started 2026-09-09 and **stopped on 2026-09-11 after roughly 500 source-geometry errors**
+(segments extended past intersections) were found in the LRS data. Those are upstream defects,
+not network dataset defects, but they block sign-off. Testing resumes after the LRS
+corrections land and QA is refreshed. Two documents were added for the 2026-09-16 check-in:
+
+| Document | Answers | Shareable link |
+|---|---|---|
+| [`junction_network_workflow_esri_case.html`](junction_network_workflow_esri_case.html) | Ryan Lowe / Esri Case #04248942: the high-level workflow for creating the junction network, every error encountered, and a draft reply | [Junction Network Workflow](https://claude.ai/artifact/NP2uxjdLuuRJr8uCzNJwgf) |
+| [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html) | Robbie Evans / Jillian Landry: how to refresh QA, and why it is not a simple truncate-and-load | [QA Network Refresh](https://claude.ai/artifact/T5J6zb7B8UUqa61Ns93v4P) |
+
+The shareable links are the same documents published as standalone web pages for people who
+do not have this repository. The repository copies are the source of truth; if a document
+changes here, the published page has to be republished to match.
+
 **Feature dataset separation (in progress, 2026-07-14):** the network source FCs and
 `TRNLRS_street_network` are being moved out of `SDEADM.TRNLRS` (the LRS feature
 dataset) into a dedicated `SDEADM.TRNLRS_network` feature dataset.
@@ -57,7 +73,7 @@ superseded by the 2026-09-01 rebuild — see [the 2026-09-01 update](#update-202
 | 2 | Schema comparison (old vs. new edge source) | ✅ Complete |
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ **QA rebuilt from scratch 2026-09-01** (interactive wizard, Python evaluators). Dev still on its original 2026-06-26 build — VBScript, permanently read-only, not rebuilt. Prod: nothing built. |
-| 5 | Validation | 🔄 Properties ✅; service area ✅; **turn-restriction solve ✅ (2026-09-01)**; **one-way solve ✅ (2026-09-02/03, after a real multi-day debugging saga — see below)**; route comparison / address-range pending |
+| 5 | Validation | 🔄 Properties ✅; service area ✅; **turn-restriction solve ✅ (2026-09-01)**; **one-way solve ✅ (2026-09-02/03, after a real multi-day debugging saga — see below)**; route comparison / address-range pending. **Robbie Evans's expert acceptance testing is PAUSED (2026-09-11)**: ~500 source-geometry errors found in the first minutes; QA must be refreshed after the LRS fixes land before he can retest. |
 | 5a | Traffic turn rebuild | ✅ **Re-verified 2026-09-01** — 1,189 turns written, 99.7% Edge1End agreement, all 10 verifier checks clean, 5 spatial spot checks correct, **1,180 built as live turn elements** (9 rejected at build, see the 2026-09-01 update) |
 
 ### Update 2026-09-01 — QA network dataset rebuilt from scratch
@@ -88,6 +104,37 @@ afterward. The real logic was recovered on 2026-09-01 by running
 `CreateTemplateFromNetworkDataset` against Dev (which succeeded on a Pro 3.5.8 machine despite
 Esri's KB claiming that operation fails on VBScript-bearing networks — a documented inaccuracy
 worth knowing). See [Step 6](#step-6--rebuild-and-re-export-the-network-template-2026-09-01).
+
+**2026-09-16 correction — `TRNLRS_TRN_STREET_VW` is not prod-only.** Every doc and script in
+this repository stated flatly that this standalone FC "only exists in prod." That was wrong:
+Pro Catalog against `qa_RW_sdeadm.sde` shows a live `SDEADM.TRNLRS_TRN_STREET_VW` in QA as well
+(caught while reviewing the QA refresh runbook, whose central answer partly rested on this
+claim). Alex confirms it is created by `LRS_updates.py` run against QA.
+
+What is and isn't known:
+- **Confirmed:** the FC exists in QA. Its Prod counterpart remains the one every tracked
+  script (03, 04, `sync_network_edge_source()`) is hardcoded to read from, regardless of which
+  environment they build into -- so this does not change how the network dataset gets built.
+- **Confirmed (Alex, 2026-09-16): QA is a one-to-one mirror of prod, just without scheduled
+  updates.** QA is meant to be a like-for-like environment to test changes against before they
+  reach prod -- it isn't independent QA-only data. `LRS_updates.py` runs against it manually
+  (or on request), not on a fixed cadence, which is why its `TRNLRS_TRN_STREET_VW` can be
+  arbitrarily stale relative to prod's at any given moment: it reflects whenever someone last
+  ran the script there, not the current state. This confirms (rather than just motivates)
+  every script's decision to always read Prod's copy specifically -- QA's own copy isn't a
+  usable substitute, since its currency isn't guaranteed by anything.
+- **Still not confirmed:** whether anything besides the network build (another script, a map
+  service, ad-hoc QA work) currently reads QA's copy of `TRNLRS_TRN_STREET_VW` directly.
+- **Practical risk:** anyone doing the QA rebuild by hand in Pro Catalog rather than via the
+  scripts could pick QA's own `_VW` by mistake instead of Prod's -- worth a specific callout in
+  the rebuild procedure, not just a note here.
+
+Every "prod only" claim in this repository's docs and script docstrings has been corrected to
+reflect this (`network_dataset_migration_plan.md`, `network_dataset_script_review.md`,
+`roadmap_lrs_network.html`, `qa_network_refresh_runbook.html`, and scripts 03/04). See
+[`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html) for the corrected,
+verified rebuild procedure -- it also turned out to need two full build cycles, not one, once
+this was worked through against the actual script logic (see that document's Phase 3/4 note).
 
 ## Confirmed Prerequisites
 
@@ -388,7 +435,55 @@ following Tuesday (2026-09-15, derived from the 2026-09-09 send date — not sta
 in the email). Suggested focus: turn and one-way restrictions — both already confirmed working
 above, so this is Robbie's independent sign-off on top of the checks already run here.
 
-- [ ] Robbie's expert network testing results (requested 2026-09-09, due ~2026-09-11)
+**2026-09-11, Robbie's testing stopped early: ~500 source-geometry errors.** Within the first
+two minutes of testing, Robbie found streets "that aren't getting calculated due to dangles in
+the segments when editing." He asked whether to keep testing or identify all of them for the
+LRS folks to fix and then rebuild; Jillian Landry's answer was to identify all of them, since
+the corrected version has to be retested anyway. By the end of the day **about 500 were
+flagged**. Robbie's own characterisation of what he had looked at so far:
+
+> Most of the ones I'm looked at are just simple fixes though. The segment is extended past
+> the intersection.
+
+The list is going to Melanie Parker. Jillian's direction (2026-09-11, to Robbie and Alex):
+*"no sense in your continuing on until these are fixed. Can you also send to Ryan as they most
+likely will share the fixing."*
+
+**What this means for this project.** These are defects in the **LRS source data**, upstream of
+everything the network build does, not network dataset defects. Three consequences:
+
+1. **QA acceptance testing is paused**, not failed. Nothing found so far contradicts the
+   restriction and turn evidence recorded above; Robbie never got far enough to exercise it.
+2. **This is the same class of defect as the 7 sub-metre turn-build gaps** (0.006–0.41 m,
+   see the runbook's §3.3) and the 4 plain-street junction anomalies from the 2026-08-31
+   alignment check, seen at editing scale and much higher volume. Worth checking the overlap
+   once Mel has the list, since the corrections may close some of the 9 `Cannot find at junction`
+   turn failures for free.
+3. **A QA refresh is required before Robbie can retest**, and it is not a simple truncate/load.
+   Procedure, and why, in [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html).
+
+**2026-09-10, Ryan Lowe asked for the junction-network workflow for Esri Case #04248942.**
+Esri Canada (Sukhjit P.) has reproduced HRM's LRS intersection behaviour in-house and reports
+it as **data-specific, not ArcGIS Pro version-specific**. Esri asked twice (2026-09-01 and
+2026-09-09) for the high-level workflow the "coworker" (Alex) follows to create the junction
+network, plus any error messages with screenshots. Written up in
+[`junction_network_workflow_esri_case.html`](junction_network_workflow_esri_case.html),
+including a draft reply to Ryan. Two Esri questions remain for others to answer: whether a
+datum warning appears in the editing map (nobody has checked), and whether all three of Ryan's
+scenarios still reproduce on Pro 3.5.8.
+
+- [x] Robbie's expert network testing results (requested 2026-09-09): **stopped 2026-09-11
+      after ~500 source-geometry errors; not a pass or fail, testing is paused**
+- [ ] Robbie sends the ~500 flagged locations to Melanie Parker
+- [ ] LRS team corrects the flagged geometry; confirm the fixes land in prod's
+      `TRNLRS_TRN_STREET_VW` before refreshing QA
+- [ ] Refresh QA per [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html),
+      then hand back to Robbie for a retest
+- [ ] Check whether Robbie's ~500 overlap the 7 sub-metre turn-build gaps and the 4 plain-street
+      junction anomalies
+- [ ] Send the junction-network workflow write-up to Ryan for Esri Case #04248942
+- [ ] Decide the turn-OID-stability question before prod cutover (see
+      [`network_dataset_script_review.md` §D](network_dataset_script_review.md#d-turn-references-do-not-survive-an-lrs-refresh-structural))
 
 ---
 
@@ -618,9 +713,12 @@ one's data actually needs to live:
 
 - **`network_dataset/scripts/03_create_network_dataset.py`** always reads `TRNLRS_TRN_STREET_VW`
   from a dedicated `PROD_SDE_CONNECTION` (using the confirmed path above),
-  since that FC only exists in prod. `SDE_CONNECTION_UPDATE` (Dev/QA/prod, still
-  a manually-edited constant) controls where the FD copy, junction/turn sources,
-  and new network dataset get created.
+  since prod's copy is authoritative. (A same-named standalone FC also exists
+  in QA, confirmed via Pro Catalog 2026-09-16 -- origin and freshness
+  unconfirmed; not read by any tracked script, which hardcode Prod
+  specifically to avoid depending on it.) `SDE_CONNECTION_UPDATE` (Dev/QA/prod,
+  still a manually-edited constant) controls where the FD copy, junction/turn
+  sources, and new network dataset get created.
 - **`network_dataset/scripts/04_sync_and_rebuild_network.py`** is now prod-only -- there's no
   Dev/QA target at all. Dev/QA builds are one-off snapshots created by script 03;
   only prod's copy of `TRNLRS_TRN_STREET` needs continuous re-syncing after every
@@ -729,7 +827,7 @@ below are not validated for that use case.
 | Prod SDE connection | `E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde` -- always used as `PROD_SDE_CONNECTION` in scripts 03/04 (04 uses it exclusively); still a manually-edited `SDE` constant in script 05, see "Prod cutover" above |
 | Target feature dataset | `SDEADM.TRNLRS_network` in Dev and QA (both built 2026-07-14); `SDEADM.TRNLRS` still in prod -- see feature dataset separation note above |
 | New network dataset name | `TRNLRS_street_network` |
-| Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` (unchanged -- outside any feature dataset, prod only) |
+| Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` (outside any feature dataset; Prod's copy is authoritative and is what every script reads -- a same-named FC also exists in QA, confirmed 2026-09-16, origin/freshness unconfirmed, see the 2026-09-16 note below) |
 | FD copy of edge source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_TRN_STREET` in Dev/QA; `SDEADM.TRNLRS\TRNLRS_TRN_STREET` in prod |
 | Turn source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_traffic_turn` in Dev/QA -- both re-remapped via script 05 and swapped in (2026-07-14); `SDEADM.TRNLRS\TRNLRS_traffic_turn` in prod |
 | XML template | `network_dataset/data/network_template.xml` |
