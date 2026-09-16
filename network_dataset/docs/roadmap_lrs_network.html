@@ -408,7 +408,7 @@
     <span class="arrow">→</span>
     <div class="box dim"><span class="label">SQL filter</span><div class="sub">TO_DATE IS NULL, joins ADDDATE/MODDATE</div></div>
     <span class="arrow">→</span>
-    <div class="box"><span class="label">TRNLRS_TRN_STREET_VW</span><div class="sub">standalone, authoritative, prod only. Truncated + reloaded every LRS refresh.</div></div>
+    <div class="box"><span class="label">TRNLRS_TRN_STREET_VW</span><div class="sub">standalone. Prod's copy is authoritative and truncated + reloaded every LRS refresh; a same-named FC also exists in QA (confirmed 2026-09-16, origin/freshness unconfirmed, unused by any tracked script).</div></div>
     <span class="arrow">→</span>
     <div class="box dim"><span class="label">CopyFeatures</span><div class="sub">script 03 / sync_network_edge_source()</div></div>
     <span class="arrow">→</span>

@@ -479,9 +479,13 @@ called after the `street_features` loop inside the QC-pass `else` block. A stand
 script `network_dataset/scripts/04_sync_and_rebuild_network.py` also exists for one-off rebuilds outside
 a full LRS refresh cycle.
 
-This cadence only applies to **prod**: `TRNLRS_TRN_STREET_VW` only exists there, and
-prod's copy of `TRNLRS_TRN_STREET` / `TRNLRS_street_network` is what live routing
-actually uses, so it's the only copy that needs continuous re-syncing.
+This cadence only applies to **prod**: prod's copy of `TRNLRS_TRN_STREET_VW` is the
+authoritative one and prod's copy of `TRNLRS_TRN_STREET` / `TRNLRS_street_network` is what
+live routing actually uses, so it's the only copy that needs continuous re-syncing.
+(**Corrected 2026-09-16:** this used to say `TRNLRS_TRN_STREET_VW` "only exists" in prod. A
+same-named standalone FC was confirmed present in QA too via Pro Catalog. See the 2026-09-16
+note in `network_build_status.md` for what is and isn't known about it -- it does not change
+anything below, since every script here is hardcoded to read Prod's copy regardless.)
 `network_dataset/scripts/04_sync_and_rebuild_network.py` is prod-only accordingly -- Dev and QA builds
 of `TRNLRS_street_network` are one-off snapshots created by `network_dataset/scripts/03_create_network_dataset.py`
 (which loads a fresh copy of `TRNLRS_TRN_STREET_VW` from prod at creation time) and are

@@ -455,7 +455,7 @@ and they currently disagree:
 | `01_extract_network_config.py` | QA |
 | `02_compare_schemas.py` | QA |
 | `03_create_network_dataset.py` | **Dev** (`SDE_CONNECTION_UPDATE`) + prod (read-only, edge source) |
-| `04_sync_and_rebuild_network.py` | prod only (by design) |
+| `04_sync_and_rebuild_network.py` | prod only (by design -- reads Prod's `TRNLRS_TRN_STREET_VW` specifically; a same-named FC also exists in QA, see the 2026-09-16 note in `network_build_status.md`) |
 | `05_rebuild_traffic_turns.py` | **QA** |
 | `06_migrate_network_fd.py` | Dev (hardcoded) |
 

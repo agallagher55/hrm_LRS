@@ -105,6 +105,32 @@ afterward. The real logic was recovered on 2026-09-01 by running
 Esri's KB claiming that operation fails on VBScript-bearing networks — a documented inaccuracy
 worth knowing). See [Step 6](#step-6--rebuild-and-re-export-the-network-template-2026-09-01).
 
+**2026-09-16 correction — `TRNLRS_TRN_STREET_VW` is not prod-only.** Every doc and script in
+this repository stated flatly that this standalone FC "only exists in prod." That was wrong:
+Pro Catalog against `qa_RW_sdeadm.sde` shows a live `SDEADM.TRNLRS_TRN_STREET_VW` in QA as well
+(caught while reviewing the QA refresh runbook, whose central answer partly rested on this
+claim). Alex confirms it is created by `LRS_updates.py` run against QA.
+
+What is and isn't known:
+- **Confirmed:** the FC exists in QA. Its Prod counterpart remains the one every tracked
+  script (03, 04, `sync_network_edge_source()`) is hardcoded to read from, regardless of which
+  environment they build into -- so this does not change how the network dataset gets built.
+- **Not confirmed:** whether QA's copy is kept current by a QA-scoped run of `LRS_updates.py`
+  (and if so, on what cadence, and whether it overlays QA's own `LRSN_Route`/event tables or
+  something else), or whether it is a stale one-off from testing the script before its
+  eventual prod deployment. Also not confirmed: whether anything besides the network build
+  (another script, a map service, ad-hoc QA work) currently reads QA's copy directly.
+- **Practical risk:** anyone doing the QA rebuild by hand in Pro Catalog rather than via the
+  scripts could pick QA's own `_VW` by mistake instead of Prod's -- worth a specific callout in
+  the rebuild procedure, not just a note here.
+
+Every "prod only" claim in this repository's docs and script docstrings has been corrected to
+reflect this (`network_dataset_migration_plan.md`, `network_dataset_script_review.md`,
+`roadmap_lrs_network.html`, `qa_network_refresh_runbook.html`, and scripts 03/04). See
+[`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html) for the corrected,
+verified rebuild procedure -- it also turned out to need two full build cycles, not one, once
+this was worked through against the actual script logic (see that document's Phase 3/4 note).
+
 ## Confirmed Prerequisites
 
 | Item | Status | Notes |
@@ -682,9 +708,12 @@ one's data actually needs to live:
 
 - **`network_dataset/scripts/03_create_network_dataset.py`** always reads `TRNLRS_TRN_STREET_VW`
   from a dedicated `PROD_SDE_CONNECTION` (using the confirmed path above),
-  since that FC only exists in prod. `SDE_CONNECTION_UPDATE` (Dev/QA/prod, still
-  a manually-edited constant) controls where the FD copy, junction/turn sources,
-  and new network dataset get created.
+  since prod's copy is authoritative. (A same-named standalone FC also exists
+  in QA, confirmed via Pro Catalog 2026-09-16 -- origin and freshness
+  unconfirmed; not read by any tracked script, which hardcode Prod
+  specifically to avoid depending on it.) `SDE_CONNECTION_UPDATE` (Dev/QA/prod,
+  still a manually-edited constant) controls where the FD copy, junction/turn
+  sources, and new network dataset get created.
 - **`network_dataset/scripts/04_sync_and_rebuild_network.py`** is now prod-only -- there's no
   Dev/QA target at all. Dev/QA builds are one-off snapshots created by script 03;
   only prod's copy of `TRNLRS_TRN_STREET` needs continuous re-syncing after every
@@ -793,7 +822,7 @@ below are not validated for that use case.
 | Prod SDE connection | `E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde` -- always used as `PROD_SDE_CONNECTION` in scripts 03/04 (04 uses it exclusively); still a manually-edited `SDE` constant in script 05, see "Prod cutover" above |
 | Target feature dataset | `SDEADM.TRNLRS_network` in Dev and QA (both built 2026-07-14); `SDEADM.TRNLRS` still in prod -- see feature dataset separation note above |
 | New network dataset name | `TRNLRS_street_network` |
-| Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` (unchanged -- outside any feature dataset, prod only) |
+| Standalone edge source (authoritative) | `SDEADM.TRNLRS_TRN_STREET_VW` (outside any feature dataset; Prod's copy is authoritative and is what every script reads -- a same-named FC also exists in QA, confirmed 2026-09-16, origin/freshness unconfirmed, see the 2026-09-16 note below) |
 | FD copy of edge source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_TRN_STREET` in Dev/QA; `SDEADM.TRNLRS\TRNLRS_TRN_STREET` in prod |
 | Turn source (used by ND) | `SDEADM.TRNLRS_network\TRNLRS_traffic_turn` in Dev/QA -- both re-remapped via script 05 and swapped in (2026-07-14); `SDEADM.TRNLRS\TRNLRS_traffic_turn` in prod |
 | XML template | `network_dataset/data/network_template.xml` |
