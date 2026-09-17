@@ -517,7 +517,7 @@
 <section id="procedure">
   <h2>The procedure</h2>
   <p class="section-sub">Eight phases. Delete-and-rebuild from Prod's <code>_VW</code>, not an in-place edge sync &mdash; simpler to reason about, and it sidesteps the controller-dataset <code>TruncateTable</code>/<code>DeleteRows</code> dance entirely, at the cost of a second full build cycle (see Phase 3). Run from an ArcGIS Pro Python environment with the Network Analyst extension available. Paths shown are QA.</p>
-  <div class="note"><strong>Ordered entry points:</strong> <code>network_dataset/qa_refresh/</code> contains numbered scripts for Phases 0&ndash;5 and post-swap turn verification. Start with that folder's <code>README.md</code>; the scripts delegate to the maintained build/remap/verifier implementations rather than duplicating them. SQL grants and interactive route smoke tests remain manual and are described in Phases 6&ndash;7 below.</div>
+  <div class="note"><strong>Ordered entry points:</strong> <code>T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\qa_refresh</code> contains numbered scripts for Phases 0&ndash;5 and post-swap turn verification. Start with that folder's <code>README.md</code>; its configuration uses the mapped <code>T:</code> path and constructs repository folders with <code>os.path.join()</code>. The scripts delegate to the maintained build/remap/verifier implementations in the parent <code>scripts</code> folder rather than duplicating them. SQL grants and interactive route smoke tests remain manual and are described in Phases 6&ndash;7 below.</div>
 
   <details class="phase" open>
     <summary><span class="pill pill-notstarted">Phase 0</span> Baseline and backup</summary>
