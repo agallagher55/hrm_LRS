@@ -3,6 +3,7 @@
 import importlib.util
 import os
 import sys
+from pathlib import Path
 
 import arcpy
 
@@ -11,7 +12,10 @@ import config
 
 def load_script(path, module_name):
     """Load a numerically named core script without executing its main block."""
-    path = path.resolve()
+    # Do not call Path.resolve() here. On HRM workstations it expands the mapped
+    # T: drive back to its file-server UNC path, which makes diagnostics harder
+    # to compare with the paths operators see in ArcGIS Pro and PyCharm.
+    path = Path(path)
     if not path.exists():
         raise RuntimeError(f"Required script not found: {path}")
     scripts_dir = str(path.parent)
@@ -68,4 +72,3 @@ def load_and_validate_core_scripts():
 def require_exists(path, label):
     if not arcpy.Exists(path):
         raise RuntimeError(f"{label} not found: {path}")
-

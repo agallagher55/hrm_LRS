@@ -47,3 +47,29 @@ here.
 - Steps 02 and 06 require explicit command-line confirmation flags so they
   cannot be launched destructively by an accidental double-click.
 - Never manually click **Build Network** after steps 03 or 06.
+
+## Troubleshooting
+
+### `scripts\scripts\03_create_network_dataset.py` not found
+
+That path means `config.py` is from the older folder layout: it treated
+`qa_refresh`'s parent as `network_dataset` and then appended another `scripts`
+folder. In the current layout, `qa_refresh` is already inside `scripts`.
+
+Confirm that `config.py` contains:
+
+```python
+WORK_ROOT = r"T:\work\giss\monthly\202607jul\gallaga"
+NETWORK_DATASET_DIR = Path(os.path.join(WORK_ROOT, "network_dataset"))
+CORE_SCRIPTS_DIR = Path(os.path.join(NETWORK_DATASET_DIR, "scripts"))
+```
+
+Then rerun `00_confirm_sources.py`. Its first core-script lookup should be:
+
+```text
+T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\03_create_network_dataset.py
+```
+
+There should be exactly one `scripts` component. The loader intentionally keeps
+the mapped `T:` path in error messages instead of resolving it to the backing
+file-server UNC path.
