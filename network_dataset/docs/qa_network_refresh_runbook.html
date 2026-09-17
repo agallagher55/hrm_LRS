@@ -421,7 +421,7 @@
     <strong class="tag">The question, answered</strong>
     <p style="margin:0 0 10px;"><strong>No. It is not as simple as truncating QA's <code>TRNLRS_TRN_STREET_VW</code> and loading it from Prod's.</strong> Three things are wrong with that description, and the third is the one that actually causes damage.</p>
     <ol style="margin:0 0 10px 0; padding-left:22px;">
-      <li><strong>QA's own <code>TRNLRS_TRN_STREET_VW</code>, even though it exists, is not what the network reads.</strong> QA's edge source is <code>SDEADM.TRNLRS_network\TRNLRS_TRN_STREET</code>, a copy the network build scripts always source from <strong>Prod's</strong> <code>_VW</code> specifically, by hardcoded design. Truncating and loading QA's own copy of the <code>_VW</code> would touch a feature class nothing downstream reads.</li>
+      <li><strong>QA's own <code>TRNLRS_TRN_STREET_VW</code>, even though it exists, is not what the network reads.</strong> QA's edge source is <code>SDEADM.TRNLRS_network\TRNLRS_TRN_STREET</code>. The current tracked QA creation script sources that copy from <strong>Prod's</strong> <code>_VW</code> specifically, by hardcoded design. Truncating and loading QA's own copy of the <code>_VW</code> would not refresh the network edge source.</li>
       <li><strong><code>TruncateTable</code> is blocked on the copy that matters anyway</strong> with <code>ERROR 001395</code>, because a registered network source is a controller-dataset member. <code>DeleteRows</code> is the supported equivalent.</li>
       <li><strong>Reloading the edge source silently destroys all 1,180 live turn restrictions.</strong> <code>DeleteRows</code> + <code>Append</code> reassigns every OBJECTID, and turn edge references are stored as OBJECTIDs. The next build re-emits <code>Cannot find edge element corresponding to turn identifier N</code> for every turn and the Turns count goes to zero.</li>
     </ol>
@@ -429,7 +429,7 @@
   </div>
 
   <div class="note">
-    <strong>Correction, 2026-09-16:</strong> an earlier version of this document said <code>TRNLRS_TRN_STREET_VW</code> "only exists in Prod." That was wrong &mdash; the same-named standalone FC is visible in QA's own Pro Catalog too, created there by a run of <code>LRS_updates.py</code> against QA. It does not change the answer above: every tracked script still reads Prod's copy specifically, by design, regardless of environment. What it does change is worth reading in full &mdash; see <a href="#qavw">the note in Why it is not a truncate and load</a>.
+    <strong>Correction, 2026-09-16:</strong> an earlier version of this document said <code>TRNLRS_TRN_STREET_VW</code> "only exists in Prod." That was wrong &mdash; the same-named standalone FC is visible in QA's own Pro Catalog too, created there by a run of <code>LRS_updates.py</code> against QA. It does not change the current scripted QA build path: <code>03_create_network_dataset.py</code> reads Prod's copy specifically. What it does change is worth reading in full &mdash; see <a href="#qavw">the note in Why it is not a truncate and load</a>.
   </div>
 
   <div class="note">
@@ -444,10 +444,11 @@
     <h3><span class="num">1</span> QA <em>does</em> have a <code>_VW</code>, and that is exactly the trap</h3>
     <div class="body">
       <p><code>TRNLRS_TRN_STREET_VW</code> is created by <code>scripts/LRS_updates.py</code> as a standalone SDE feature class, outside any feature dataset. Prod's copy is the authoritative one, overlaid from prod's own <code>LRSN_Route</code> and event tables. <strong>QA has a live copy of the same name too</strong> &mdash; confirmed 2026-09-16 in Pro Catalog against <code>qa_RW_sdeadm.sde</code>, sitting right alongside the other <code>TRNLRS_*</code> standalone classes, created by a run of <code>LRS_updates.py</code> against QA.</p>
-      <p>Neither the network build scripts nor this document's original framing accounted for that. <code>03_create_network_dataset.py</code> and <code>04_sync_and_rebuild_network.py</code> both hardcode a dedicated <code>PROD_SDE_CONNECTION</code> and always read the edge source from there, regardless of which environment they build into &mdash; so <strong>QA's own <code>_VW</code> is not, and was never, what feeds the network</strong>. What the QA network dataset actually reads is the feature dataset copy:</p>
+      <p>Neither the network build scripts nor this document's original framing accounted for that. The current <code>03_create_network_dataset.py</code> hardcodes a dedicated <code>PROD_SDE_CONNECTION</code> for its edge input even when <code>SDE_CONNECTION_UPDATE</code> points at QA. <code>04_sync_and_rebuild_network.py</code> also uses Prod, but it is explicitly a Prod-to-Prod steady-state sync and does not build QA. Therefore, <strong>QA's own <code>_VW</code> is not an input to the current tracked QA build path</strong>. What the QA network dataset actually reads is the feature-dataset copy:</p>
       <pre><code>E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde\SDEADM.TRNLRS_network\TRNLRS_TRN_STREET</code></pre>
-      <p>which scripts 03/04 populate from <strong>Prod's</strong> <code>_VW</code>, not QA's. That still leaves the original answer standing (reason 1 in the callout above), just for a more precise reason: it isn't that there's nothing in QA named <code>_VW</code> to truncate, it's that truncating and loading it would touch a feature class the network doesn't read at all.</p>
-      <div class="note"><strong>Confirmed, 2026-09-16:</strong> QA is a one-to-one mirror of prod, just without scheduled updates &mdash; it exists to test changes before they reach prod, not as an independent data set. <code>LRS_updates.py</code> is run against it manually, not on a fixed cadence, so its <code>_VW</code> reflects whenever someone last ran the script there, not the current state of prod. That is exactly why it is not safe to treat as a source: nothing guarantees it is current, and there is no way to tell how stale it is without checking. Still unconfirmed: whether anything else &mdash; another script, a map service, someone's ad-hoc QA session &mdash; reads QA's copy directly today. That doesn't change the procedure, since the scripts ignore it regardless, but is worth confirming before assuming it is safe to delete.</div>
+      <p>Script 03 creates that QA feature-dataset copy from <strong>Prod's</strong> <code>_VW</code>, not QA's. That still leaves the original answer standing (reason 1 in the callout above), just for a more precise reason: it isn't that there's nothing in QA named <code>_VW</code> to truncate, it's that the network does not reference that standalone class and the tracked QA build script does not use it as input.</p>
+      <div class="warning"><strong>What the repository can and cannot prove:</strong> the code proves what the <em>current tracked script</em> will do. It cannot prove that every historical QA build used this exact revision, or that nobody copied data manually in Pro. Do not use the earlier phrase "was never" as a historical guarantee. Confirm the live state with the read-only comparison in Phase 1 before deciding why QA is stale.</div>
+      <div class="note"><strong>Confirmed, 2026-09-16:</strong> QA is a one-to-one mirror of prod, just without scheduled updates &mdash; it exists to test changes before they reach prod, not as an independent data set. <code>LRS_updates.py</code> is run against it manually, not on a fixed cadence, so its <code>_VW</code> reflects whenever someone last ran the script there, not the current state of prod. That is exactly why it is not safe to treat as a source: nothing guarantees it is current, and there is no way to tell how stale it is without checking. Still unconfirmed: whether anything else &mdash; another script, a map service, someone's ad-hoc QA session &mdash; reads QA's copy directly today. That doesn't change this procedure, since the tracked network build path does not use it, but is worth confirming before assuming it is safe to delete.</div>
       <div class="note"><strong>Practical risk this creates:</strong> anyone doing this rebuild by hand in Pro Catalog rather than through the scripts can now genuinely pick the wrong <code>_VW</code> &mdash; both exist, both have the same name, and only one (Prod's) is correct to copy from. When the procedure below says "Prod's <code>_VW</code>," that is not a formality.</div>
     </div>
   </div>
@@ -516,6 +517,7 @@
 <section id="procedure">
   <h2>The procedure</h2>
   <p class="section-sub">Eight phases. Delete-and-rebuild from Prod's <code>_VW</code>, not an in-place edge sync &mdash; simpler to reason about, and it sidesteps the controller-dataset <code>TruncateTable</code>/<code>DeleteRows</code> dance entirely, at the cost of a second full build cycle (see Phase 3). Run from an ArcGIS Pro Python environment with the Network Analyst extension available. Paths shown are QA.</p>
+  <div class="note"><strong>Ordered entry points:</strong> <code>network_dataset/qa_refresh/</code> contains numbered scripts for Phases 0&ndash;5 and post-swap turn verification. Start with that folder's <code>README.md</code>; the scripts delegate to the maintained build/remap/verifier implementations rather than duplicating them. SQL grants and interactive route smoke tests remain manual and are described in Phases 6&ndash;7 below.</div>
 
   <details class="phase" open>
     <summary><span class="pill pill-notstarted">Phase 0</span> Baseline and backup</summary>
@@ -546,13 +548,45 @@ arcpy.management.CopyFeatures(
   <details class="phase" open>
     <summary><span class="pill pill-notstarted">Phase 1</span> Confirm Prod's edge source actually carries the fixes</summary>
     <div class="body">
-      <p>Cheap, and it is the whole point of the exercise. If the corrections are not in Prod's <code>_VW</code> yet, stop here.</p>
+      <p>Cheap, and it is the whole point of the exercise. If the corrections are not in Prod's <code>_VW</code> yet, stop here. This phase also distinguishes two different meanings of "QA is stale": QA's standalone <code>_VW</code> may be stale because its manual LRS refresh has not run, while the network's separate feature-dataset edge copy may be stale because the QA network has not been recreated since Prod changed.</p>
       <ul>
-        <li>Feature count on Prod's <code>SDEADM.TRNLRS_TRN_STREET_VW</code>, compared to QA's current copy.</li>
+        <li>Feature count on Prod's <code>SDEADM.TRNLRS_TRN_STREET_VW</code>, compared separately to QA's standalone <code>_VW</code> and QA's actual network edge source.</li>
         <li><code>MODDATE</code> range, to confirm the LRS refresh has run since the corrections were made.</li>
         <li>Spot-check three or four of Robbie's actual flagged locations by <code>FDMID</code> and confirm the overshoot is gone.</li>
       </ul>
       <p>The third check is the only one that proves anything. The first two confirm a refresh ran; they do not confirm it fixed the thing Robbie found.</p>
+      <p><strong>Double-check the actual paths before deleting anything.</strong> Run this read-only snippet in the ArcGIS Pro Python environment. It confirms the path hardcoded by the current build script and compares the three live row counts and date ranges. A QA network-edge count/date range older than Prod supports the simple explanation that the QA network snapshot has not been rebuilt since the latest Prod refresh. A stale QA standalone <code>_VW</code> by itself does not explain the network, because the network does not reference that class.</p>
+<pre><code>import arcpy
+import importlib.util
+import sys
+from pathlib import Path
+
+script = Path(r"&lt;repo&gt;\network_dataset\scripts\03_create_network_dataset.py")
+sys.path.insert(0, str(script.parent))
+spec = importlib.util.spec_from_file_location("create_network_dataset", script)
+build = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(build)
+
+qa = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+datasets = {
+    "script 03 edge input (expected Prod _VW)": build.STANDALONE_EDGE_SOURCE,
+    "QA standalone _VW (not the network source)": qa + r"\SDEADM.TRNLRS_TRN_STREET_VW",
+    "QA network edge source": qa + r"\SDEADM.TRNLRS_network\SDEADM.TRNLRS_TRN_STREET",
+}
+
+print("Script 03 target feature dataset:", build.FEATURE_DATASET)
+for label, path in datasets.items():
+    if not arcpy.Exists(path):
+        print(label, "MISSING", path)
+        continue
+    count = int(arcpy.management.GetCount(path)[0])
+    dates = [row[0] for row in arcpy.da.SearchCursor(path, ["MODDATE"]) if row[0]]
+    print(label, "count=", count,
+          "min_MODDATE=", min(dates) if dates else None,
+          "max_MODDATE=", max(dates) if dates else None,
+          "path=", path)
+</code></pre>
+      <div class="note"><strong>Limits of this check:</strong> matching counts and date ranges are evidence, not a byte-for-byte provenance proof; two different datasets can share those values. Confirm several known changed <code>FDMID</code> geometries in both Prod's <code>_VW</code> and QA's network edge source. Also note that simply re-running script 03 while <code>TRNLRS_TRN_STREET</code> already exists will <em>not</em> refresh it: <code>copy_fc_to_fd()</code> deliberately skips existing destinations. The delete-and-rebuild steps below are what force a fresh copy from Prod.</div>
     </div>
   </details>
 
@@ -604,8 +638,9 @@ arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_traffic_turn")</code></pre>
   <details class="phase" open>
     <summary><span class="pill pill-notstarted">Phase 5</span> Swap and rebuild &mdash; the second, final build cycle</summary>
     <div class="body">
-      <p>With a verified staging turn class and an already-fresh edge/junction pair in place, <code>run_full_network_rebuild.py</code> is exactly what this step is for &mdash; it assumes the edge and junction copies are already current (true now, false in Phase 3) and drives the rest: deletes the network dataset again, deletes the raw Phase-3 turn class, renames the verified staging class into <code>TRNLRS_traffic_turn</code>, then calls script 03 again &mdash; which this time <strong>skips</strong> copying edge/junction/turn since all three already exist, and goes straight to create + build. One command, exactly one build.</p>
-<pre><code>python run_full_network_rebuild.py</code></pre>
+      <p>With a verified staging turn class and an already-fresh edge/junction pair in place, run <code>run_full_network_rebuild.py</code> with <code>--use-existing-staging</code>. The flag is important: it tells the orchestrator to preserve and swap the <strong>exact staging class reviewed in Phase 4</strong>, rather than trying to run the turn remap again. The script confirms that staging exists, deletes the network dataset, deletes the raw Phase-3 turn class, renames the verified staging class into <code>TRNLRS_traffic_turn</code>, then calls script 03 again &mdash; which this time <strong>skips</strong> copying edge/junction/turn since all three already exist, and goes straight to create + build. One command, exactly one build.</p>
+<pre><code>python run_full_network_rebuild.py --use-existing-staging</code></pre>
+      <div class="note"><strong>Do not omit the flag in this workflow.</strong> Without it, the orchestrator runs <code>05_rebuild_traffic_turns.py</code> to create a new staging class. Because Phase 4's verified staging class already exists, script 05 will refuse to overwrite it and stop safely. The flag is an explicit operator assertion that verification and spatial review of the existing staging class are complete; the orchestrator does not repeat those checks.</div>
       <p>Or, to keep each step visible, the same sequence by hand:</p>
 <pre><code>import arcpy
 
