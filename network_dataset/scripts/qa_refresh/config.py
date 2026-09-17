@@ -4,12 +4,13 @@ import os
 from pathlib import Path
 
 
-# Working copy shown in ArcGIS Pro. Use the mapped T: drive rather than the
-# backing file-server UNC name so every operator sees the same readable paths.
-WORK_ROOT = r"T:\work\giss\monthly\202607jul\gallaga"
-NETWORK_DATASET_DIR = Path(os.path.join(WORK_ROOT, "network_dataset"))
-CORE_SCRIPTS_DIR = Path(os.path.join(NETWORK_DATASET_DIR, "scripts"))
-QA_REFRESH_DIR = Path(os.path.join(CORE_SCRIPTS_DIR, "qa_refresh"))
+# Derive the layout from this file without calling resolve(). When the entry
+# point is launched from T:, __file__ retains T: rather than expanding to the
+# backing UNC path. qa_refresh is inside scripts, so its parent is already the
+# core scripts directory -- do not append a second "scripts" component.
+QA_REFRESH_DIR = Path(__file__).parent
+CORE_SCRIPTS_DIR = QA_REFRESH_DIR.parent
+NETWORK_DATASET_DIR = CORE_SCRIPTS_DIR.parent
 OUTPUT_DIR = Path(os.path.join(QA_REFRESH_DIR, "output"))
 
 QA_SDE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"

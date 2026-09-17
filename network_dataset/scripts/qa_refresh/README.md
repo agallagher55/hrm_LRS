@@ -33,9 +33,9 @@ here.
 
 ## Safety and configuration
 
-- `config.py` holds the mapped `T:` working-copy root and expected QA paths.
-  Review it before every refresh. Repository folders are assembled with
-  `os.path.join()`; do not replace `T:` with the backing file-server name.
+- `config.py` derives the repository folders from its own mapped `T:` path and
+  holds the expected QA paths. Review it before every refresh. It deliberately
+  avoids `Path.resolve()`, which would replace `T:` with the backing server name.
 - `_shared.py` verifies that scripts 03, 05, and the verifier still point at the
   same QA feature dataset before any delegated operation runs.
 - Step 00 cannot prove historical provenance. It confirms current code paths
@@ -59,9 +59,9 @@ folder. In the current layout, `qa_refresh` is already inside `scripts`.
 Confirm that `config.py` contains:
 
 ```python
-WORK_ROOT = r"T:\work\giss\monthly\202607jul\gallaga"
-NETWORK_DATASET_DIR = Path(os.path.join(WORK_ROOT, "network_dataset"))
-CORE_SCRIPTS_DIR = Path(os.path.join(NETWORK_DATASET_DIR, "scripts"))
+QA_REFRESH_DIR = Path(__file__).parent
+CORE_SCRIPTS_DIR = QA_REFRESH_DIR.parent
+NETWORK_DATASET_DIR = CORE_SCRIPTS_DIR.parent
 ```
 
 Then rerun `00_confirm_sources.py`. Its first core-script lookup should be:
