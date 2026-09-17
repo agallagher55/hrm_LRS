@@ -604,8 +604,9 @@ arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_traffic_turn")</code></pre>
   <details class="phase" open>
     <summary><span class="pill pill-notstarted">Phase 5</span> Swap and rebuild &mdash; the second, final build cycle</summary>
     <div class="body">
-      <p>With a verified staging turn class and an already-fresh edge/junction pair in place, <code>run_full_network_rebuild.py</code> is exactly what this step is for &mdash; it assumes the edge and junction copies are already current (true now, false in Phase 3) and drives the rest: deletes the network dataset again, deletes the raw Phase-3 turn class, renames the verified staging class into <code>TRNLRS_traffic_turn</code>, then calls script 03 again &mdash; which this time <strong>skips</strong> copying edge/junction/turn since all three already exist, and goes straight to create + build. One command, exactly one build.</p>
-<pre><code>python run_full_network_rebuild.py</code></pre>
+      <p>With a verified staging turn class and an already-fresh edge/junction pair in place, run <code>run_full_network_rebuild.py</code> with <code>--use-existing-staging</code>. The flag is important: it tells the orchestrator to preserve and swap the <strong>exact staging class reviewed in Phase 4</strong>, rather than trying to run the turn remap again. The script confirms that staging exists, deletes the network dataset, deletes the raw Phase-3 turn class, renames the verified staging class into <code>TRNLRS_traffic_turn</code>, then calls script 03 again &mdash; which this time <strong>skips</strong> copying edge/junction/turn since all three already exist, and goes straight to create + build. One command, exactly one build.</p>
+<pre><code>python run_full_network_rebuild.py --use-existing-staging</code></pre>
+      <div class="note"><strong>Do not omit the flag in this workflow.</strong> Without it, the orchestrator runs <code>05_rebuild_traffic_turns.py</code> to create a new staging class. Because Phase 4's verified staging class already exists, script 05 will refuse to overwrite it and stop safely. The flag is an explicit operator assertion that verification and spatial review of the existing staging class are complete; the orchestrator does not repeat those checks.</div>
       <p>Or, to keep each step visible, the same sequence by hand:</p>
 <pre><code>import arcpy
 
