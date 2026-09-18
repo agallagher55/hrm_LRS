@@ -14,7 +14,7 @@ Do not continue when a step fails.
 | 00 | `python 00_confirm_sources.py` | Read-only confirmation of the configured Prod input, QA target, live counts, and `MODDATE` ranges. |
 | 01 | `python 01_backup_and_baseline.py` | Save a timestamped QA turn backup and a JSON baseline report. |
 | 02 | `python 02_delete_network_sources.py` | Delete the network dataset first, then its three source classes. This is the first destructive step. Set `CONFIRM_DELETE_QA_NETWORK = True` in the script immediately before running it. |
-| 03 | `python 03_initial_build.py` | Copy a fresh Prod edge snapshot into QA and attempt the preliminary build. Turn errors are expected if the network is created, but ArcGIS Pro 3.5.8 may stop first with `ERROR 030386`; see below. |
+| 03 | `python 03_initial_build.py` | Copy a fresh Prod edge snapshot into QA and attempt the preliminary build. The committed template is currently rejected by ArcGIS Pro 3.5.8 with `ERROR 030386`; complete the interactive creation procedure below. |
 | 04 | `python 04_remap_turns.py` | Create `TRNLRS_traffic_turn_staging` against the fresh edge copy. |
 | 05 | `python 05_verify_staging_turns.py` | Run the independent staging-turn verifier. Also complete the spatial review checklist before continuing. |
 | 06 | `python 06_swap_and_final_build.py` | Swap the exact reviewed staging class and perform the one final build. Set `CONFIRM_REVIEWED_STAGING = True` in the script only after completing the review. |
@@ -66,6 +66,11 @@ still carry the legacy Field Script evaluator CLSID
 `{68055FC4-37D5-4BD0-81A5-CD177A29759C}`. ArcGIS therefore still identifies
 the template as VBScript-backed. Changing only the `Language` values in the
 XML is not a reliable conversion.
+
+The script now recognizes this error and prints this recovery direction in its
+terminal and log output. It cannot safely rewrite the evaluator identity or
+automate the Network Dataset wizard, so the interactive procedure is required
+until a genuinely Python-backed template has been exported and committed.
 
 When this happens, **do not rerun step 02**: step 03 copies the edge, junction,
 and raw turn sources before it attempts to create the network, so those fresh
