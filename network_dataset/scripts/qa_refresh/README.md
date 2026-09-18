@@ -87,7 +87,9 @@ copies should already be present. Confirm their counts, then create
 1. Add `TRNLRS_TRN_STREET` as the edge source,
    `TRNLRS_street_junction` as the junction source, and
    `TRNLRS_traffic_turn` as the turn source. Use endpoint connectivity and no
-   elevation model.
+   elevation model. **The Elevation Model dropdown defaults to "Elevation
+   fields", not "None"** -- confirmed 2026-09-18 -- change it explicitly or
+   the network builds elevation-aware connectivity it isn't meant to have.
 2. Configure `Length` as a Python Field Script using `!Shape!` for both edge
    directions.
 3. Configure `OneWay` as a Python Field Script calling
