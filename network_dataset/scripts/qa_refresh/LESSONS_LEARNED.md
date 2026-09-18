@@ -7,20 +7,19 @@ your next QA refresh — several of these are easy to repeat if you don't know
 to look for them. `README.md` in this folder is the step-by-step procedure;
 this file is the accumulated "watch out for" knowledge that doesn't fit there.
 
-## Repo hygiene — action needed
+## Repo hygiene — resolved this session
 
-**A second, stale copy of this entire folder exists at
-`network_dataset/qa_refresh/`** (one level up from this file, missing the
-`scripts/` component). It predates the `89b6d43` "Derive QA refresh paths
-from actual folder layout" fix and still contains the *broken* `_shared.py`
+A second, stale copy of this entire folder existed at
+`network_dataset/qa_refresh/` (one level up from this file, missing the
+`scripts/` component). It predated the `89b6d43` "Derive QA refresh paths
+from actual folder layout" fix and still contained the *broken* `_shared.py`
 (`path = path.resolve()`) and `config.py`
 (`CORE_SCRIPTS_DIR = NETWORK_DATASET_DIR / "scripts"`) — the exact
 doubled-`scripts\scripts\` bug this session started with. Nothing in the repo
-references that path, so it's fully orphaned, not a dependency of anything.
-**Never edit or run scripts from `network_dataset/qa_refresh/` — always use
-this folder, `network_dataset/scripts/qa_refresh/`.** Recommend deleting the
-stale copy entirely so nobody resurrects the old bug by browsing to the
-wrong folder on T:. Flagged, not yet removed as of this write-up.
+referenced that path, so it was fully orphaned. **Deleted 2026-09-18.** If a
+similarly-named folder ever reappears at `network_dataset/qa_refresh/`
+(rather than `network_dataset/scripts/qa_refresh/`), treat it the same way —
+never edit or run scripts from it.
 
 ## Deployment drift (T: drive vs. this repo)
 
