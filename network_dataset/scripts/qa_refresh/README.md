@@ -17,11 +17,11 @@ cd /d T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\qa_refresh
 |---|---|---|
 | 00 | `python 00_confirm_sources.py` | Read-only confirmation of the configured Prod input, QA target, live counts, and `MODDATE` ranges. |
 | 01 | `python 01_backup_and_baseline.py` | Save a timestamped QA turn backup and a JSON baseline report. |
-| 02 | `python 02_delete_network_sources.py --confirm-delete-qa-network` | Delete the network dataset first, then its three source classes. This is the first destructive step. |
+| 02 | `python 02_delete_network_sources.py` | Delete the network dataset first, then its three source classes. This is the first destructive step. Set `CONFIRM_DELETE_QA_NETWORK = True` in the script immediately before running it. |
 | 03 | `python 03_initial_build.py` | Copy a fresh Prod edge snapshot into QA and perform the expected preliminary build. Turn errors are expected in this build. |
 | 04 | `python 04_remap_turns.py` | Create `TRNLRS_traffic_turn_staging` against the fresh edge copy. |
 | 05 | `python 05_verify_staging_turns.py` | Run the independent staging-turn verifier. Also complete the spatial review checklist before continuing. |
-| 06 | `python 06_swap_and_final_build.py --confirm-reviewed-staging` | Swap the exact reviewed staging class and perform the one final build. |
+| 06 | `python 06_swap_and_final_build.py` | Swap the exact reviewed staging class and perform the one final build. Set `CONFIRM_REVIEWED_STAGING = True` in the script only after completing the review. |
 | 07 | `python 07_verify_live_turns.py` | Re-run the independent verifier against the live turn class after the swap. |
 
 After step 07, follow Phase 6 and Phase 7 in
@@ -44,8 +44,10 @@ here.
 - Step 01 writes the turn backup inside the QA network feature dataset and a
   baseline JSON file under `output/`. Copy the backup to independent storage if
   required by the change plan.
-- Steps 02 and 06 require explicit command-line confirmation flags so they
-  cannot be launched destructively by an accidental double-click.
+- Steps 02 and 06 use confirmation globals, which default to `False`, so they
+  cannot be launched destructively by an accidental double-click. Review the
+  applicable prerequisites, set the global at the top of the script to `True`,
+  run the step without arguments, and reset the global to `False` afterward.
 - Never manually click **Build Network** after steps 03 or 06.
 
 ## Troubleshooting
