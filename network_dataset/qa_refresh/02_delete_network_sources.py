@@ -1,19 +1,21 @@
 """Delete the QA network dataset and its three registered source classes."""
 
-import argparse
-
 import arcpy
 
 import config
 from _shared import load_and_validate_core_scripts
 
 
+# Set this to True only after reviewing the configured QA paths in config.py.
+CONFIRM_DELETE_QA_NETWORK = False
+
+
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--confirm-delete-qa-network", action="store_true")
-    args = parser.parse_args()
-    if not args.confirm_delete_qa_network:
-        parser.error("refusing destructive step without --confirm-delete-qa-network")
+    if not CONFIRM_DELETE_QA_NETWORK:
+        raise RuntimeError(
+            "Refusing destructive step while CONFIRM_DELETE_QA_NETWORK is False. "
+            "Review config.py, then set the global to True before running this script."
+        )
 
     load_and_validate_core_scripts()
     for label, path in [
@@ -31,4 +33,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

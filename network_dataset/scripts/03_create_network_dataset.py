@@ -192,6 +192,21 @@ def main():
             )
             logger.error(msg)
             sys.exit(f"ERROR: {msg}")
+        if "ERROR 030386" in msgs:
+            msg = (
+                "ArcGIS rejected the network template because it still identifies "
+                "one or more Field Script evaluators as VBScript. This is a known "
+                "ArcGIS Pro 3.5.8 blocker for the committed template; changing its "
+                "Language values to Python did not convert the underlying evaluator. "
+                "The source feature classes were copied before network creation was "
+                "attempted, so do not delete or recopy them. Create "
+                "TRNLRS_street_network interactively with Python evaluators, then "
+                "continue the QA workflow. See scripts/qa_refresh/README.md, "
+                "'Step 03: ERROR 030386', for the exact evaluator settings.\n\n"
+                f"ArcGIS geoprocessing messages:\n{msgs}"
+            )
+            logger.error(msg)
+            sys.exit(f"ERROR: {msg}")
         logger.error(f"CreateNetworkDatasetFromTemplate failed:\n{msgs}")
         sys.exit(f"ERROR: CreateNetworkDatasetFromTemplate failed:\n{msgs}")
     logger.info(f"Network dataset created: {new_nd_path}")
