@@ -73,3 +73,10 @@ T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\03_create_network
 There should be exactly one `scripts` component. The loader intentionally keeps
 the mapped `T:` path in error messages instead of resolving it to the backing
 file-server UNC path.
+
+### `module 'datetime' has no attribute 'now'`
+
+Update `01_backup_and_baseline.py` and confirm it imports the module with
+`import datetime`, then calls `datetime.datetime.now()`. This explicit form
+works consistently and avoids confusing the `datetime` module with its
+same-named class.

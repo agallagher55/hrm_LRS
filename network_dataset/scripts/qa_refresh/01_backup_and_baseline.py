@@ -1,8 +1,8 @@
 """Create a timestamped turn backup and record the pre-refresh QA baseline."""
 
+import datetime
 import json
 import os
-from datetime import datetime
 
 import arcpy
 
@@ -17,7 +17,7 @@ def count(path):
 def main():
     load_and_validate_core_scripts()
     require_exists(config.TURN, "Live QA turn feature class")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     backup = os.path.join(
         config.QA_NETWORK_FD, f"TRNLRS_traffic_turn_bak_{timestamp}"
     )
@@ -31,7 +31,7 @@ def main():
         )
 
     baseline = {
-        "captured_at": datetime.now().isoformat(timespec="seconds"),
+        "captured_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "qa_sde": config.QA_SDE,
         "network": config.NETWORK,
         "backup": backup,
