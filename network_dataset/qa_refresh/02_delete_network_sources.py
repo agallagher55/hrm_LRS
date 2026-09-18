@@ -7,7 +7,7 @@ from _shared import load_and_validate_core_scripts
 
 
 # Set this to True only after reviewing the configured QA paths in config.py.
-CONFIRM_DELETE_QA_NETWORK = False
+CONFIRM_DELETE_QA_NETWORK = True
 
 
 def main():
