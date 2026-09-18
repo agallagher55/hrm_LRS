@@ -160,6 +160,18 @@ it's cheap and would have saved real time this session.
   `junction_network_workflow_esri_case.html` step 5), then re-export and
   re-commit the template. Not done as part of this session — caught by a
   `/code-review` pass on the PR after the fact, not before committing.
+- **A second `/code-review` pass flagged the template's `TrafficTurn` config as
+  a possible regression — verified and ruled out.** The committed template
+  encodes `TrafficTurn` as `default(Turn) = true` with no explicit per-source
+  override, where the previous template used `default(Turn) = false` plus an
+  explicit `TRNLRS_traffic_turn = true` override. Since this network registers
+  exactly one turn source, both encodings produce identical results for every
+  real turn element — confirmed by the passing prohibited-turn smoke test on
+  this exact live configuration. Not a bug. Worth knowing if this network
+  dataset is ever extended with a second turn source in the future: the
+  current default-based encoding would then apply `true` to that new source's
+  turns too unless explicitly overridden, where the old override-based
+  encoding would have defaulted them to `false`. Revisit then, not now.
 - **Also caught by that same review, already fixed:** the exported
   template's `SystemJunctionSource.Name` read `TRNLRS_network_Junctions`
   instead of `TRNLRS_street_network_Junctions` — the identical
