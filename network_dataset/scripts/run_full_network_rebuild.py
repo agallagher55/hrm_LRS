@@ -31,14 +31,11 @@ Two real bugs came out of running this cycle by hand:
 
 What this does NOT do
 ----------------------
-- Does not decide FOR you whether to review the remapped turn FC before
-  swapping it in. It swaps automatically, matching the "trusted, repeatable
-  cycle" use case. If you want to eyeball the remap first, run
-  05_rebuild_traffic_turns.py directly with AUTO_SWAP_AND_REBUILD left False,
-  review TRNLRS_traffic_turn_staging, then run this script, which will find
-  the staging FC already correct and skip re-remapping... actually it does
-  NOT currently support that skip path, see the note in main() below. Run
-  05 fresh here for now; this is a known simplification, not a bug.
+- Does not verify or approve a staging turn FC for you. For the reviewed-staging
+  workflow, run 05_rebuild_traffic_turns.py with AUTO_SWAP_AND_REBUILD left
+  False, run verify_turn_rebuild.py and the spatial review checklist, then pass
+  --use-existing-staging here. That flag deliberately skips the remap so the
+  exact FC that was reviewed is the one swapped in.
 - Does not touch Mel's manually-authored Cogswell ramp turns, which live in
   the OLD turn table this script reads from and get carried through the
   remap like any other turn (see traffic_turns.md).
@@ -48,8 +45,12 @@ Usage
 Run from an ArcGIS Pro Python environment, from the network_dataset/scripts/
 directory (or adjust SCRIPTS_DIR below):
     > python run_full_network_rebuild.py
+
+To swap an existing staging FC that has already been reviewed and verified:
+    > python run_full_network_rebuild.py --use-existing-staging
 """
 
+import argparse
 import importlib.util
 import os
 import sys
@@ -162,24 +163,57 @@ def report_source_counts(network_dataset, edge_fc, junction_fc, turn_fc):
 # Main
 # ------------------------------------------------------------------------------
 
-def main():
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Remap/swap turns and rebuild the LRS network dataset."
+    )
+    parser.add_argument(
+        "--use-existing-staging",
+        action="store_true",
+        help=(
+            "Skip the turn remap and swap the existing "
+            "TRNLRS_traffic_turn_staging feature class. Use only after that "
+            "exact feature class has passed verification and spatial review."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
 
     logger.info("Step 1/4: Load scripts 05 and 03 as modules")
     mod05 = load_module(SCRIPT_05_PATH, "rebuild_traffic_turns")
     mod03 = load_module(SCRIPT_03_PATH, "create_network_dataset")
     check_environments_agree(mod05, mod03)
 
-    # Known simplification: this always re-runs the full remap. If you want
-    # to review TRNLRS_traffic_turn_staging before swapping it in, run 05
-    # directly first and skip this orchestrator for that cycle.
-    logger.info("Step 2/4: Remap turns (05_rebuild_traffic_turns.py)")
-    mod05.main()
+    if args.use_existing_staging:
+        logger.info(
+            "Step 2/4: Use existing, operator-verified staging turn FC "
+            "(--use-existing-staging)"
+        )
+        if not arcpy.Exists(mod05.NEW_TURN_FC):
+            logger.error(
+                "--use-existing-staging was requested, but the staging turn "
+                f"FC does not exist: {mod05.NEW_TURN_FC}. Run and verify "
+                "05_rebuild_traffic_turns.py before using this option."
+            )
+            sys.exit(1)
+        logger.info(f"  Existing staging FC confirmed: {mod05.NEW_TURN_FC}")
+        logger.info(
+            "  This script does not verify staging. Proceeding on the operator's "
+            "confirmation that verification and spatial review are complete."
+        )
+    else:
+        logger.info("Step 2/4: Remap turns (05_rebuild_traffic_turns.py)")
+        mod05.main()
 
     if not arcpy.Exists(mod05.NEW_TURN_FC):
         logger.error(
-            f"Expected staging turn FC not found after remap: {mod05.NEW_TURN_FC}. "
-            "05 did not complete successfully -- stopping before touching the "
-            "network dataset."
+            f"Expected staging turn FC not found: {mod05.NEW_TURN_FC}. "
+            "The remap did not complete successfully -- stopping before "
+            "touching the network dataset."
         )
         sys.exit(1)
 
