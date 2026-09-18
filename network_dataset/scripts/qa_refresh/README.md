@@ -66,12 +66,21 @@ Script or Element Script evaluators configured with the VBScript language.
 
 ArcGIS Pro 3.4 and later no longer allow creation from a template containing
 VBScript Field Script or Element Script evaluators. There is an additional
-trap in this repository: the committed `../../data/network_template.xml`
-contains `Language = Python` text, but its scripted `Length` and `OneWay`
-assignments still carry the legacy Field Script evaluator CLSID
-`{68055FC4-37D5-4BD0-81A5-CD177A29759C}`. ArcGIS therefore still identifies
-the template as VBScript-backed. Changing only the `Language` values in the
-XML is not a reliable conversion.
+trap in this repository: `Language = Python` text alone in a template's
+scripted `Length`/`OneWay` assignments is not proof the evaluator is
+genuinely Python-backed -- both a broken, VBScript-rejected template and a
+solve-tested, working one have carried the identical legacy Field Script
+evaluator CLSID (`{68055FC4-37D5-4BD0-81A5-CD177A29759C}`) under
+`Language = Python` (confirmed 2026-09-18, see `CLAUDE.md`'s "Recreating the
+network dataset by hand" section). Changing only the `Language` value, or
+grepping for this CLSID, does not reliably tell you whether a template will
+hit `ERROR 030386` -- the only real test is running
+`CreateNetworkDatasetFromTemplate` against it. `../../data/network_template.xml`
+was re-exported and committed 2026-09-18 from a network that passed both the
+one-way and prohibited-turn smoke tests, and separately confirmed (via a
+disposable test network dataset) to clear evaluator validation -- but full
+unattended create-and-build success has not yet been observed end to end;
+see the "Open" note in `../../docs/roadmap_lrs_network.html`.
 
 The script now recognizes this error and prints this recovery direction in its
 terminal and log output. It cannot safely rewrite the evaluator identity or

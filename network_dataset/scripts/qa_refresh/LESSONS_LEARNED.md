@@ -147,6 +147,28 @@ it's cheap and would have saved real time this session.
   validation. (This contradicts the framing in `CLAUDE.md`'s `ERROR 030386`
   section, which reads the CLSID as diagnostic on its own; treat that as
   necessary-but-not-sufficient going forward, not as ground truth.)
+- **The exported template is missing `<NetworkDirections>` entirely** —
+  present in the previously-committed template (`DefaultOutputLengthUnits =
+  esriNAUMiles`, `LengthAttributeName = Length`) but absent from the
+  2026-09-18 re-export, because the interactive rebuild this session never
+  visited the Directions tab in Network Dataset Properties. This is a real
+  functional gap, not a cosmetic one: the live QA network dataset currently
+  has no Directions configuration, so a Route layer's driving-directions
+  output would come back unconfigured. **Follow-up needed:** set Directions
+  on the live network (`Base Name → STR_NAME`, `Suffix Type → STR_TYPE`,
+  `Full Name → FULL_NAME`, per the workflow already documented in
+  `junction_network_workflow_esri_case.html` step 5), then re-export and
+  re-commit the template. Not done as part of this session — caught by a
+  `/code-review` pass on the PR after the fact, not before committing.
+- **Also caught by that same review, already fixed:** the exported
+  template's `SystemJunctionSource.Name` read `TRNLRS_network_Junctions`
+  instead of `TRNLRS_street_network_Junctions` — the identical
+  missing-`street_` mislabeling as the top-level `Name`/`CatalogPath`
+  fields, just in a second, nested location that was missed when correcting
+  those. **When fixing a mislabeled exported template, grep the whole file
+  for the wrong string, not just the top-level fields** — this bug pattern
+  can recur in nested `EdgeFeatureSource`/`JunctionFeatureSource`/
+  `SystemJunctionSource`/`TurnFeatureSource` blocks too.
 - **Safe way to test a candidate template without disrupting the live
   network:** rename its internal `Name`/`CatalogPath`/`LogicalNetworkName`
   to a disposable test name, then run `CreateNetworkDatasetFromTemplate`
