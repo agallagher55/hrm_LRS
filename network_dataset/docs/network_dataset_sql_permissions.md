@@ -374,6 +374,33 @@ since deleting the network dataset does not drop the source feature classes them
 confirm the source feature class grants under solve, only browsing. Run against Dev and prod
 once each is rebuilt there.
 
+## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-09-18)
+
+**Supersedes the 2026-09-01 entry above.** `TRNLRS_street_network` was deleted and rebuilt
+again on 2026-09-18 as part of the QA turn-remap review and swap (reviewed-staging workflow --
+`05_rebuild_traffic_turns.py` with `AUTO_SWAP_AND_REBUILD = False`, spatial review per
+[`traffic_turn_staging_review_checklist.txt`](traffic_turn_staging_review_checklist.txt),
+manual swap, then `03_create_network_dataset.py`), which drops and reassigns these tables
+again regardless of what was granted before.
+
+| Table set | Status |
+|---|---|
+| `N_1_*` | Unrelated geometric network (10 tables). Not touched. |
+| `N_2_*` | Legacy `TRN_street_network`. Already fully granted (6/6). Not touched. |
+| `N_3_*` | `TRNLRS_street_network`. **Same ID number reused** again across this delete+recreate. Confirmed via the [2b audit query](#2b-faster-combined-audit-list-ids--grant-status-in-one-query) returning `0/6`, then **granted** (all 6 tables). |
+| `ND_7293_*` | Confirmed (again) to belong to the legacy `TRN_street_network` -- already fully granted (2/2), untouched, consistent with every prior finding. |
+| `ND_12010_*`, `ND_21268_*`, `ND_38752_*`, `ND_39207_*`, `ND_396_*` | Single-table orphans (`DIRTYOBJECTS` only, no matching `DIRTYAREAS`) from earlier deleted/recreated network datasets. Not touched. |
+| `ND_40192_*` | `TRNLRS_street_network`'s new dirty-area tracking ID -- replaces the 2026-09-01 build's `ND_40171` (no longer exists after this rebuild). Identified by proximity to `TRNLRS_TRN_STREET`'s DSID for this build (`40183`, per this run's script log), consistent with the pattern that registration IDs from the same build cluster together. Audit query showed `1/2` (`DIRTYAREAS` already had a `PUBLIC SELECT` grant for an unknown reason -- same odd pattern seen on 2026-09-01 -- `DIRTYOBJECTS` did not) -- **granted** `DIRTYOBJECTS` (and re-ran the `DIRTYAREAS` grant as a harmless no-op). |
+
+**Confirmed working (2026-09-18):** an OS-auth login added `TRNLRS_street_network` to a fresh
+map successfully, confirming the `N_3`/`ND_40192` registration grants.
+
+**Still open:** Route/Service Area solve test under an OS-auth login (step 6, part 2) --
+add-to-map alone does not confirm the source feature class grants under solve, only browsing.
+The four source tables' own grants are not reset by a network-dataset-only rebuild (only the
+network dataset's own `N_<id>`/`ND_<id>` tables were dropped and recreated), so they are
+expected to still be fine from 2026-09-01, but were not independently re-verified this cycle.
+
 ## Historical status (QA, 2026-07-13, superseded above)
 
 | Table set | Status |

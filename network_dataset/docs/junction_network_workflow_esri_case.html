@@ -416,7 +416,7 @@
 <header class="hero" id="ask">
   <h1>Building the Junction Network from LRS Data</h1>
   <p class="meta">Prepared <strong>2026-09-15</strong> for <strong>Ryan Lowe</strong>, to relay to Sukhjit P. at Esri Canada &middot; Case <strong>#04248942</strong> &ndash; ArcGIS Pro &ndash; LRS Errors</p>
-  <p class="meta">Compiled from what is committed to this repository. Network execution evidence runs to 2026-09-03; the acceptance-testing evidence is from 2026-09-11.</p>
+  <p class="meta">Compiled from what is committed to this repository. Network execution evidence runs to 2026-09-03, with a confirming second rebuild on 2026-09-18; the acceptance-testing evidence is from 2026-09-11.</p>
 
   <div class="callout">
     <strong class="tag">What Esri asked for</strong>
@@ -572,6 +572,18 @@
   </details>
 
   <details class="phase" open>
+    <summary><span class="pill pill-blocked">Independent confirmation, second QA rebuild</span> Same defect, smaller scale, on 2026-09-18 &ndash; same shared-edge pattern on the unexplained cases</summary>
+    <div class="body">
+      <p>After the turn remap review and manual swap completed on 2026-09-18, a fresh <code>Build Network</code> (Force Full Build) against the recreated <code>TRNLRS_street_network</code> &ndash; now reading the real, swapped-in <code>TRNLRS_traffic_turn</code>, not the staging class &ndash; reproduced the same defect at smaller scale: <strong>5 of 1,189 written turns (0.42%)</strong> failed with the identical <code>Cannot find at junction</code> error. Diagnosed with the same method as the original nine: minimum distance across all four first-point/last-point combinations between each turn's consecutive edges.</p>
+      <ul>
+        <li><strong>3 of 5:</strong> real small gaps &ndash; <strong>0.0056 m</strong> (Object ID 686, edges 7444&rarr;16565) and <strong>0.0217 m</strong> (Object IDs 829 and 830, edges 3684/3685&rarr;3690 &ndash; the same physical junction, described from opposite directions by two different turns). Same pattern as the original 7 of 9: within the remap's 0.5 m tolerance, outside Build Network's 0.001 m XY tolerance.</li>
+        <li><strong>2 of 5:</strong> exact <strong>0.0000 m</strong> coincidences that still failed &ndash; Object ID 746 (edges 17390&rarr;18393) and Object ID 747 (edges 17386&rarr;18393). <strong>Both pivot on the same edge, 18393.</strong> The original nine-case finding raised, but could not itself confirm, whether the unexplained coincidence failures cluster on a shared edge; this is a second, independent occurrence of exactly that pattern.</li>
+      </ul>
+      <p>Practical impact unchanged in kind, smaller in scale this cycle: 5 of 1,189 prohibited-turn restrictions go unenforced in solves; every other edge and turn built correctly. Does not block proceeding. The two shared-edge coincidence cases remain the open question for Esri, now with corroborating evidence from an independent rebuild.</p>
+    </div>
+  </details>
+
+  <details class="phase" open>
     <summary><span class="pill pill-blocked">Independent confirmation, large scale</span> A large volume of the same defect found during acceptance testing (2026-09-11)</summary>
     <div class="body">
       <p>Expert acceptance testing of the QA network began on 2026-09-09. Within the first few minutes it surfaced streets that fail to calculate during editing because of dangling segments, and testing was stopped the same week so the full set could be identified and corrected at source rather than worked around. <strong>The dominant pattern is a segment digitized past the intersection</strong> rather than terminating at it, and most are assessed as straightforward to correct.</p>
@@ -628,9 +640,9 @@
     <tr><th>Message</th><th>When</th><th>Cause</th><th>Status</th></tr>
     <tr>
       <td><code>Source table [SDEADM.TRNLRS_traffic_turn], Object ID [N]: Cannot find at junction.</code></td>
-      <td>Build Network, 9 occurrences on 2026-09-01</td>
-      <td>7 are real 0.006&ndash;0.41 m gaps between consecutive edges; 2 are exact 0.0000 m coincidences that still failed</td>
-      <td><span class="sev-hi">Open.</span> The 2 coincident cases are unexplained and are our main question for Esri.</td>
+      <td>Build Network, 9 occurrences on 2026-09-01; 5 more on 2026-09-18 against the swapped-in live turn class (independent rebuild)</td>
+      <td>Combined, 10 of 14 are real 0.006&ndash;0.41 m gaps between consecutive edges; 4 of 14 are exact 0.0000 m coincidences that still failed. Of the 2026-09-18 pair, both share the same edge (18393).</td>
+      <td><span class="sev-hi">Open.</span> The coincident cases are unexplained and are our main question for Esri; the 2026-09-18 shared-edge pair is new supporting evidence toward a shared-edge cause.</td>
     </tr>
     <tr>
       <td><code>Standalone user-defined junction is detected</code></td>

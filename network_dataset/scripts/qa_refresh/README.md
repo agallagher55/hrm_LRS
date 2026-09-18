@@ -66,12 +66,21 @@ Script or Element Script evaluators configured with the VBScript language.
 
 ArcGIS Pro 3.4 and later no longer allow creation from a template containing
 VBScript Field Script or Element Script evaluators. There is an additional
-trap in this repository: the committed `../../data/network_template.xml`
-contains `Language = Python` text, but its scripted `Length` and `OneWay`
-assignments still carry the legacy Field Script evaluator CLSID
-`{68055FC4-37D5-4BD0-81A5-CD177A29759C}`. ArcGIS therefore still identifies
-the template as VBScript-backed. Changing only the `Language` values in the
-XML is not a reliable conversion.
+trap in this repository: `Language = Python` text alone in a template's
+scripted `Length`/`OneWay` assignments is not proof the evaluator is
+genuinely Python-backed -- both a broken, VBScript-rejected template and a
+solve-tested, working one have carried the identical legacy Field Script
+evaluator CLSID (`{68055FC4-37D5-4BD0-81A5-CD177A29759C}`) under
+`Language = Python` (confirmed 2026-09-18, see `CLAUDE.md`'s "Recreating the
+network dataset by hand" section). Changing only the `Language` value, or
+grepping for this CLSID, does not reliably tell you whether a template will
+hit `ERROR 030386` -- the only real test is running
+`CreateNetworkDatasetFromTemplate` against it. `../../data/network_template.xml`
+was re-exported and committed 2026-09-18 from a network that passed both the
+one-way and prohibited-turn smoke tests, and separately confirmed (via a
+disposable test network dataset) to clear evaluator validation -- but full
+unattended create-and-build success has not yet been observed end to end;
+see the "Open" note in `../../docs/roadmap_lrs_network.html`.
 
 The script now recognizes this error and prints this recovery direction in its
 terminal and log output. It cannot safely rewrite the evaluator identity or
@@ -87,15 +96,25 @@ copies should already be present. Confirm their counts, then create
 1. Add `TRNLRS_TRN_STREET` as the edge source,
    `TRNLRS_street_junction` as the junction source, and
    `TRNLRS_traffic_turn` as the turn source. Use endpoint connectivity and no
-   elevation model.
-2. Configure `Length` as a Python Field Script using `!Shape!` for both edge
-   directions.
+   elevation model. **The Elevation Model dropdown defaults to "Elevation
+   fields", not "None"** -- confirmed 2026-09-18 -- change it explicitly or
+   the network builds elevation-aware connectivity it isn't meant to have.
+2. `Length` is auto-populated by the Create Network Dataset tool as a Python
+   Field Script, `!Shape.STLength()!`, for both edge directions -- confirmed
+   2026-09-18 against the currently committed `network_template.xml`. Verify
+   it, don't retype it; a hand-typed `!Shape!` also works but no longer
+   matches the validated template.
 3. Configure `OneWay` as a Python Field Script calling
    `oneway_restricted(!STR_DIR!)`. Return `True` for `N`, `FDTO`, and `T` in
    the Along direction, and for `N`, `FOTD`, and `T` in the Against direction.
 4. Configure `TrafficTurn` with the constant evaluators recorded in the
    template, and build with **Force Full Build** selected.
-5. Treat missing-edge errors for the raw turn class and a turn count of zero as
+5. Configure Directions: Base Name &rarr; `STR_NAME`, Suffix Type &rarr;
+   `STR_TYPE`, Full Name &rarr; `FULL_NAME` (Network Dataset Properties &rarr;
+   Directions tab). **Not optional** -- the 2026-09-18 rebuild skipped this
+   step, and the template exported from that network came out with no
+   Directions configuration at all as a result (see `LESSONS_LEARNED.md`).
+6. Treat missing-edge errors for the raw turn class and a turn count of zero as
    expected at this preliminary stage. Confirm the edge count, then continue
    with step 04.
 

@@ -66,6 +66,47 @@ Dataset wizard, not `CreateNetworkDatasetFromTemplate` against an old VBScript-b
 template — that reproduces `ERROR 030386`), then re-export the template via
 `CreateTemplateFromNetworkDataset`.
 
+### Recreating the network dataset by hand (`ERROR 030386` workaround) — two more gotchas
+Confirmed 2026-09-18, on top of the fix above:
+
+- **The Elevation Model parameter defaults to "Elevation fields", not "None"**, whether
+  you use the interactive New Network Dataset wizard or the `arcpy.na.CreateNetworkDataset`
+  GP tool directly. Easy to miss since nothing in the dialog calls out the default — set
+  it to **None** explicitly, or the network builds elevation-aware connectivity it isn't
+  meant to have.
+- **The interactive recovery does not include configuring Directions**, and it's easy to
+  walk away thinking the rebuild is complete without it — the network builds and solves
+  fine either way, so nothing surfaces an error. Confirmed missed entirely on 2026-09-18:
+  the resulting `CreateTemplateFromNetworkDataset` export came out with no
+  `<NetworkDirections>` element at all, a real gap not caught until a later `/code-review`
+  pass. Set it explicitly on the Directions tab: Base Name → `STR_NAME`, Suffix Type →
+  `STR_TYPE`, Full Name → `FULL_NAME`.
+- **`CreateTemplateFromNetworkDataset` needs a Network Dataset Layer, not a raw catalog
+  path.** Passing the path string directly can fail with `ERROR 030033: Parameter does
+  not contain a network dataset data element.` Make a layer first:
+
+  ```python
+  arcpy.na.MakeNetworkDatasetLayer(network_dataset_path, "nd_lyr")
+  arcpy.na.CreateTemplateFromNetworkDataset("nd_lyr", output_template_xml)
+  ```
+
+  Two more things about the exported template, once you have it:
+  - Its internal `<Name>`/`<CatalogPath>`/`<LogicalNetworkName>` fields are not reliably
+    the live object's actual catalog name — one export named the network dataset
+    `TRNLRS_network` instead of the real `TRNLRS_street_network`, even though the `DSID`
+    inside the file matched the live object exactly (cause unconfirmed). Since
+    `CreateNetworkDatasetFromTemplate` takes its **output name from inside the template
+    file**, always check and correct these fields before committing or reusing an
+    exported template, or a future automated rebuild creates a wrongly-named network
+    dataset.
+  - The scripted evaluators' `NetworkEvaluatorCLSID`
+    (`{68055FC4-37D5-4BD0-81A5-CD177A29759C}`) is **not, by itself, a reliable signal of
+    VBScript vs. Python.** A genuinely Python-evaluator template exported from a live,
+    solve-tested network still carries this identical CLSID, same as the broken
+    VBScript-era template does. Don't diagnose `ERROR 030386` by grepping for this CLSID
+    alone — the only real test is whether `CreateNetworkDatasetFromTemplate` actually
+    gets past evaluator validation with the template in question.
+
 ### Restriction attributes do nothing unless the Travel Mode enables them
 Defining a restriction attribute (e.g. `OneWay`, `TrafficTurn`) on the network dataset's
 Travel Attributes tab does not mean any given solve honors it. Enforcement is controlled
@@ -149,6 +190,7 @@ hrm_LRS/
 ├── tests/                   # Data validation and regression tests
 └── network_dataset/         # Creating and maintaining the LRS network dataset
     ├── scripts/              # Build, sync, and turn-rebuild scripts
+    │   └── qa_refresh/        # Ordered QA network-refresh workflow (see its README.md)
     ├── data/                 # Extracted config, XML template, schema diffs
     ├── docs/                 # Migration plan, build status, runbooks
     └── intermediate_results/ # Diagnostic CSVs from the turn rebuild
@@ -202,3 +244,16 @@ The feature class is **truncated and repopulated on every LRS refresh run**, so 
 - `COMMENT__2` → `STR_REM`
 - `FLAG` → `FLAGS`
 - `ROUTENAME` → `FULL_NAME`
+
+### TRNLRS_traffic_turn (SDE: `SDEADM.TRNLRS_traffic_turn`)
+
+The live prohibited-turn source for the network dataset. **Its OBJECTID does not
+correspond to the legacy `SDEADM.TRN_streets_routes\TRN_traffic_turn`'s OBJECTID**,
+even though it was originally created by copying that table — it is itself the
+product of an earlier turn-remap cycle (`network_dataset/scripts/05_rebuild_traffic_turns.py`),
+carrying different `Edge{N}FID` references (and a different `Edge1FCID`) than the
+true legacy source. Confirmed 2026-09-18: cross-referencing `TRNLRS_traffic_turn` by
+OIDs pulled from a `05_rebuild_traffic_turns.py` skip-reason log gave actively wrong
+edge references for 14 of 15 sampled turns — only one matched by coincidence. When
+diagnosing turn-remap skip reasons, always query the real `TRN_traffic_turn`
+(alongside `TRN_street`, same SDE), never `TRNLRS_traffic_turn`.
