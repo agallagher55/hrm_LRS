@@ -74,6 +74,13 @@ Confirmed 2026-09-18, on top of the fix above:
   GP tool directly. Easy to miss since nothing in the dialog calls out the default — set
   it to **None** explicitly, or the network builds elevation-aware connectivity it isn't
   meant to have.
+- **The interactive recovery does not include configuring Directions**, and it's easy to
+  walk away thinking the rebuild is complete without it — the network builds and solves
+  fine either way, so nothing surfaces an error. Confirmed missed entirely on 2026-09-18:
+  the resulting `CreateTemplateFromNetworkDataset` export came out with no
+  `<NetworkDirections>` element at all, a real gap not caught until a later `/code-review`
+  pass. Set it explicitly on the Directions tab: Base Name → `STR_NAME`, Suffix Type →
+  `STR_TYPE`, Full Name → `FULL_NAME`.
 - **`CreateTemplateFromNetworkDataset` needs a Network Dataset Layer, not a raw catalog
   path.** Passing the path string directly can fail with `ERROR 030033: Parameter does
   not contain a network dataset data element.` Make a layer first:

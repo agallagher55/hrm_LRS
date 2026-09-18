@@ -99,14 +99,22 @@ copies should already be present. Confirm their counts, then create
    elevation model. **The Elevation Model dropdown defaults to "Elevation
    fields", not "None"** -- confirmed 2026-09-18 -- change it explicitly or
    the network builds elevation-aware connectivity it isn't meant to have.
-2. Configure `Length` as a Python Field Script using `!Shape!` for both edge
-   directions.
+2. `Length` is auto-populated by the Create Network Dataset tool as a Python
+   Field Script, `!Shape.STLength()!`, for both edge directions -- confirmed
+   2026-09-18 against the currently committed `network_template.xml`. Verify
+   it, don't retype it; a hand-typed `!Shape!` also works but no longer
+   matches the validated template.
 3. Configure `OneWay` as a Python Field Script calling
    `oneway_restricted(!STR_DIR!)`. Return `True` for `N`, `FDTO`, and `T` in
    the Along direction, and for `N`, `FOTD`, and `T` in the Against direction.
 4. Configure `TrafficTurn` with the constant evaluators recorded in the
    template, and build with **Force Full Build** selected.
-5. Treat missing-edge errors for the raw turn class and a turn count of zero as
+5. Configure Directions: Base Name &rarr; `STR_NAME`, Suffix Type &rarr;
+   `STR_TYPE`, Full Name &rarr; `FULL_NAME` (Network Dataset Properties &rarr;
+   Directions tab). **Not optional** -- the 2026-09-18 rebuild skipped this
+   step, and the template exported from that network came out with no
+   Directions configuration at all as a result (see `LESSONS_LEARNED.md`).
+6. Treat missing-edge errors for the raw turn class and a turn count of zero as
    expected at this preliminary stage. Confirm the edge count, then continue
    with step 04.
 
