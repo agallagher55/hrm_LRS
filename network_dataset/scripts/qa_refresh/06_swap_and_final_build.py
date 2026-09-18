@@ -1,17 +1,19 @@
 """Swap the reviewed staging turns and perform exactly one final build."""
 
-import argparse
-
 import config
 from _shared import load_and_validate_core_scripts, load_script, require_exists
 
 
+# Set this to True only after completing the staging verification and review.
+CONFIRM_REVIEWED_STAGING = False
+
+
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--confirm-reviewed-staging", action="store_true")
-    args = parser.parse_args()
-    if not args.confirm_reviewed_staging:
-        parser.error("refusing swap without --confirm-reviewed-staging")
+    if not CONFIRM_REVIEWED_STAGING:
+        raise RuntimeError(
+            "Refusing swap while CONFIRM_REVIEWED_STAGING is False. Complete "
+            "the staging review, then set the global to True before running this script."
+        )
 
     load_and_validate_core_scripts()
     require_exists(config.STAGING_TURN, "Reviewed staging turn feature class")
@@ -21,4 +23,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
