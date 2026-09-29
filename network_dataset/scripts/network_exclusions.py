@@ -1,5 +1,5 @@
 """
-Street segments that are left out of the network dataset's edge source.
+Street segments that are left out of a network dataset's edge source.
 
 The exclusions are applied where the edge source is copied into the network
 feature dataset (TRNLRS_TRN_STREET), by 03_create_network_dataset.py and
@@ -8,69 +8,174 @@ authoritative TRNLRS_TRN_STREET_VW, which is an org-wide product with
 consumers this project has not audited (geocoding among them). Filtering only
 the network copy leaves those consumers untouched.
 
-Add to EXCLUDED_STR_TYPES / EXCLUDED_FDMIDS below, then re-run script 03 (after
-deleting the existing edge copy) or script 04 so the change reaches the network.
+Profiles
+--------
+Each network has its own exclusion profile:
+
+  GENERAL  the distance network (TRNLRS_street_network). WA streets and islands.
+  HRFE     the fire and emergency network. Everything in GENERAL, plus the extra
+           exclusions Robbie Evans listed (email thread "HRFE network dataset",
+           2026-09-01 to 2026-09-17).
+
+Scripts 03 and 04 use DEFAULT_PROFILE (GENERAL). The HRFE network is not built
+yet; when it is, its build passes profile="HRFE".
+
+To change what a profile leaves out, edit the lists below, then re-run script 03
+(after deleting the existing edge copy) or script 04 so the change reaches the
+network. Run this file to print the clauses each profile produces.
+
+Rule types
+----------
+  str_types      STR_TYPE codes, matched exactly.
+  fdmids         FDMID values (Long), matched exactly.
+  name_patterns  FULL_NAME LIKE patterns. The % and _ wildcards (and the SQL
+                 Server [0-9] range) are passed through unescaped on purpose.
+                 Case sensitivity follows the database collation.
 
 Notes:
-  - The exclusion is expressed as a "keep" clause with explicit NULL handling.
-    A plain NOT IN (...) would silently drop rows whose STR_TYPE or FDMID is
-    NULL, because NOT (NULL IN (...)) is unknown in SQL.
+  - Each rule is expressed as a "keep" clause with explicit NULL handling. A
+    plain NOT IN (...) or NOT LIKE would silently drop rows whose STR_TYPE,
+    FDMID or FULL_NAME is NULL, because NOT (NULL IN (...)) is unknown in SQL.
   - Turns that reference an excluded edge are skipped by the turn remap
     (05_rebuild_traffic_turns.py reads the edge copy), and user junctions that
     only touched excluded edges show up as extra standalone-junction warnings
     at build time. Both are expected.
+  - A rule that matches no rows is logged as a warning, because it usually
+    means a wrong code or pattern. A rule that matches too many rows is not
+    detectable here; check the per-rule counts in the log against the diagnostic
+    (diagnostics/10_find_candidate_exclusions.py).
   - arcpy is imported inside the functions that need it so the clause builders
     can be tested outside ArcGIS Pro.
 """
 
-# STR_TYPE codes to drop. WA = water access roads. Robbie Evans and Melanie
-# Parker asked for these to be removed (2026-09-23, confirmed 2026-09-29).
-EXCLUDED_STR_TYPES = ["WA"]
+# Island segments such as McNabs Island, which cannot route. They apply to every
+# network. Melanie Parker is supplying the list or filter (2026-09-24), so this
+# is empty until she does.
+ISLAND_FDMIDS = []
 
-# FDMIDs to drop (Long values). Island segments such as McNabs Island, which
-# cannot route. Melanie Parker is supplying the list or filter (2026-09-24), so
-# this is empty until she does.
-EXCLUDED_FDMIDS = []
+# WA = water access roads. Robbie Evans and Melanie Parker asked for these to be
+# removed (2026-09-23, confirmed 2026-09-29; Robbie confirmed STR_TYPE = 'WA' on
+# 2026-09-17).
+GENERAL_PROFILE = {
+    "str_types": ["WA"],
+    "fdmids": list(ISLAND_FDMIDS),
+    "name_patterns": [],
+}
+
+# Extra HRFE exclusions, from Robbie Evans's 2026-09-01 and 2026-09-17 emails.
+#
+#   Emergency access roads: confirmed. He gave the query and says there are
+#   exactly 4 (Highland Park, Buckingham Dr x2, Westwood Blvd, each "EMERGENCY
+#   ACCESS 01").
+#
+#   Transit access roads: he confirmed they look like "TA# RD". The exact filter
+#   is NOT decided; run diagnostics/10_find_candidate_exclusions.py against Prod,
+#   then add the pattern here (the first candidate is 'TA[0-9]%').
+#
+#   ETAs (emergency turnarounds): small connectors between divided highways. No
+#   query exists yet. Ask Robbie or Melanie how to identify them, then add a
+#   pattern or a list of FDMIDs here.
+HRFE_EXTRA = {
+    "str_types": [],
+    "fdmids": [],
+    "name_patterns": ["%EMERGENCY ACCESS%"],
+}
+
+DEFAULT_PROFILE = "GENERAL"
 
 
-def _type_list():
-    return ", ".join("'{}'".format(t.replace("'", "''")) for t in EXCLUDED_STR_TYPES)
+def _merge(*specs):
+    """Combine profile specs, keeping order and dropping repeated values."""
+    merged = {"str_types": [], "fdmids": [], "name_patterns": []}
+
+    for spec in specs:
+
+        for key in merged:
+
+            for value in spec.get(key, []):
+
+                if value not in merged[key]:
+                    merged[key].append(value)
+
+    return merged
 
 
-def _id_list():
-    return ", ".join(str(int(i)) for i in EXCLUDED_FDMIDS)
+PROFILES = {
+    "GENERAL": _merge(GENERAL_PROFILE),
+    "HRFE": _merge(GENERAL_PROFILE, HRFE_EXTRA),
+}
 
 
-def build_exclude_clause():
+def _get_profile(profile):
+    try:
+        return PROFILES[profile]
+
+    except KeyError:
+        raise ValueError(
+            "Unknown exclusion profile {!r}. Choose one of: {}".format(
+                profile, ", ".join(sorted(PROFILES))
+            )
+        )
+
+
+def _quote(value):
+    return "'{}'".format(str(value).replace("'", "''"))
+
+
+def get_rules(profile=DEFAULT_PROFILE):
+    """
+    Return the profile's rules as a list of (label, exclude_clause, keep_clause).
+
+    exclude_clause selects the rows the rule drops. keep_clause selects the rest,
+    NULL-safe. A rule is one STR_TYPE list, one FDMID list, or one name pattern.
+    """
+    spec = _get_profile(profile)
+    rules = []
+
+    if spec["str_types"]:
+        values = ", ".join(_quote(t) for t in spec["str_types"])
+        rules.append((
+            "STR_TYPE in {}".format(spec["str_types"]),
+            "STR_TYPE IN ({})".format(values),
+            "(STR_TYPE IS NULL OR STR_TYPE NOT IN ({}))".format(values),
+        ))
+
+    if spec["fdmids"]:
+        values = ", ".join(str(int(i)) for i in spec["fdmids"])
+        rules.append((
+            "FDMID list ({} ids)".format(len(spec["fdmids"])),
+            "FDMID IN ({})".format(values),
+            "(FDMID IS NULL OR FDMID NOT IN ({}))".format(values),
+        ))
+
+    for pattern in spec["name_patterns"]:
+        rules.append((
+            "FULL_NAME like {}".format(_quote(pattern)),
+            "FULL_NAME LIKE {}".format(_quote(pattern)),
+            "(FULL_NAME IS NULL OR FULL_NAME NOT LIKE {})".format(_quote(pattern)),
+        ))
+
+    return rules
+
+
+def build_exclude_clause(profile=DEFAULT_PROFILE):
     """Return a SQL where clause selecting the edges to drop, or None."""
-    clauses = []
+    rules = get_rules(profile)
 
-    if EXCLUDED_STR_TYPES:
-        clauses.append("STR_TYPE IN ({})".format(_type_list()))
-
-    if EXCLUDED_FDMIDS:
-        clauses.append("FDMID IN ({})".format(_id_list()))
-
-    if not clauses:
+    if not rules:
         return None
 
-    return " OR ".join(clauses)
+    return " OR ".join(exclude for _, exclude, _ in rules)
 
 
-def build_keep_clause():
+def build_keep_clause(profile=DEFAULT_PROFILE):
     """Return a SQL where clause selecting the edges to keep, or None if nothing is excluded."""
-    clauses = []
+    rules = get_rules(profile)
 
-    if EXCLUDED_STR_TYPES:
-        clauses.append("(STR_TYPE IS NULL OR STR_TYPE NOT IN ({}))".format(_type_list()))
-
-    if EXCLUDED_FDMIDS:
-        clauses.append("(FDMID IS NULL OR FDMID NOT IN ({}))".format(_id_list()))
-
-    if not clauses:
+    if not rules:
         return None
 
-    return " AND ".join(clauses)
+    return " AND ".join(keep for _, _, keep in rules)
 
 
 def _count(layer_or_fc):
@@ -79,17 +184,28 @@ def _count(layer_or_fc):
     return int(arcpy.management.GetCount(layer_or_fc)[0])
 
 
-def make_filtered_layer(source_fc, layer_name, logger):
+def _count_matches(source_fc, layer_name, where_clause):
+    """Count the rows of source_fc that match where_clause, without leaving a layer behind."""
+    import arcpy
+
+    layer = arcpy.management.MakeFeatureLayer(source_fc, layer_name, where_clause)[0]
+    n = _count(layer)
+    arcpy.management.Delete(layer)
+
+    return n
+
+
+def make_filtered_layer(source_fc, layer_name, logger, profile=DEFAULT_PROFILE):
     """
     Return a feature layer over source_fc containing only the edges to keep, and
-    log how many rows were kept and excluded.
+    log how many rows were kept and excluded, overall and per rule.
 
     Raises RuntimeError if the filter would leave no edges at all, which means
     the clause or the source is wrong.
     """
     import arcpy
 
-    keep_clause = build_keep_clause()
+    keep_clause = build_keep_clause(profile)
     total = _count(source_fc)
 
     if keep_clause is None:
@@ -101,10 +217,21 @@ def make_filtered_layer(source_fc, layer_name, logger):
     excluded = total - kept
 
     logger.info(
-        "Edge exclusions applied (STR_TYPE {}, {} FDMIDs): {:,} of {:,} kept, {:,} excluded.".format(
-            EXCLUDED_STR_TYPES, len(EXCLUDED_FDMIDS), kept, total, excluded
+        "Edge exclusions applied (profile {}): {:,} of {:,} kept, {:,} excluded.".format(
+            profile, kept, total, excluded
         )
     )
+
+    # Rules can overlap, so the per-rule counts may add up to more than the total.
+    for i, (label, exclude_clause, _) in enumerate(get_rules(profile)):
+        matched = _count_matches(source_fc, "{}_rule{}".format(layer_name, i), exclude_clause)
+        logger.info("  {}: {:,} rows".format(label, matched))
+
+        if matched == 0:
+            logger.warning(
+                "  {} matched no rows in {}. Confirm the code or pattern against the "
+                "data.".format(label, source_fc)
+            )
 
     if kept == 0:
         raise RuntimeError(
@@ -113,36 +240,39 @@ def make_filtered_layer(source_fc, layer_name, logger):
             )
         )
 
-    if EXCLUDED_STR_TYPES and excluded == 0:
-        logger.warning(
-            "EXCLUDED_STR_TYPES is set but no rows matched in {}. Confirm the STR_TYPE code "
-            "against the field's domain.".format(source_fc)
-        )
-
     return layer
 
 
-def count_excluded(fc, logger):
+def count_excluded(fc, logger, profile=DEFAULT_PROFILE):
     """
     Count rows in an existing edge copy that match the exclusions. Used to warn when a
     copy is skipped because it already exists, since a stale copy may still hold them.
     Returns 0 when nothing is configured.
     """
-    import arcpy
-
-    exclude_clause = build_exclude_clause()
+    exclude_clause = build_exclude_clause(profile)
 
     if exclude_clause is None:
         return 0
 
-    layer = arcpy.management.MakeFeatureLayer(fc, "existing_edge_copy_excluded", exclude_clause)[0]
-    n = _count(layer)
-    arcpy.management.Delete(layer)
+    n = _count_matches(fc, "existing_edge_copy_excluded", exclude_clause)
 
     if n:
         logger.warning(
-            "The existing edge copy {} still holds {:,} rows that match the current "
-            "exclusions. Delete the network and the copy and re-run, or run script 04.".format(fc, n)
+            "The existing edge copy {} still holds {:,} rows that match the {} "
+            "exclusions. Delete the network and the copy and re-run, or run script 04.".format(
+                fc, n, profile
+            )
         )
 
     return n
+
+
+if __name__ == "__main__":
+
+    for name in sorted(PROFILES):
+        print("{}:".format(name))
+
+        for label, exclude_clause, keep_clause in get_rules(name):
+            print("  {}".format(label))
+            print("    exclude: {}".format(exclude_clause))
+            print("    keep:    {}".format(keep_clause))
