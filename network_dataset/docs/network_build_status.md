@@ -26,10 +26,15 @@ errors: **Edges 37,674, Junctions 16,187, Turns 0** (Turns 0 is expected until t
 edge copy holds 18,583 of Prod's 18,644 features, with 61 WA streets excluded by
 `network_exclusions.py`. Still to do: steps 04 to 07, grants under the new registration IDs
 (object class IDs 40578 to 40581), smoke tests, Directions, template re-export. Junctions and
-turns were copied from QA's legacy classes, which are older than the Prod edge copy. Open
-question: whether Prod's `TRNLRS_TRN_STREET_VW` was regenerated after the upgrade (the notes say
-the post-upgrade re-extract was still to be scheduled); if not, the copied edges may still carry
-the geometry gaps.
+turns were copied from QA's legacy classes, which are older than the Prod edge copy. **Confirmed by
+Alex later on 2026-09-29: Prod's `TRNLRS_TRN_STREET_VW` was re-loaded (the LRS re-extract) after
+the upgrade to 11.5**, so this edge copy is post-upgrade data and the 2026-09-24 concern that the
+network would inherit the pre-upgrade overhangs does not apply. The exact re-extract date and time
+were not recorded. A forced manual rebuild then gave the same counts (Edges 37,674, Junctions
+16,187, Turns 0, built 08:30:04). Its build-errors file held only the two expected message types:
+1,238 `Cannot find edge element corresponding to turn identifier` (the raw legacy turns, fixed by
+the remap) and 1,133 `Standalone user-defined junction is detected`. Whether the geometry gaps are
+actually gone is still to be proven by checking Robbie's flagged locations after the final build.
 
 - **Acceptance testing restarted and paused again.** Robbie tested the distance network after
   the LRS corrections and got errors back. Melanie and Ryan are looking at **57 new issues** they
