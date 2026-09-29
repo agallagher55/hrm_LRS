@@ -434,6 +434,37 @@ Nothing was changed; this is the state from the 2026-09-18 rebuild, confirmed by
   `qa_source_table_grants_20260929.csv` (no header rows; columns are `reg_group, table_count,
   example_table, tables_with_public_select` and `table_name, principal, permission_name`).
 
+## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-09-29)
+
+**Supersedes the 2026-09-18 entry and the pre-refresh snapshot above.** The network was deleted
+and recreated by script (`qa_refresh` steps 02, 03 and 06) after the Prod 11.5 upgrade, so its
+registration tables were reassigned.
+
+| Table set | Status |
+|---|---|
+| `N_1_*`, `N_2_*`, `ND_7293_*` | Unchanged and untouched: a geometric network (10/10), and the legacy `TRN_street_network` (6/6 and 2/2). |
+| `N_3_*` | `TRNLRS_street_network`. **Same ID reused again.** The 2b audit query returned 6 tables with 0 granted; **granted** `PUBLIC SELECT` on all 6 (2026-09-29, completed 09:09:10). |
+| `ND_40986_*` | `TRNLRS_street_network`'s new dirty-area pair, replacing `ND_40192`. Identified as the only complete `DIRTYAREAS`/`DIRTYOBJECTS` pair besides the legacy `ND_7293`, with no new single-table orphans from the day's deleted networks. The audit showed 2 tables with 1 granted (`DIRTYAREAS` already granted, the same unexplained pattern as 2026-09-01 and 2026-09-18); **granted** both. |
+| `ND_12010`, `ND_21268` (1/1), `ND_38752`, `ND_39207`, `ND_396` (1, 0 granted) | Known single-table orphans. Not touched. |
+
+**System junction class:** `sys.tables` holds `TRNLRS_STREET_NETWORK_JUNCTIONS`, the name the
+template-created network gives it. The wizard-era `TRNLRS_NETWORK_JUNCTIONS` from 2026-09-01 and
+2026-09-18 no longer exists, so the name note in step 5 is now the other way round.
+
+**Source tables: nothing to grant.** After the recreation, `TRNLRS_TRN_STREET`,
+`TRNLRS_street_junction`, `TRNLRS_traffic_turn` and the system junction class each already
+carried `public` SELECT; `HRM\GIS_LRS_EVENT_EDITOR` SELECT, INSERT, UPDATE, DELETE; and `sde`
+SELECT, INSERT, UPDATE, DELETE, identical to the pre-refresh snapshot. This was not expected,
+because step 02 deleted the edge, junction and turn classes and step 06 renamed a new staging
+class into the turn class. Likely explanation, not confirmed: new classes inherit the feature
+dataset's privileges. Check with the four-table query rather than assuming it next time.
+
+**Still open:**
+1. The 2b audit query was not reported after the grants; expect `N_3` 6/6 and `ND_40986` 2/2.
+2. An OS-auth add-to-map, then a Route solve with OneWay and TrafficTurn ticked in the Travel
+   Mode, to confirm the grants end to end (this doubles as the first smoke test).
+3. Dev and Prod, once built there.
+
 ---
 
 ## Historical status (QA, 2026-07-13, superseded above)

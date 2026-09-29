@@ -51,8 +51,9 @@ actually gone is still to be proven by checking Robbie's flagged locations after
 | Build errors after 06 (`BuildErrors_5cfc4bc3-6637-45c2-8a9a-7866b8bbfc00.txt`) | 1,133 standalone-junction warnings and **5 `Cannot find at junction`** on turn OIDs 686, 746, 747, 829, 830, the same five as the 2026-09-18 build and the Esri case. |
 | 07 verify live turns | All 10 checks passed on 1,189 records (08:58). |
 
-Still open after this run: SQL grants under the new registration IDs (not yet re-applied or
-recorded), route smoke tests (one-way both directions, prohibited turn on and off), a check that
+Still open after this run: SQL grants were applied later on 2026-09-29 (`N_3` and `ND_40986`; the
+source tables already had theirs, see `network_dataset_sql_permissions.md`), with the audit re-run
+and an OS-auth add-to-map still to confirm; route smoke tests (one-way both directions, prohibited turn on and off), a check that
 Robbie's flagged gap locations are actually fixed, Directions (missing from the network and the
 template), a re-exported template with corrected names, and syncing the T: scripts folder with the
 repo (two files were stale: `network_template.xml` and `run_full_network_rebuild.py`). Junctions
