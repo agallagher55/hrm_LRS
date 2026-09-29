@@ -207,8 +207,9 @@ The repository cannot answer these, and every later step depends on the answers.
   open: whether and how it will be refreshed (database restore or data copy).
 - ~~Did the network-creation overview go to Ryan?~~ **No, not yet** (Alex, 2026-09-29). Still
   open: whether Ryan has replied to Esri about sharing the file geodatabase.
-- ~~Which check-in?~~ **Tuesday morning, 2026-09-29** ("tomorrow", per Alex on the evening of 2026-09-28). Still open: when Alex
-  does the post-upgrade re-extract (Friday 2026-10-02 was the leaning).
+- ~~Which check-in?~~ **2026-09-30** (tomorrow, per Alex on 2026-09-29). The post-upgrade
+  re-extract of Prod's `TRNLRS_TRN_STREET_VW` is **done** (Alex, 2026-09-29), earlier than the
+  Friday 2026-10-02 that was floated; the QA network was recreated from it the same day.
 - Record the QA baseline as one dated run report (build date, source counts, turn count,
   evaluator definitions, current build-errors file).
 

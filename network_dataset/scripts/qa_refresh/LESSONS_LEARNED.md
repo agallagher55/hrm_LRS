@@ -100,8 +100,9 @@ it's cheap and would have saved real time this session.
   itself) is functionally equivalent to running `06_swap_and_final_build.py`.**
   Both end up calling the same `03_create_network_dataset.py` create logic,
   which will hit `ERROR 030386` at the same point regardless of which path
-  you took. Don't assume using the numbered script avoids the interactive
-  recovery — it doesn't, on the current (uncorrected) template.
+  you took, **if the template is the old VBScript one**. (Corrected
+  2026-09-29: the corrected template creates and builds fine, so neither path
+  needs the interactive recovery once the right template is deployed.)
 - Log files are timestamp-matched per run, not per script: `_shared.py`
   imports all three core scripts (03, 05, verifier) at module level for
   every qa_refresh entry point, so **three log files get created on every
@@ -228,3 +229,34 @@ it's cheap and would have saved real time this session.
   `network_dataset_sql_permissions.md`, `roadmap_lrs_network.html`,
   `network_dataset/data/network_template.xml`. PR:
   [hrm_LRS#63](https://github.com/agallagher55/hrm_LRS/pull/63).
+
+## 2026-09-29: the template was never broken, the deployed copy was stale
+
+Step 03 failed with `ERROR 030386` and the README's explanation was that the committed
+template is still rejected by Pro 3.5.8. It was not the committed template at all. The
+`network_template.xml` in the T: drive `network_dataset\data` folder was the 2026-07-14 file
+(22 KB, VBScript `Select Case UCase([STR_DIR])`, no `Language` key, 3.3.0 schema), never
+overwritten after the 2026-09-18 re-export was committed. The T: folder also holds
+`network_template_3_5_8.xml` (2026-09-03, has Directions), `network_template_3_5_8_Sep2026.xml`
+(2026-09-18 raw export, still named `TRNLRS_network` inside) and `qa_current_state.xml`
+(2026-09-02, whose Against-direction evaluator wrongly uses `FDTO`).
+
+After renaming the stale file to `network_template_VBScript_20260714.xml` and copying the repo
+template over it, step 03 (source copies skipped, so re-running was safe) created the network
+in about 13 seconds and built it in about 9: 0 errors, Edges 37,674, Junctions 16,187,
+Turns 0. Properties showed Length as a Python Field Script, both OneWay directions correct
+(Along blocks `N`/`FDTO`/`T`, Against blocks `N`/`FOTD`/`T`), TrafficTurn default turns
+Restricted, End Point connectivity on the edge source, Honor on the junction source.
+
+This is the first end-to-end template-driven create and build. Lessons:
+
+- **Diff the deployed template against the repo copy before believing 030386.** Same lesson
+  as the deployment-drift note near the top, and it cost a session. Script 03 now says so when
+  the deployed file contains `Select Case`.
+- **Edge count check:** 37,674 against 37,788 on 2026-09-18. Excluding 61 WA features
+  accounts for about 120 fewer edges.
+- **Directions are still missing** from the repo template and therefore from this network. The
+  2026-09-03 file on T: has the `NetworkDirections` block to copy from.
+- **A run that printed its final message and then had to be stopped** (exit code
+  `-1073741510`, interrupted) had already built the network; Properties showed Built at
+  08:17:49. Check Properties before assuming a stopped run failed.
