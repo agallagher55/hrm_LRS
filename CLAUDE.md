@@ -98,7 +98,7 @@ Confirmed 2026-09-18, on top of the fix above:
   walk away thinking the rebuild is complete without it — the network builds and solves
   fine either way, so nothing surfaces an error. Confirmed missed entirely on 2026-09-18:
   the resulting `CreateTemplateFromNetworkDataset` export came out with no
-  `<NetworkDirections>` element at all, a real gap not caught until a later `/code-review`
+  `<NetworkDirections>` element at all (merged back in from the 2026-09-03 export on 2026-09-29), a real gap not caught until a later `/code-review`
   pass. Set it explicitly on the Directions tab: Base Name → `STR_NAME`, Suffix Type →
   `STR_TYPE`, Full Name → `FULL_NAME`.
 - **`CreateTemplateFromNetworkDataset` needs a Network Dataset Layer, not a raw catalog

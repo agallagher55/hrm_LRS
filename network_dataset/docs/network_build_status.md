@@ -113,7 +113,10 @@ and turns were copied from QA's legacy classes, which were not refreshed from Pr
   1,180), **5** turns rejected at build (not 9), SQL registration `N_3` / **`ND_40192`** (not
   `ND_40171`). Also, the live QA network has **no Directions configuration** (the 2026-09-18
   interactive rebuild skipped it) and `network_dataset/data/network_template.xml` has no
-  `<NetworkDirections>` element. Both are still open.
+  `<NetworkDirections>` element. Both were open on 2026-09-18. **Template half fixed 2026-09-29:** the
+  `<NetworkDirections>` block and the edge source's `<NetworkSourceDirections>` (`STR_NAME`,
+  `STR_TYPE`, `FULL_NAME`) were merged in from the 2026-09-03 export, unchanged; the merge is not
+  yet proven by a scripted create. The **live QA network still has no Directions**.
 - **Correction to Step 5 below.** `sync_network_edge_source()` in `LRS_updates.py` does not use
   `DeleteRows`. It calls `append_feature()`, which calls `TruncateTable`, and will fail with
   `ERROR 001395` against the controller-dataset edge source. Only the standalone script
@@ -209,7 +212,7 @@ What this means for the state of each environment:
 
 | Environment | Network dataset | Evaluator language | Editable? |
 |---|---|---|---|
-| **QA** | Rebuilt 2026-09-01 and 2026-09-18, and again 2026-09-29 from the template by script (Edges 37,674, Junctions 16,187, Turns 1,184; grants not yet re-applied). **No Directions configured** on the live network. | **Python** | ✅ Yes |
+| **QA** | Rebuilt 2026-09-01 and 2026-09-18, and again 2026-09-29 from the template by script (Edges 37,674, Junctions 16,187, Turns 1,184; grants re-applied and non-admin add-to-map confirmed). **No Directions configured** on the live network; the committed template now has them. | **Python** | ✅ Yes |
 | **Dev** | Original 2026-06-26 build, still functional for solves | VBScript | ❌ **Permanently read-only.** Cannot be edited or rebuilt. Will need the same from-scratch rebuild treatment. |
 | **Prod** | Not built | n/a | n/a |
 

@@ -282,3 +282,20 @@ This is the first end-to-end template-driven create and build. Lessons:
 - **Not yet done at the time of writing:** grants under the new registration IDs, smoke tests,
   Directions, template re-export, gap check, T: folder sync.
 
+### 2026-09-29, Directions merged into the template
+
+The 2026-09-03 export on T: (`network_template_3_5_8.xml`) still had Directions. Two pieces were
+copied unchanged into `data/network_template.xml`, and nothing else in the file changed (the diff
+is exactly two insertions and the result parses as XML):
+
+- the top-level `<NetworkDirections>` block (length in miles, `Length` as the length attribute),
+  placed between `<SupportsTurns>` and `<Properties>`;
+- the edge source's `<NetworkSourceDirections>` with `STR_NAME`, `STR_TYPE` and `FULL_NAME`,
+  placed right after the edge source's `<Properties>`.
+
+The junction source has none, as in the 2026-09-03 export. **Not yet proven:** no create has run
+with the merged template. Test it before relying on it: the next scripted rebuild will exercise
+it, and a failure there falls back to the previous template in git. The live network is not
+affected and still has no Directions; configure them in Properties, or wait for the next
+rebuild, which changes the registration IDs and so needs the grants redone.
+

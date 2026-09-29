@@ -29,7 +29,8 @@ is treated as **planned, not confirmed**. Alex confirmed on 2026-09-29 that the 
   `TRNLRS_network`). Nobody raised this in the meeting.
 - **Corrected QA figures (2026-09-18 rebuild):** 37,788 edges, 16,185 junctions, **1,184** live
   turns, **5** rejected at build (not 1,180 and 9), grants `N_3` / `ND_40192`. The live QA network
-  has **no Directions configuration**, and neither does the committed template.
+  has **no Directions configuration**, and neither did the committed template until 2026-09-29,
+  when the Directions block from the 2026-09-03 export was merged in (untested by a create).
 - **QA network rebuilt 2026-09-29 (Alex):** after the Prod 11.5 upgrade and the LRS re-extract,
   the full `qa_refresh` procedure ran. Edges 37,674, Junctions 16,187, **Turns 1,184** (same 5
   rejected as on 2026-09-18). Grants, smoke tests and the gap check are still to do; see
