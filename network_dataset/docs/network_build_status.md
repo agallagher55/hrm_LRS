@@ -667,6 +667,17 @@ scenarios still reproduce on Pro 3.5.8.
       and WA = 61, as expected. Expected edge copies (counts to check on the first build): general
       18,459 of 18,644 (WA 61 + transit 124 out); HRFE 18,433 (those plus emergency access 4 and ETAs
       22, 211 in all; the four sets share no FDMIDs).
+- [x] **HRFE build scaffolding written 2026-09-29, not run.** Decisions (Alex): a second network
+      dataset in its own feature dataset `SDEADM.TRNLRS_network_HRFE` (network
+      `TRNLRS_street_network_HRFE`), the **same turn restrictions** as the distance network (the
+      same legacy turns remapped onto its own edge copy), and Robbie edits the extra roads himself
+      in QA once Alex has created the feature class from what he drops in the monthly folder.
+      `scripts/network_definitions.py` holds both networks' names and renders the HRFE template
+      from the committed one; `HRM_NETWORK=HRFE` selects it in scripts 03, 05, the verifier and
+      `qa_refresh`. Unset behaves as before (checked: every path the scripts build is identical to
+      the baseline). Steps to run it: [`hrfe_network_runbook.md`](hrfe_network_runbook.md). Still to
+      do: create the feature dataset, run `test_template_create.py` for HRFE, then `qa_refresh`
+      steps 3 to 8 with grants; then the extra roads (open questions in the runbook).
 - [ ] HRFE additions from the same thread, not started: bridge break, routes outside HRM, Station 2
       left turn on University Ave (**urgent**), driveways, a new HRFE feature dataset in QA, and how
       splits survive an LRS update. **Requested from Robbie on 2026-09-29 (3:30 PM), waiting:** the

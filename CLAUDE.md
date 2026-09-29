@@ -207,6 +207,16 @@ same stuck session — the core rebuild may have already committed successfully 
 with only a trailing client-side step left hanging, so check Properties before assuming a long
 hang means total failure.
 
+## Two networks: `HRM_NETWORK`
+There are two networks built from the same LRS streets: `DISTANCE` (`TRNLRS_street_network`, the
+default) and `HRFE` (`TRNLRS_street_network_HRFE` in its own feature dataset
+`SDEADM.TRNLRS_network_HRFE`). `network_dataset/scripts/network_definitions.py` holds every name that
+differs, and the `HRM_NETWORK` environment variable selects one for scripts 03, 05, the verifier and
+`qa_refresh`. Unset means `DISTANCE`, unchanged from before. The Prod edge sync (`04`) ignores the
+variable on purpose. Exclusions are per network (`network_exclusions.py` profiles `GENERAL` and
+`HRFE`). SDE needs feature class names to be unique across the geodatabase, hence the `_HRFE` suffix.
+The HRFE build is written but has not been run; see `network_dataset/docs/hrfe_network_runbook.md`.
+
 ## Project Purpose
 
 This repository holds all data, scripts, and documentation for the **Halifax Regional Municipality (HRM) Linear Referencing System (LRS)** — a system for locating assets and events along road/route networks using route identifiers and measure values (e.g., kilometre points) rather than X/Y coordinates.

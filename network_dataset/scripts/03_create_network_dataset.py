@@ -44,6 +44,12 @@ Note on edge exclusions:
   TRNLRS_TRN_STREET_VW is not filtered, so the row count of the copy is expected
   to be lower than the source's. See network_exclusions.py.
 
+Note on the two networks:
+  The HRM_NETWORK environment variable chooses the network this script builds:
+  DISTANCE (the default) or HRFE. Each has its own feature dataset, source class
+  names, template and exclusion profile; see network_definitions.py. Set it before
+  the run, and the same value for every script in the same workflow.
+
 Note on TRNLRS_traffic_turn:
   copy_fc_to_fd() below skips copying a source FC if the destination already
   exists in the feature dataset. If TRNLRS_traffic_turn has previously been
@@ -64,6 +70,7 @@ from pathlib import Path
 
 import arcpy
 
+import network_definitions
 import network_exclusions
 from log_utils import setup_logger
 
@@ -97,8 +104,12 @@ PROD_SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
 # dedicated feature dataset for the network source FCs, separate from
 # SDEADM.TRNLRS (the LRS feature dataset holding LRSN_Route, event tables,
 # etc.). Network datasets must live inside a feature dataset in a geodatabase.
-FEATURE_DATASET = os.path.join(SDE_CONNECTION_UPDATE, "SDEADM.TRNLRS_network")
-NEW_ND_NAME     = "TRNLRS_street_network"
+#
+# Which network this run builds (DISTANCE by default, HRFE with HRM_NETWORK=HRFE) decides
+# the feature dataset and every name below. See network_definitions.py.
+NETWORK         = network_definitions.get_definition()
+FEATURE_DATASET = os.path.join(SDE_CONNECTION_UPDATE, NETWORK.feature_dataset)
+NEW_ND_NAME     = NETWORK.network_name
 
 # TRNLRS_TRN_STREET_VW is the authoritative standalone FC (outside any feature
 # dataset) in Prod, populated by LRS_updates.py from prod's own LRS tables.
@@ -110,7 +121,7 @@ NEW_ND_NAME     = "TRNLRS_street_network"
 # to avoid a name collision.  The XML template uses TRNLRS_TRN_STREET as the
 # edge source name accordingly.
 STANDALONE_EDGE_SOURCE = os.path.join(PROD_SDE_CONNECTION, "SDEADM.TRNLRS_TRN_STREET_VW")
-EDGE_SOURCE_NAME       = "TRNLRS_TRN_STREET"
+EDGE_SOURCE_NAME       = NETWORK.edge_name
 
 # Junction and turn FCs live in TRN_streets_routes (the old network FD), in the
 # same environment as SDE_CONNECTION_UPDATE. This script copies them into
@@ -120,6 +131,9 @@ SOURCE_TURN     = os.path.join(SDE_CONNECTION_UPDATE, "SDEADM.TRN_streets_routes
 
 REPO_ROOT    = Path(__file__).resolve().parents[1]
 TEMPLATE_XML = REPO_ROOT / "data" / "network_template.xml"
+# The template this run builds from: TEMPLATE_XML itself for DISTANCE, or a rendered copy
+# with the network's names for any other network (written by main(), not committed).
+GENERATED_TEMPLATE_DIR = REPO_ROOT / "data" / "generated"
 # ---------------------------------------------------------------------------
 
 
@@ -137,7 +151,7 @@ def copy_fc_to_fd(source_path, feature_dataset, fc_name, error_hint="", apply_ex
             f"(existing data at {dest} was NOT refreshed)"
         )
         if apply_exclusions:
-            network_exclusions.count_excluded(dest, logger)
+            network_exclusions.count_excluded(dest, logger, NETWORK.exclusion_profile)
         return
     if not arcpy.Exists(source_path):
         msg = f"Source feature class not found: {source_path}" + (f" {error_hint}" if error_hint else "")
@@ -145,7 +159,9 @@ def copy_fc_to_fd(source_path, feature_dataset, fc_name, error_hint="", apply_ex
         sys.exit(f"ERROR: {msg}")
     logger.info(f"Copying into feature dataset: {source_path} -> {dest}")
     if apply_exclusions:
-        source = network_exclusions.make_filtered_layer(source_path, f"{fc_name}_keep", logger)
+        source = network_exclusions.make_filtered_layer(
+            source_path, f"{fc_name}_keep", logger, NETWORK.exclusion_profile
+        )
     else:
         source = source_path
     arcpy.management.CopyFeatures(source, dest)
@@ -196,6 +212,11 @@ def main(copy_only=False):
     With copy_only=True it stops after the copies and creates nothing. The QA refresh
     uses that: the network is created and built once, in step 06, after the turn remap.
     """
+    logger.info(
+        f"Network: {NETWORK.key} ({NETWORK.description}); feature dataset {FEATURE_DATASET}; "
+        f"exclusion profile {NETWORK.exclusion_profile}"
+    )
+
     if not TEMPLATE_XML.exists():
         msg = (
             f"Template XML not found at {TEMPLATE_XML}. "
@@ -216,8 +237,8 @@ def main(copy_only=False):
         error_hint="Run LRS_updates.py to populate TRNLRS_TRN_STREET_VW before proceeding.",
         apply_exclusions=True,
     )
-    copy_fc_to_fd(SOURCE_JUNCTION, FEATURE_DATASET, "TRNLRS_street_junction")
-    copy_fc_to_fd(SOURCE_TURN, FEATURE_DATASET, "TRNLRS_traffic_turn")
+    copy_fc_to_fd(SOURCE_JUNCTION, FEATURE_DATASET, NETWORK.junction_name)
+    copy_fc_to_fd(SOURCE_TURN, FEATURE_DATASET, NETWORK.turn_name)
 
     if copy_only:
         logger.info("Copy-only mode: the sources are in place. No network dataset was created or built.")
@@ -225,10 +246,12 @@ def main(copy_only=False):
 
     new_nd_path = os.path.join(FEATURE_DATASET, NEW_ND_NAME)
 
-    logger.info(f"Creating network dataset from template: {TEMPLATE_XML}")
+    build_template = network_definitions.rendered_template_path(NETWORK, TEMPLATE_XML, GENERATED_TEMPLATE_DIR)
+
+    logger.info(f"Creating network dataset from template: {build_template}")
     try:
         arcpy.na.CreateNetworkDatasetFromTemplate(
-            network_dataset_template=str(TEMPLATE_XML),
+            network_dataset_template=str(build_template),
             output_feature_dataset=FEATURE_DATASET,
         )
     except arcpy.ExecuteError:
@@ -247,7 +270,7 @@ def main(copy_only=False):
                 "up-front VBScript check. That would be a new problem with the committed "
                 "template. The source feature classes were copied before network creation "
                 "was attempted, so do not delete or recopy them. Create "
-                "TRNLRS_street_network interactively with Python evaluators, then "
+                f"{NEW_ND_NAME} interactively with Python evaluators, then "
                 "continue the QA workflow. See scripts/qa_refresh/README.md, "
                 "'Step 03: ERROR 030386', for the exact evaluator settings.\n\n"
                 f"ArcGIS geoprocessing messages:\n{msgs}"

@@ -39,6 +39,7 @@ import sys
 
 import arcpy
 
+import network_definitions
 import network_exclusions
 from log_utils import setup_logger
 
@@ -60,6 +61,7 @@ def sync_and_rebuild(
     street_source_fc: str = None,
     streets_target_fc: str = None,
     network: str = None,
+    network_definition=None,
 ):
     """Delete the rows of the FD edge source copy, reload from the standalone FC, and rebuild the network.
 
@@ -73,11 +75,16 @@ def sync_and_rebuild(
 
         from network_dataset.scripts.sync_and_rebuild_network import sync_and_rebuild
         sync_and_rebuild()
+
+    This syncs the DISTANCE network unless network_definition says otherwise. It
+    deliberately ignores the HRM_NETWORK environment variable that the QA build scripts
+    use, so nothing set in the environment of the Prod LRS_updates.py job can redirect it.
     """
+    definition = network_definition or network_definitions.DISTANCE
 
     street_source_fc  = street_source_fc  or os.path.join(prod_sde_connection, "SDEADM.TRNLRS_TRN_STREET_VW")
-    streets_target_fc = streets_target_fc or os.path.join(prod_sde_connection, "SDEADM.TRNLRS_network", "TRNLRS_TRN_STREET")
-    network           = network           or os.path.join(prod_sde_connection, "SDEADM.TRNLRS_network", "TRNLRS_street_network")
+    streets_target_fc = streets_target_fc or os.path.join(prod_sde_connection, definition.feature_dataset, definition.edge_name)
+    network           = network           or os.path.join(prod_sde_connection, definition.feature_dataset, definition.network_name)
 
     for path, label in [(street_source_fc, "standalone edge source"), (streets_target_fc, "FD edge copy"), (network, "network dataset")]:
 
@@ -98,7 +105,9 @@ def sync_and_rebuild(
     # rebuilding the network dataset on every sync.
     # Build the filtered layer before deleting anything, so a bad exclusion clause
     # (or an empty result) fails while the existing edge copy is still intact.
-    edges_to_load = network_exclusions.make_filtered_layer(street_source_fc, "edges_to_load", logger)
+    edges_to_load = network_exclusions.make_filtered_layer(
+        street_source_fc, "edges_to_load", logger, definition.exclusion_profile
+    )
 
     arcpy.management.DeleteRows(streets_target_fc)
     arcpy.management.Append(

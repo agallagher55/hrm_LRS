@@ -31,6 +31,14 @@ After step 07, follow Phase 6 and Phase 7 in
 tests. Those DBA and interactive route checks are intentionally not automated
 here.
 
+## Which network
+
+The steps work on the distance network unless the `HRM_NETWORK` environment variable says
+otherwise. `set HRM_NETWORK=HRFE` before a step makes it work on the HRFE network instead, in
+`SDEADM.TRNLRS_network_HRFE`. Set it for every step of a run; each step prints the network it
+is on, and stops if the scripts disagree. The first HRFE build skips steps 01 and 02 (nothing to
+back up or delete). See `../../docs/hrfe_network_runbook.md`.
+
 ## Testing a template change without touching QA
 
 `python test_template_create.py` (run it before step 02 after any template edit, since step 03 no longer creates a network) copies the three QA network sources into a scratch file

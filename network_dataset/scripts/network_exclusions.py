@@ -18,8 +18,9 @@ Each network has its own exclusion profile:
            exclusions Robbie Evans listed (email thread "HRFE network dataset",
            2026-09-01 to 2026-09-29): emergency access roads and ETAs.
 
-Scripts 03 and 04 use DEFAULT_PROFILE (GENERAL). The HRFE network is not built
-yet; when it is, its build passes profile="HRFE".
+Each network in network_definitions.py names its profile, and scripts 03 and 04 read
+it from there, so an HRFE build (HRM_NETWORK=HRFE) uses HRFE. DEFAULT_PROFILE (GENERAL)
+applies only when a caller passes no profile.
 
 To change what a profile leaves out, edit the lists below, then re-run script 03
 (after deleting the existing edge copy) or script 04 so the change reaches the

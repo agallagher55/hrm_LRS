@@ -5,6 +5,11 @@ network dataset there from data/network_template.xml, builds it, then exports a
 template back out to confirm the Directions settings survived the round trip.
 QA is only read, so it is safe to run while the live network is in use.
 
+To prove the rendered HRFE template before touching QA, set HRM_NETWORK=HRFE first. The
+sources are still read from the DISTANCE network (the HRFE ones do not exist yet) and
+copied into the scratch geodatabase under the HRFE names, so the run exercises the same
+renamed template that the real HRFE build will use.
+
 Run from an ArcGIS Pro Python prompt with the Network Analyst extension:
 
     python test_template_create.py
@@ -19,21 +24,26 @@ import sys
 import arcpy
 
 import config
+import network_definitions
 
 
 KEEP_SCRATCH = False
 
 SCRATCH_DIR = os.path.join(arcpy.env.scratchFolder, "template_create_test")
 GDB_NAME = "template_test.gdb"
-FEATURE_DATASET_NAME = "TRNLRS_network"
-NETWORK_NAME = "TRNLRS_street_network"
+NETWORK = config.NETWORK_DEF
+FEATURE_DATASET_NAME = NETWORK.feature_dataset.split(".", 1)[-1]
+NETWORK_NAME = NETWORK.network_name
 TEMPLATE = os.path.join(config.NETWORK_DATASET_DIR, "data", "network_template.xml")
 EXPORTED_TEMPLATE = os.path.join(SCRATCH_DIR, "roundtrip_template.xml")
 
+# Always read from the DISTANCE sources, which exist; copy them under this network's names.
+DISTANCE = network_definitions.DISTANCE
+DISTANCE_FD = os.path.join(config.QA_SDE, DISTANCE.feature_dataset)
 SOURCES = {
-    "TRNLRS_TRN_STREET": config.EDGE,
-    "TRNLRS_street_junction": config.JUNCTION,
-    "TRNLRS_traffic_turn": config.TURN,
+    NETWORK.edge_name: os.path.join(DISTANCE_FD, "SDEADM." + DISTANCE.edge_name),
+    NETWORK.junction_name: os.path.join(DISTANCE_FD, "SDEADM." + DISTANCE.junction_name),
+    NETWORK.turn_name: os.path.join(DISTANCE_FD, "SDEADM." + DISTANCE.turn_name),
 }
 
 # Text that must appear in the template exported from the newly created network.
@@ -42,7 +52,7 @@ EXPECTED_IN_EXPORT = [
     "<StreetNameFieldName>STR_NAME</StreetNameFieldName>",
     "<SuffixTypeFieldName>STR_TYPE</SuffixTypeFieldName>",
     "<FullNameFieldName>FULL_NAME</FullNameFieldName>",
-    "<Name>TRNLRS_street_network</Name>",
+    f"<Name>{NETWORK.network_name}</Name>",
 ]
 
 
@@ -57,7 +67,7 @@ def prepare_scratch():
 
     os.makedirs(SCRATCH_DIR)
     gdb = arcpy.management.CreateFileGDB(SCRATCH_DIR, GDB_NAME).getOutput(0)
-    spatial_reference = arcpy.Describe(config.QA_NETWORK_FD).spatialReference
+    spatial_reference = arcpy.Describe(DISTANCE_FD).spatialReference
     feature_dataset = arcpy.management.CreateFeatureDataset(
         gdb, FEATURE_DATASET_NAME, spatial_reference
     ).getOutput(0)
@@ -92,9 +102,13 @@ def main():
     feature_dataset = prepare_scratch()
     copy_sources(feature_dataset)
 
+    # DISTANCE builds from the committed template as it is; HRFE from a rendered copy.
+    template_to_build = str(network_definitions.rendered_template_path(NETWORK, TEMPLATE, SCRATCH_DIR))
+    print(f"Network under test: {NETWORK.key}; building from {template_to_build}")
+
     try:
         arcpy.na.CreateNetworkDatasetFromTemplate(
-            network_dataset_template=TEMPLATE,
+            network_dataset_template=template_to_build,
             output_feature_dataset=feature_dataset,
         )
     except arcpy.ExecuteError:

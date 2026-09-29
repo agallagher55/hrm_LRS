@@ -124,6 +124,7 @@ class ClauseTests(unittest.TestCase):
 
     def test_under_review_streets_are_kept_in_every_profile(self):
         for name in ne.PROFILES:
+
             self.assertNotIn("UNDER REVIEW", ne.build_exclude_clause(name))
 
     def test_default_profile_is_general(self):
@@ -152,6 +153,7 @@ class ClauseTests(unittest.TestCase):
         self.assertEqual(keep.count(" AND "), len(ne.get_rules("HRFE")) - 1)
 
         for _, _, rule_keep in ne.get_rules("HRFE"):
+
             self.assertIn(" IS NULL OR ", rule_keep)
 
     def test_unknown_profile_raises(self):
@@ -217,16 +219,20 @@ class PatternTests(unittest.TestCase):
 
     def test_transit_pattern_takes_ta_roads_and_not_ordinary_streets(self):
         for name in ("TA1 RD", "TA52 RD", "TA43 RD"):
+
             self.assertTrue(like(name, "TA[0-9]%"), name)
 
         for name in ("TAYLOR DR", "TAMARACK DR", "TANLOR DR", "STATE ST", "META1 RD"):
+
             self.assertFalse(like(name, "TA[0-9]%"), name)
 
     def test_eta_pattern_takes_eta_segments_only(self):
         for name in ("HIGHWAY 101 ETA 294", "HIGHWAY 118 ETA 5"):
+
             self.assertTrue(like(name, "% ETA [0-9]%"), name)
 
         for name in ("BETA 5 RD", "HIGHWAY 101", "PETALS LANE", "ETA ROAD"):
+
             self.assertFalse(like(name, "% ETA [0-9]%"), name)
 
     @unittest.skipUnless(DIAGNOSTIC_CSV.exists(), "diagnostic CSV not in the repository")
