@@ -68,13 +68,15 @@ GENERAL_PROFILE = {
 #   exactly 4 (Highland Park, Buckingham Dr x2, Westwood Blvd, each "EMERGENCY
 #   ACCESS 01").
 #
-#   Transit access roads: he confirmed they look like "TA# RD". The exact filter
-#   is NOT decided; run diagnostics/10_find_candidate_exclusions.py against Prod,
-#   then add the pattern here (the first candidate is 'TA[0-9]%').
+#   Transit access roads: he confirmed they look like "TA# RD". Run against Prod
+#   on 2026-09-29, 'TA[0-9]%' matches 124 rows (TA1 to TA52, all STR_TYPE RD); the
+#   looser 'TA%' adds 85 ordinary streets. Waiting on his reply before adding it.
 #
-#   ETAs (emergency turnarounds): small connectors between divided highways. No
-#   query exists yet. Ask Robbie or Melanie how to identify them, then add a
-#   pattern or a list of FDMIDs here.
+#   ETAs (emergency turnarounds): small connectors between divided highways. A name
+#   search found 22 rows named "HIGHWAY nnn ETA n" ('% ETA [0-9]%'). Waiting on
+#   Robbie to confirm that set, and that he wants them removed for HRFE at all.
+#
+#   Record: docs/meetings/2026-09-29_HRFE_network_dataset_email_thread.md
 HRFE_EXTRA = {
     "str_types": [],
     "fdmids": [],
