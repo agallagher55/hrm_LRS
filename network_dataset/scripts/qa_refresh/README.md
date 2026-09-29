@@ -33,6 +33,13 @@ here.
 
 ## Safety and configuration
 
+- **Check the deployed scripts and template against the repo before a run.** On 2026-09-29 two
+  stale copies on the T: drive each cost time: `data\network_template.xml` (July, VBScript) made
+  step 03 fail with `ERROR 030386`, and `scripts\run_full_network_rebuild.py` (old `main()` with
+  no arguments) made step 06 fail with a `TypeError`. Neither had changed anything, but compare
+  file sizes or hashes first.
+- Close Pro map layers, attribute tables and Properties dialogs that hold the QA network or its
+  sources before steps 02 and 06, which delete them.
 - `config.py` derives the repository folders from its own mapped `T:` path and
   holds the expected QA paths. Review it before every refresh. It deliberately
   avoids `Path.resolve()`, which would replace `T:` with the backing server name.

@@ -36,6 +36,28 @@ were not recorded. A forced manual rebuild then gave the same counts (Edges 37,6
 the remap) and 1,133 `Standalone user-defined junction is detected`. Whether the geometry gaps are
 actually gone is still to be proven by checking Robbie's flagged locations after the final build.
 
+**Full `qa_refresh` run completed 2026-09-29 (Alex, from the run logs).**
+
+| Step | Result |
+|---|---|
+| 03, first attempt | Edge copy 18,583 of Prod's 18,644 features (61 WA streets excluded). `ERROR 030386` because the T: `network_template.xml` was the stale 2026-07-14 VBScript file. |
+| 03, after deploying the committed template | Created in about 13 s, built in about 9 s, 0 errors. Edges 37,674, Junctions 16,187, Turns 0. |
+| Manual forced rebuild | Same counts (built 08:30:04). Errors file: 1,238 `Cannot find edge element` (raw turns) plus 1,133 standalone-junction warnings, nothing else. |
+| 04 remap | 1,238 in, **1,189 written, 49 skipped (4.0%)**: 33 `missing_old_geometry`, 11 `no_shared_endpoint`, 5 `unresolved_edge`. Edge1End agreement 1,190/1,194 (99.7%). Edge DSID 40578. Same figures as 2026-09-18. |
+| 05 verify staging | All 10 checks passed. Edge1End N 138, Y 1,051. Every turn has exactly two edges (2,378 references). |
+| Spatial review | Partly reported: staging OID 61 (the remap of raw OID 66, same 4.302219 m line) joins edge 9727 ROBIE ST (Shirley to Cogswell) to edge 9770 ROBIE ST (Cogswell to Pepperell), both `FOTD`, at the Cogswell hub. The step 01 backup `TRNLRS_traffic_turn_bak_20260928_230127` holds 1,189 records, equal to the 2026-09-18 remap, so no hand-authored turns existed (the Cogswell ramp question is closed by count; an identical-geometry comparison was suggested, not reported). Not yet reported: the 49-skip diff against 2026-09-18, attribute carryover, ETA turns, and the `Edge2FID = 9770` cross-check. |
+| 06 swap and final build | First attempt failed instantly with `TypeError: main() takes 0 positional arguments` because the T: `run_full_network_rebuild.py` was stale; nothing had changed. After copying the repo version: old network and raw turn class deleted, staging renamed to `TRNLRS_traffic_turn`, network created and built from the template (built 08:55:04), 0 errors, 1 warning. Post-build: 18,583 edges, 15,424 user-defined junctions, 1,189 turn features. |
+| Properties after 06 | **Edges 37,674, Junctions 16,187, Turns 1,184.** |
+| Build errors after 06 (`BuildErrors_5cfc4bc3-6637-45c2-8a9a-7866b8bbfc00.txt`) | 1,133 standalone-junction warnings and **5 `Cannot find at junction`** on turn OIDs 686, 746, 747, 829, 830, the same five as the 2026-09-18 build and the Esri case. |
+| 07 verify live turns | All 10 checks passed on 1,189 records (08:58). |
+
+Still open after this run: SQL grants under the new registration IDs (not yet re-applied or
+recorded), route smoke tests (one-way both directions, prohibited turn on and off), a check that
+Robbie's flagged gap locations are actually fixed, Directions (missing from the network and the
+template), a re-exported template with corrected names, and syncing the T: scripts folder with the
+repo (two files were stale: `network_template.xml` and `run_full_network_rebuild.py`). Junctions
+and turns were copied from QA's legacy classes, which were not refreshed from Prod.
+
 - **Acceptance testing restarted and paused again.** Robbie tested the distance network after
   the LRS corrections and got errors back. Melanie and Ryan are looking at **57 new issues** they
   cannot trace (islands such as McNabs, a newly added street that had been snapped correctly, an
@@ -169,7 +191,7 @@ superseded by the 2026-09-01 rebuild — see [the 2026-09-01 update](#update-202
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ **QA rebuilt from scratch 2026-09-01** (interactive wizard, Python evaluators). Dev still on its original 2026-06-26 build — VBScript, permanently read-only, not rebuilt. Prod: nothing built. |
 | 5 | Validation | 🔄 Properties ✅; service area ✅; **turn-restriction solve ✅ (2026-09-01)**; **one-way solve ✅ (2026-09-02/03, after a real multi-day debugging saga — see below)**; route comparison / address-range pending. **Robbie Evans's expert acceptance testing is PAUSED (2026-09-11)**: ~500 source-geometry errors found in the first minutes; QA must be refreshed after the LRS fixes land before he can retest. |
-| 5a | Traffic turn rebuild | ✅ **Re-verified 2026-09-01** — 1,189 turns written, 99.7% Edge1End agreement, all 10 verifier checks clean, 5 spatial spot checks correct, **1,180 built as live turn elements** (9 rejected at build, see the 2026-09-01 update). **Superseded by the 2026-09-18 rebuild: 1,184 live turns, 5 rejected** (3 real sub-metre gaps, 2 exact 0.0000 m coincidences on one edge, 18393). |
+| 5a | Traffic turn rebuild | ✅ **Re-verified 2026-09-01** — 1,189 turns written, 99.7% Edge1End agreement, all 10 verifier checks clean, 5 spatial spot checks correct, **1,180 built as live turn elements** (9 rejected at build, see the 2026-09-01 update). **Superseded by the 2026-09-18 rebuild: 1,184 live turns, 5 rejected** (3 real sub-metre gaps, 2 exact 0.0000 m coincidences on one edge, 18393). **Repeated 2026-09-29: 1,189 written, 1,184 live, the same 5 rejected** (staging turn OIDs 686, 746, 747, 829, 830). |
 
 ### Update 2026-09-01 — QA network dataset rebuilt from scratch
 
@@ -186,7 +208,7 @@ What this means for the state of each environment:
 
 | Environment | Network dataset | Evaluator language | Editable? |
 |---|---|---|---|
-| **QA** | Rebuilt 2026-09-01, rebuilt again 2026-09-18 (Edges 37,788, Junctions 16,185, Turns 1,184). **No Directions configured** on the live network. | **Python** | ✅ Yes |
+| **QA** | Rebuilt 2026-09-01 and 2026-09-18, and again 2026-09-29 from the template by script (Edges 37,674, Junctions 16,187, Turns 1,184; grants not yet re-applied). **No Directions configured** on the live network. | **Python** | ✅ Yes |
 | **Dev** | Original 2026-06-26 build, still functional for solves | VBScript | ❌ **Permanently read-only.** Cannot be edited or rebuilt. Will need the same from-scratch rebuild treatment. |
 | **Prod** | Not built | n/a | n/a |
 

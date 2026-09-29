@@ -260,3 +260,25 @@ This is the first end-to-end template-driven create and build. Lessons:
 - **A run that printed its final message and then had to be stopped** (exit code
   `-1073741510`, interrupted) had already built the network; Properties showed Built at
   08:17:49. Check Properties before assuming a stopped run failed.
+
+### 2026-09-29, rest of the run (steps 04 to 07)
+
+- **Remap and verifier reproduced 2026-09-18 exactly:** 1,189 written, 49 skipped (4.0%), 99.7%
+  Edge1End agreement, 10 of 10 checks. The inputs (QA's legacy `TRN_street` and
+  `TRN_traffic_turn`) had not been refreshed, and the 61 excluded WA edges carried no turns.
+- **Every written turn has exactly two edges** (2,378 references for 1,189 turns).
+- **The step 01 backup closes the Cogswell ramp question by count.** It held 1,189 records,
+  the same as the previous remap, so nothing hand-authored sat on top of it.
+- **A staging turn keeps its geometry.** Staging OID 61 has the same 4.302219 m line as raw
+  OID 66, so a remapped turn can be matched to its legacy turn by geometry length.
+- **A second stale T: file:** `run_full_network_rebuild.py` there had `main()` with no
+  arguments, so step 06's `orchestrator.main(["--use-existing-staging"])` raised `TypeError`
+  before doing anything. Copy the repo version and rerun.
+- **Same five rejected turns as 2026-09-18** (staging OIDs 686, 746, 747, 829, 830, all
+  `Cannot find at junction`) on a rebuild done after the 11.5 upgrade and re-extract. Relevant to
+  the Esri case.
+- **Doubled log lines** during step 06 are cosmetic: script 03 and the orchestrator both
+  attach a logger.
+- **Not yet done at the time of writing:** grants under the new registration IDs, smoke tests,
+  Directions, template re-export, gap check, T: folder sync.
+
