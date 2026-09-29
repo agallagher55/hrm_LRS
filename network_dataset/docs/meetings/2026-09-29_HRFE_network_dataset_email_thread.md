@@ -134,6 +134,33 @@ His typed answer to the direction question (capitals are his):
   transit in the general profile, the general network's copy would be 18,459 (WA and transit,
   185 rows out). These are counts to check on the first build, not results.
 
+## 2026-09-29, 3:30 PM, Alex Gallagher to Robbie Evans (summary and requests, awaiting reply)
+
+Sent after Robbie's answers and Alex's decisions on transit roads. It gave Robbie the current
+exclusion list (WA 61 and transit 124 out of both networks; emergency access 4 and ETAs 22 out of
+HRFE only; ETAs stay in the general network because vehicles can still use them), said the HRFE
+network is not built yet, and warned that the transit and water access roads leave the distance
+network he is testing at its next rebuild. It then asked for:
+
+1. **The bridge:** which bridge it is, since the screenshot has no name or location.
+2. **Station 2 left turn on University Ave:** Alex wants to do it first because Robbie called it
+   urgent. Robbie is asked to draw the connector as a line in a new feature class and put it in
+   Alex's "monthly" folder.
+3. **Driveways:** a list of the driveways needed for dry hydrant mapping.
+4. **Routes outside HRM:** which roads lead to the stations that respond to HRM, and which bridges
+   on them cannot take fire trucks.
+
+It described the plan (a new HRFE feature dataset in QA, the network built from the LRS streets
+minus the excluded roads, and Robbie's extra roads loaded from a separate feature class so an LRS
+update does not remove them) and answered his question about splits: keep the split points in
+their own layer and re-apply them after each LRS update, which Alex would test on the Station 2
+connector first.
+
+Left out of the sent version compared with the draft: the offer to accept a road name or a point
+on a map for the bridge, and the note that travel time (speed) comes later.
+
+**No reply had been received when this was written.**
+
 ---
 
 ## Status of each request against the repository (2026-09-29)
@@ -144,13 +171,13 @@ His typed answer to the direction question (capitals are his):
 | Remove emergency access roads | Confirmed by Robbie 2026-09-29. In the `HRFE` profile (`%EMERGENCY ACCESS%`, 4 rows). No HRFE network exists yet to apply it to. |
 | Remove transit access roads | Filter `TA[0-9]%` (124 rows) confirmed by Robbie 2026-09-29. All 124 removed, no exceptions (Alex's decision, which closes Robbie's ambiguous answer). In the `GENERAL` profile, so both networks drop them. |
 | Remove ETAs | Confirmed by Robbie 2026-09-29: 22 rows, complete set, remove for HRFE. In the `HRFE` profile. |
-| Break at the bridge trucks cannot cross | Not started. Needs the bridge location from Robbie. |
-| Add main routes outside HRM, broken at weak bridges | Not started. Needs a data source for the routes and the bridge list. |
-| Station 2 left turn on University Ave (**urgent**) | Not started. |
-| Driveways for dry hydrant mapping | Not started. |
+| Break at the bridge trucks cannot cross | Not started. Asked Robbie for the bridge on 2026-09-29, waiting. |
+| Add main routes outside HRM, broken at weak bridges | Not started. Asked Robbie for the routes and weak bridges on 2026-09-29, waiting. Still needs a data source for the road geometry. |
+| Station 2 left turn on University Ave (**urgent**) | Not started. Asked Robbie on 2026-09-29 to draw the connector in a new feature class and put it in Alex's monthly folder, waiting. |
+| Driveways for dry hydrant mapping | Not started. Asked Robbie for the list on 2026-09-29, waiting. |
 | New feature dataset for the HRFE network in QA | Not started. |
 | Point barriers feature class (Robbie's alternative) | Not decided. He dislikes it because service areas look bad. |
-| Splits that survive an LRS update (Robbie's open question) | Not answered. Proposal: keep split points in their own feature class and re-apply them after every edge sync. |
+| Splits that survive an LRS update (Robbie's open question) | Answered by proposal on 2026-09-29: keep split points in their own feature class and re-apply them after every edge sync. Untested. |
 
 Also open for the HRFE network, from other meetings: whether it is a second network dataset or
 an added cost attribute, and the travel-time attribute (see `network_build_status.md`).

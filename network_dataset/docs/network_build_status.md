@@ -667,9 +667,12 @@ scenarios still reproduce on Pro 3.5.8.
       and WA = 61, as expected. Expected edge copies (counts to check on the first build): general
       18,459 of 18,644 (WA 61 + transit 124 out); HRFE 18,433 (those plus emergency access 4 and ETAs
       22, 211 in all; the four sets share no FDMIDs).
-- [ ] HRFE additions from the same thread, not started: bridge break (location needed), routes
-      outside HRM, Station 2 left turn on University Ave (**urgent**), driveways, a new HRFE feature
-      dataset in QA, and how splits survive an LRS update.
+- [ ] HRFE additions from the same thread, not started: bridge break, routes outside HRM, Station 2
+      left turn on University Ave (**urgent**), driveways, a new HRFE feature dataset in QA, and how
+      splits survive an LRS update. **Requested from Robbie on 2026-09-29 (3:30 PM), waiting:** the
+      bridge, the Station 2 connector (a line in a new feature class, dropped in Alex's monthly
+      folder), the driveway list, and the routes and weak bridges outside HRM. Splits: proposed
+      keeping them in their own layer and re-applying after each sync, untested.
 - [ ] Decide whether the HRFE (speed) network is a second network dataset or an added cost
 - [ ] Decide the turn-OID-stability question before prod cutover (see
       [`network_dataset_script_review.md` §D](network_dataset_script_review.md#d-turn-references-do-not-survive-an-lrs-refresh-structural))
