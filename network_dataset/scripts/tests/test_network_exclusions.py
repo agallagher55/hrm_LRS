@@ -113,14 +113,18 @@ class ClauseTests(unittest.TestCase):
         self.assertEqual(exclude, "STR_TYPE IN ('WA')")
         self.assertEqual(keep, "(STR_TYPE IS NULL OR STR_TYPE NOT IN ('WA'))")
 
-    def test_general_also_drops_under_review_streets(self):
+    def test_general_also_drops_transit_access_roads(self):
         exclude = ne.build_exclude_clause("GENERAL")
 
-        self.assertEqual(exclude, "STR_TYPE IN ('WA') OR FULL_NAME LIKE 'UNDER REVIEW%'")
+        self.assertEqual(exclude, "STR_TYPE IN ('WA') OR FULL_NAME LIKE 'TA[0-9]%'")
         self.assertIn(
-            "(FULL_NAME IS NULL OR FULL_NAME NOT LIKE 'UNDER REVIEW%')",
+            "(FULL_NAME IS NULL OR FULL_NAME NOT LIKE 'TA[0-9]%')",
             ne.build_keep_clause("GENERAL"),
         )
+
+    def test_under_review_streets_are_kept_in_every_profile(self):
+        for name in ne.PROFILES:
+            self.assertNotIn("UNDER REVIEW", ne.build_exclude_clause(name))
 
     def test_default_profile_is_general(self):
         self.assertEqual(ne.DEFAULT_PROFILE, "GENERAL")
@@ -130,16 +134,14 @@ class ClauseTests(unittest.TestCase):
         exclude = ne.build_exclude_clause("HRFE")
 
         self.assertIn("STR_TYPE IN ('WA')", exclude)
-        self.assertIn("FULL_NAME LIKE 'UNDER REVIEW%'", exclude)
-        self.assertIn("FULL_NAME LIKE '%EMERGENCY ACCESS%'", exclude)
         self.assertIn("FULL_NAME LIKE 'TA[0-9]%'", exclude)
+        self.assertIn("FULL_NAME LIKE '%EMERGENCY ACCESS%'", exclude)
         self.assertIn("FULL_NAME LIKE '% ETA [0-9]%'", exclude)
 
     def test_general_does_not_pick_up_hrfe_rules(self):
         exclude = ne.build_exclude_clause("GENERAL")
 
         self.assertNotIn("EMERGENCY", exclude)
-        self.assertNotIn("TA[0-9]", exclude)
         self.assertNotIn("ETA", exclude)
 
     def test_hrfe_keep_clause_is_null_safe_for_every_rule(self):
@@ -226,13 +228,6 @@ class PatternTests(unittest.TestCase):
 
         for name in ("BETA 5 RD", "HIGHWAY 101", "PETALS LANE", "ETA ROAD"):
             self.assertFalse(like(name, "% ETA [0-9]%"), name)
-
-    def test_under_review_pattern(self):
-        for name in ("UNDER REVIEW 329", "UNDER REVIEW 329 UN"):
-            self.assertTrue(like(name, "UNDER REVIEW%"), name)
-
-        for name in ("UNDERHILL RD", "REVIEW ST", "MAIN ST UNDER REVIEW"):
-            self.assertFalse(like(name, "UNDER REVIEW%"), name)
 
     @unittest.skipUnless(DIAGNOSTIC_CSV.exists(), "diagnostic CSV not in the repository")
     def test_patterns_reproduce_the_prod_counts_from_2026_09_29(self):

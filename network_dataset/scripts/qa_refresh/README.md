@@ -18,7 +18,7 @@ cd /d T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\qa_refresh
 | 00 | `python 00_confirm_sources.py` | Read-only confirmation of the configured Prod input, QA target, live counts, and `MODDATE` ranges. Also prints the size and date of the deployed scripts and template and warns about stale copies. |
 | 01 | `python 01_backup_and_baseline.py` | Save a timestamped QA turn backup and a JSON baseline report, and export the edge, junction and turn sources to a file geodatabase under `output/` that survives a database-level QA refresh (`OFFLINE_BACKUP` in `config.py`). |
 | 02 | `python 02_delete_network_sources.py` | Delete the network dataset first, then its three source classes. This is the first destructive step. Refuses to run without a recent (24 hour) step 01 backup, and its export outside SDE, that still exist. Set `CONFIRM_DELETE_QA_NETWORK = True` in the script immediately before running it. |
-| 03 | `python 03_copy_sources.py` | Copy the edge source from Prod (minus the WA, UNDER REVIEW and island exclusions) and the junction and raw turn classes from QA's legacy classes into `SDEADM.TRNLRS_network`. **Creates and builds nothing**: the network is created and built once, in step 06, after the turn remap. |
+| 03 | `python 03_copy_sources.py` | Copy the edge source from Prod (minus the WA, transit access and island exclusions) and the junction and raw turn classes from QA's legacy classes into `SDEADM.TRNLRS_network`. **Creates and builds nothing**: the network is created and built once, in step 06, after the turn remap. |
 | 04 | `python 04_remap_turns.py` | Create `TRNLRS_traffic_turn_staging` against the fresh edge copy. Needs no network dataset. |
 | 05 | `python 05_verify_staging_turns.py` | Run the independent staging-turn verifier. Also complete the spatial review checklist before continuing. |
 | 06 | `python 06_swap_and_final_build.py` | Swap the exact reviewed staging class, then create the network from the template and build it once. Set `CONFIRM_REVIEWED_STAGING = True` in the script only after completing the review. Stops before changing anything if the deployed `run_full_network_rebuild.py` is a stale copy. |
@@ -54,7 +54,7 @@ rebuild. It was written on 2026-09-29 and had not yet been run at the time of wr
 - `_shared.py` verifies that scripts 03, 05, and the verifier still point at the
   same QA feature dataset before any delegated operation runs.
 - The QA edge copy now has **fewer rows than Prod's `TRNLRS_TRN_STREET_VW`** by design:
-  `network_exclusions.py` drops WA and UNDER REVIEW streets (and any listed island FDMIDs) when scripts 03 and
+  `network_exclusions.py` drops WA streets and transit access roads (and any listed island FDMIDs) when scripts 03 and
   04 load it. Step 00 prints both counts; the difference should equal the rows matching the
   exclusions, not be zero. Check the "Edge exclusions applied" line in the script 03 log.
 - Step 00 cannot prove historical provenance. It confirms current code paths
