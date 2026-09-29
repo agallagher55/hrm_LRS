@@ -35,12 +35,24 @@ def require_recent_backup():
             f"(limit {MAX_BACKUP_AGE_HOURS}). Run 01_backup_and_baseline.py again."
         )
 
-    backup = json.loads(latest.read_text(encoding="utf-8"))["backup"]
+    baseline = json.loads(latest.read_text(encoding="utf-8"))
+    backup = baseline["backup"]
 
     if not arcpy.Exists(backup):
         raise RuntimeError(f"The turn backup named in {latest.name} no longer exists: {backup}")
 
     print(f"Turn backup confirmed ({latest.name}): {backup}")
+
+    if config.OFFLINE_BACKUP:
+        offline = baseline.get("offline_backup")
+
+        if not offline or not arcpy.Exists(offline["gdb"]):
+            raise RuntimeError(
+                f"No file geodatabase export outside SDE is recorded in {latest.name}, or it "
+                "no longer exists. Run 01_backup_and_baseline.py again."
+            )
+
+        print(f"Export outside SDE confirmed: {offline['gdb']}")
 
 
 def main():

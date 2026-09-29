@@ -17,6 +17,10 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
   and Directions on the live network are still open.
 - **The committed template now includes Directions** (merged from the 2026-09-03 export, not yet
   proven by a create). Test it with `qa_refresh/test_template_create.py`.
+- **Review changes, later on 2026-09-29:** step 03 is now copy-only (`03_copy_sources.py`; the network is created
+  and built once, in step 06); step 01 exports the sources to a file geodatabase outside SDE; safety checks in
+  steps 00, 02 and 06; the `LRS_updates.py` edge sync delegates to `04_sync_and_rebuild_network.py`; diagnostics
+  moved to `scripts/diagnostics/`. None of it has run against a live database yet.
 - A wholesale QA-from-Prod database refresh was **not** done, so QA's legacy junction and turn
   classes are older than the Prod edge copy.
 
@@ -133,10 +137,12 @@ and turns were copied from QA's legacy classes, which were not refreshed from Pr
   `<NetworkDirections>` block and the edge source's `<NetworkSourceDirections>` (`STR_NAME`,
   `STR_TYPE`, `FULL_NAME`) were merged in from the 2026-09-03 export, unchanged; the merge is not
   yet proven by a scripted create. The **live QA network still has no Directions**.
-- **Correction to Step 5 below.** `sync_network_edge_source()` in `LRS_updates.py` does not use
-  `DeleteRows`. It calls `append_feature()`, which calls `TruncateTable`, and will fail with
-  `ERROR 001395` against the controller-dataset edge source. Only the standalone script
-  `04_sync_and_rebuild_network.py` uses `DeleteRows`.
+- **Correction to Step 5 below, fixed 2026-09-29.** `sync_network_edge_source()` in `LRS_updates.py`
+  used to call `append_feature()`, which calls `TruncateTable` and would have failed with
+  `ERROR 001395` against the controller-dataset edge source (and would have reloaded WA streets,
+  bypassing the exclusions). It now calls `04_sync_and_rebuild_network.sync_and_rebuild()`, which
+  uses `DeleteRows` and the exclusions. Tested only with a stub (no arcpy); the first real run is
+  the test. The sync still leaves every turn's edge references stale.
 
 Recommended next steps are in
 [`street_network_meeting_overview.md`](street_network_meeting_overview.md#remaining-work-in-recommended-order).

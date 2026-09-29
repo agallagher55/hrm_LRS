@@ -189,7 +189,12 @@ def check_template_is_not_stale():
         sys.exit(f"ERROR: {msg}")
 
 
-def main():
+def main(copy_only=False):
+    """Copy the sources into the feature dataset, then create and build the network.
+
+    With copy_only=True it stops after the copies and creates nothing. The QA refresh
+    uses that: the network is created and built once, in step 06, after the turn remap.
+    """
     if not TEMPLATE_XML.exists():
         msg = (
             f"Template XML not found at {TEMPLATE_XML}. "
@@ -212,6 +217,10 @@ def main():
     )
     copy_fc_to_fd(SOURCE_JUNCTION, FEATURE_DATASET, "TRNLRS_street_junction")
     copy_fc_to_fd(SOURCE_TURN, FEATURE_DATASET, "TRNLRS_traffic_turn")
+
+    if copy_only:
+        logger.info("Copy-only mode: the sources are in place. No network dataset was created or built.")
+        return
 
     new_nd_path = os.path.join(FEATURE_DATASET, NEW_ND_NAME)
 

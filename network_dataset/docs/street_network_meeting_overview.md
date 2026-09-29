@@ -290,8 +290,9 @@ artefact, and edits nobody can attribute. Separate them instead of fixing blind:
 - Configure **Directions** on the live QA network (Base Name `STR_NAME`, Suffix Type `STR_TYPE`,
   Full Name `FULL_NAME`), then re-export and re-commit `network_template.xml`. Both currently
   lack it.
-- Fix `append_feature()` in `LRS_updates.py` to use `DeleteRows`. As written,
-  `sync_network_edge_source()` fails with `ERROR 001395` on the first real run.
+- ~~Fix `append_feature()` in `LRS_updates.py` to use `DeleteRows`.~~ **Done 2026-09-29:**
+  `sync_network_edge_source()` now delegates to `04_sync_and_rebuild_network.sync_and_rebuild()`
+  (DeleteRows plus the edge exclusions). Untested against arcpy; the first real run is the test.
 - Prove `CreateNetworkDatasetFromTemplate` end to end (create and build) on the next rebuild.
 - Decide the turn-OID-stability approach before Prod. Every refresh, including the one planned
   now, forces a turn remap because of it.

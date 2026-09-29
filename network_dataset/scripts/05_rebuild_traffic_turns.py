@@ -43,7 +43,7 @@ disagreeing with the authoritative source value and the run should not be truste
 Divided-road tie-break (fixed 2026-08-31)
 ------------------------------------------
 Run against QA, the Edge1End integrity check above came back at 70.9% (846/1194)
--- well below the swap threshold. Diagnosis (network_dataset/scripts/diagnose_edge1end_disagreement.py)
+-- well below the swap threshold. Diagnosis (network_dataset/scripts/diagnostics/diagnose_edge1end_disagreement.py)
 found 345 of the 348 disagreements shared one exact signature: Edge1 and Edge2 tied
 at 0.0m on BOTH possible endpoint pairings simultaneously (Edge1.first~Edge2.last
 AND Edge1.last~Edge2.first). That happens when two edges are digitised between the

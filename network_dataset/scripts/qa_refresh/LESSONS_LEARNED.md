@@ -305,3 +305,23 @@ it, and a failure there falls back to the previous template in git. The live net
 affected and still has no Directions; configure them in Properties, or wait for the next
 rebuild, which changes the registration IDs and so needs the grants redone.
 
+### 2026-09-29, review changes
+
+- **Step 03 is now copy-only (`03_copy_sources.py`, was `03_initial_build.py`).** The preliminary
+  create-and-build was thrown away in step 06 anyway, and it produced the 1,238 confusing
+  `Cannot find edge element` errors. Neither the remap nor the verifiers need a network, and
+  step 06 already skips the delete when none exists. The early proof that the template works
+  moved to `test_template_create.py`, which builds in a scratch file geodatabase. Untested
+  against a live QA run at the time of writing: the first real check is the next refresh.
+- **Step 01 now exports the sources outside SDE** (a file geodatabase under `output/`), and
+  step 02 refuses to run unless that export still exists. This closes the gap where a
+  database-level refresh of QA would have deleted the only backup with the network.
+- **Step 02 needs a recent backup, step 06 a current orchestrator, step 00 shows what is deployed.**
+- **Folder tidy:** diagnostics moved to `scripts/diagnostics/`, `patch.py` to
+  `scripts/archive/patch_turn_edge1end.py`. See `scripts/README.md`.
+- **`LRS_updates.py` sync fixed:** `sync_network_edge_source()` now calls the tested
+  `04_sync_and_rebuild_network.sync_and_rebuild()` (DeleteRows plus Append through the edge
+  exclusions) instead of its own `TruncateTable` copy, which would have failed with
+  `ERROR 001395` and reloaded WA streets. It still leaves the turns stale after each sync; that
+  is the open turn-OID-stability decision.
+

@@ -434,7 +434,7 @@
       <li><strong><code>TruncateTable</code> is blocked on the copy that matters anyway</strong> with <code>ERROR 001395</code>, because a registered network source is a controller-dataset member. <code>DeleteRows</code> is the supported equivalent.</li>
       <li><strong>Reloading the edge source silently destroys every live turn restriction (1,184 in QA as of 2026-09-18).</strong> <code>DeleteRows</code> + <code>Append</code> reassigns every OBJECTID, and turn edge references are stored as OBJECTIDs. The next build re-emits <code>Cannot find edge element corresponding to turn identifier N</code> for every turn and the Turns count goes to zero.</li>
     </ol>
-    <p style="margin:0;">The agreed path is cleaner than an in-place edge sync anyway: <strong>delete QA's network dataset and its three source classes outright, and rebuild from Prod's current <code>_VW</code></strong>. Verified against the actual scripts, that turns out to require <strong>two full build cycles</strong>, not one &mdash; nothing in this repository refreshes the edge and junction copies independently of a full network build. Full procedure below.</p>
+    <p style="margin:0;">The agreed path is cleaner than an in-place edge sync anyway: <strong>delete QA's network dataset and its three source classes outright, and rebuild from Prod's current <code>_VW</code></strong>. Step 03 copies the fresh sources without building anything (a copy-only mode, added 2026-09-29), and the network is created and built once, after the turn remap. Full procedure below.</p>
   </div>
 
   <div class="note">
@@ -450,7 +450,7 @@
   </div>
 
   <div class="note">
-    <strong>Executed 2026-09-29.</strong> This procedure ran end to end on QA by script, without a database refresh, after the Prod 11.5 upgrade and the LRS re-extract. Results: <strong>Edges 37,674, Junctions 16,187, Turns 1,184</strong>; remap 1,189 written and 49 skipped (4.0%); both verifiers 10 of 10; the same five turns rejected at build as on 2026-09-18. What differed from the plan below: the corrected template <strong>did</strong> create and build by script (the one 030386 failure was a stale July copy of the template on the T: drive); a second stale T: file, <code>run_full_network_rebuild.py</code>, broke the first try at step 06; the source classes kept their SQL grants after being recreated, so only the <code>N_3</code> and <code>ND_40986</code> sets needed granting; and the Phase 3 build is only a rehearsal, since Phase 5 deletes and recreates the network anyway. See <code>network_build_status.md</code> for the run table.
+    <strong>Executed 2026-09-29.</strong> This procedure ran end to end on QA by script, without a database refresh, after the Prod 11.5 upgrade and the LRS re-extract. Results: <strong>Edges 37,674, Junctions 16,187, Turns 1,184</strong>; remap 1,189 written and 49 skipped (4.0%); both verifiers 10 of 10; the same five turns rejected at build as on 2026-09-18. What differed from the plan below: the corrected template <strong>did</strong> create and build by script (the one 030386 failure was a stale July copy of the template on the T: drive); a second stale T: file, <code>run_full_network_rebuild.py</code>, broke the first try at step 06; the source classes kept their SQL grants after being recreated, so only the <code>N_3</code> and <code>ND_40986</code> sets needed granting; and the preliminary build in Phase 3 turned out to be a rehearsal that Phase 5 threw away, so Phase 3 is now copy-only and the network is built once. See <code>network_build_status.md</code> for the run table.
   </div>
 </header>
 
@@ -476,7 +476,7 @@
       <p><code>TRNLRS_TRN_STREET</code> is a registered edge source of <code>TRNLRS_street_network</code>, which makes it a controller-dataset participant. <code>arcpy.management.TruncateTable</code> against it fails with:</p>
       <pre><code>ERROR 001395: Operation not supported on a feature class in a controller dataset.</code></pre>
       <p><code>arcpy.management.DeleteRows</code> is an ordinary edit operation and <strong>is</strong> supported. It is slower on a table this size, but it does not require tearing the network dataset down. <code>04_sync_and_rebuild_network.py</code> already does it this way.</p>
-      <div class="note"><strong>Known bug, relevant here:</strong> <code>append_feature()</code> inside <code>scripts/LRS_updates.py</code> still calls <code>arcpy.TruncateTable_management()</code> directly, and <code>sync_network_edge_source()</code> calls it. That will hit this exact error the first time it runs against a controller-dataset edge source. It has not surfaced only because <code>LRS_updates.py</code> has never been deployed to Prod.</div>
+      <div class="note"><strong>Fixed 2026-09-29:</strong> <code>sync_network_edge_source()</code> in <code>scripts/LRS_updates.py</code> used to call <code>append_feature()</code>, which calls <code>arcpy.TruncateTable_management()</code> and would have hit this error on the first real run. It now delegates to <code>04_sync_and_rebuild_network.sync_and_rebuild()</code>, which uses <code>DeleteRows</code> and the edge exclusions. The first real run is still the test.</div>
     </div>
   </div>
 
@@ -533,7 +533,7 @@
 
 <section id="procedure">
   <h2>The procedure</h2>
-  <p class="section-sub">Eight phases. Delete-and-rebuild from Prod's <code>_VW</code>, not an in-place edge sync &mdash; simpler to reason about, and it sidesteps the controller-dataset <code>TruncateTable</code>/<code>DeleteRows</code> dance entirely, at the cost of a second full build cycle (see Phase 3). Run from an ArcGIS Pro Python environment with the Network Analyst extension available. Paths shown are QA.</p>
+  <p class="section-sub">Eight phases. Delete-and-rebuild from Prod's <code>_VW</code>, not an in-place edge sync &mdash; simpler to reason about, and it sidesteps the controller-dataset <code>TruncateTable</code>/<code>DeleteRows</code> dance entirely, with a single network build, at the end (Phase 5). Run from an ArcGIS Pro Python environment with the Network Analyst extension available. Paths shown are QA.</p>
   <div class="note"><strong>Ordered entry points:</strong> <code>T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\qa_refresh</code> contains numbered scripts for Phases 0&ndash;5 and post-swap turn verification. Start with that folder's <code>README.md</code>; its configuration uses the mapped <code>T:</code> path and constructs repository folders with <code>os.path.join()</code>. The scripts delegate to the maintained build/remap/verifier implementations in the parent <code>scripts</code> folder rather than duplicating them. SQL grants and interactive route smoke tests remain manual and are described in Phases 6&ndash;7 below.</div>
 
   <details class="phase" open>
@@ -558,7 +558,8 @@ arcpy.management.CopyFeatures(
     FD + r"\TRNLRS_traffic_turn",
     FD + r"\TRNLRS_traffic_turn_bak_20260915",
 )</code></pre>
-      <div class="note"><strong>Open item this backup protects against:</strong> Mel's hand-authored Cogswell ramp turns. The remap in Phase 3 reads from the <em>legacy</em> <code>TRN_traffic_turn</code> class, so anything authored there is carried through, but anything authored directly against the live <code>TRNLRS_traffic_turn</code> is destroyed by the swap. Which of the two applies has never been confirmed. Back it up and check the backup afterwards.</div>
+      <div class="note"><strong>Open item this backup protects against:</strong> Mel's hand-authored Cogswell ramp turns. The remap in Phase 3 reads from the <em>legacy</em> <code>TRN_traffic_turn</code> class, so anything authored there is carried through, but anything authored directly against the live <code>TRNLRS_traffic_turn</code> is destroyed by the swap. This was settled on 2026-09-29: the backup held 1,189 records, the same as the remap output, so nothing had been hand-authored. Back it up anyway.</div>
+      <div class="note"><strong>Step 01 also exports the sources outside SDE.</strong> The turn backup above sits inside <code>SDEADM.TRNLRS_network</code>, so a database-level refresh of QA from Prod deletes it with the network. Step 01 therefore also copies the edge, junction and turn classes to a file geodatabase under <code>output/</code>, and step 02 refuses to run unless that export exists.</div>
     </div>
   </details>
 
@@ -625,12 +626,12 @@ arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_traffic_turn")</code></pre>
   </details>
 
   <details class="phase" open>
-    <summary><span class="pill pill-notstarted">Phase 3</span> First build cycle &mdash; fresh edge and junction copies (turns will fail; that's expected)</summary>
+    <summary><span class="pill pill-notstarted">Phase 3</span> Copy fresh sources &mdash; nothing is created or built</summary>
     <div class="body">
-      <p><strong>This cycle exists because nothing in this repository refreshes the edge and junction feature-dataset copies independently of a full network build.</strong> <code>03_create_network_dataset.py</code>'s <code>copy_fc_to_fd()</code> only copies a source if the destination does not already exist, and network creation is bundled into that same script call &mdash; there is no "just refresh the copies" mode. Since Phase 2 deleted all three sources, running script 03 now copies a fresh <code>TRNLRS_TRN_STREET</code> from <strong>Prod's</strong> <code>TRNLRS_TRN_STREET_VW</code> (never QA's &mdash; see the note in <a href="#qavw">Why it is not a truncate and load</a>) and a fresh <code>TRNLRS_street_junction</code> from the legacy <code>TRN_street_junction</code>, and &mdash; because the turn class does not exist either &mdash; a raw, unremapped copy of legacy <code>TRN_traffic_turn</code>. It then creates and builds the network dataset immediately, against the corrected Python-evaluator template committed 2026-09-03.</p>
-<pre><code>python 03_create_network_dataset.py</code></pre>
-      <p><strong>Expect this build's errors file to show <code>Cannot find edge element corresponding to turn identifier N</code> for essentially every turn, and Properties to show Turns: 0.</strong> That is not a failure to chase here &mdash; the turn class attached in this cycle is the raw, pre-remap copy, and Phase 5 replaces it. What this cycle actually verifies: that the corrected template builds cleanly end to end via <code>CreateNetworkDatasetFromTemplate</code> (first observed end to end on 2026-09-29: created in about 13 seconds, built in about 9, 0 errors), and that the fresh edge/junction copies are in place. Confirm the edge feature count matches Prod's <code>_VW</code> before moving on.</p>
-      <div class="note"><strong>If this fails with <code>ERROR 030386</code>, first compare the deployed <code>data\network_template.xml</code> with the repo copy:</strong> on 2026-09-29 the failure was a stale July VBScript file on the T: drive, and copying the committed template over it fixed it. <strong>For anything else,</strong> fall back to the interactive wizard: right-click <code>SDEADM.TRNLRS_network</code> &rarr; New &rarr; Network Dataset, add the three sources, endpoint connectivity, no elevation model, and the three attributes matching the template (<code>Length</code> as Python Field Script <code>!Shape!</code>; <code>OneWay</code> as the Python <code>oneway_restricted(!STR_DIR!)</code> function on Along/Against with <code>FDTO</code>/<code>FOTD</code> respectively; <code>TrafficTurn</code> as a constant). Build with <strong>Force Full Build</strong> checked. If it works, re-export the template afterward with <code>arcpy.na.CreateTemplateFromNetworkDataset</code> and diff it against the committed one before trusting the scripted path next time.</div>
+      <p>Since Phase 2 deleted all three sources, <code>03_copy_sources.py</code> copies a fresh <code>TRNLRS_TRN_STREET</code> from <strong>Prod's</strong> <code>TRNLRS_TRN_STREET_VW</code> (never QA's &mdash; see the note in <a href="#qavw">Why it is not a truncate and load</a>), minus the WA and island exclusions, a fresh <code>TRNLRS_street_junction</code> from the legacy <code>TRN_street_junction</code>, and a raw, unremapped copy of legacy <code>TRN_traffic_turn</code>. It creates and builds nothing. Until 2026-09-29 this step also created and built the network, but Phase 5 deleted that network and built another, so the build was dropped. <code>test_template_create.py</code> proves the template early, in a scratch geodatabase, without touching QA.</p>
+<pre><code>python 03_copy_sources.py</code></pre>
+      <p>Confirm the edge feature count equals Prod's <code>_VW</code> minus the excluded rows (the "Edge exclusions applied" log line) before moving on. The remap in Phase 4 needs no network dataset.</p>
+      <div class="note"><strong>If Phase 5's create fails with <code>ERROR 030386</code>, first compare the deployed <code>data\network_template.xml</code> with the repo copy:</strong> on 2026-09-29 the failure was a stale July VBScript file on the T: drive, and copying the committed template over it fixed it. <strong>For anything else,</strong> fall back to the interactive wizard: right-click <code>SDEADM.TRNLRS_network</code> &rarr; New &rarr; Network Dataset, add the three sources, endpoint connectivity, no elevation model, and the three attributes matching the template (<code>Length</code> as Python Field Script <code>!Shape!</code>; <code>OneWay</code> as the Python <code>oneway_restricted(!STR_DIR!)</code> function on Along/Against with <code>FDTO</code>/<code>FOTD</code> respectively; <code>TrafficTurn</code> as a constant). Build with <strong>Force Full Build</strong> checked. If it works, re-export the template afterward with <code>arcpy.na.CreateTemplateFromNetworkDataset</code> and diff it against the committed one before trusting the scripted path next time.</div>
     </div>
   </details>
 
@@ -653,9 +654,9 @@ arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_traffic_turn")</code></pre>
   </details>
 
   <details class="phase" open>
-    <summary><span class="pill pill-notstarted">Phase 5</span> Swap and rebuild &mdash; the second, final build cycle</summary>
+    <summary><span class="pill pill-notstarted">Phase 5</span> Swap, create and build &mdash; the only network build</summary>
     <div class="body">
-      <p>With a verified staging turn class and an already-fresh edge/junction pair in place, run <code>run_full_network_rebuild.py</code> with <code>--use-existing-staging</code>. The flag is important: it tells the orchestrator to preserve and swap the <strong>exact staging class reviewed in Phase 4</strong>, rather than trying to run the turn remap again. The script confirms that staging exists, deletes the network dataset, deletes the raw Phase-3 turn class, renames the verified staging class into <code>TRNLRS_traffic_turn</code>, then calls script 03 again &mdash; which this time <strong>skips</strong> copying edge/junction/turn since all three already exist, and goes straight to create + build. One command, exactly one build.</p>
+      <p>With a verified staging turn class and an already-fresh edge/junction pair in place, run <code>run_full_network_rebuild.py</code> with <code>--use-existing-staging</code>. The flag is important: it tells the orchestrator to preserve and swap the <strong>exact staging class reviewed in Phase 4</strong>, rather than trying to run the turn remap again. The script confirms that staging exists, deletes the network dataset if one exists, deletes the raw Phase-3 turn class, renames the verified staging class into <code>TRNLRS_traffic_turn</code>, then runs the create-and-build half of script 03 (the copies are skipped because all three sources exist). One command, exactly one build, and the only one in this procedure.</p>
 <pre><code>python run_full_network_rebuild.py --use-existing-staging</code></pre>
       <div class="note"><strong>Do not omit the flag in this workflow.</strong> Without it, the orchestrator runs <code>05_rebuild_traffic_turns.py</code> to create a new staging class. Because Phase 4's verified staging class already exists, script 05 will refuse to overwrite it and stop safely. The flag is an explicit operator assertion that verification and spatial review of the existing staging class are complete; the orchestrator does not repeat those checks.</div>
       <p>Or, to keep each step visible, the same sequence by hand:</p>
@@ -664,11 +665,11 @@ arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_traffic_turn")</code></pre>
 QA = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 FD = QA + r"\SDEADM.TRNLRS_network"
 
-arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_street_network")      # releases the lock
+arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_street_network")      # only if a network exists
 arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_traffic_turn")        # the raw Phase-3 copy
 arcpy.management.Rename(FD + r"\SDEADM.TRNLRS_traffic_turn_staging", "TRNLRS_traffic_turn")</code></pre>
-<pre><code>python 03_create_network_dataset.py    # skips copying all three sources; creates + builds only</code></pre>
-      <p>Do not click Build Network again afterward in Pro unless you tick Force Full Build: a double build stacked two generations of system junctions once (a bogus 16,334 junctions / 37,728 edges). A Force Full Build in Pro after step 03 on 2026-09-29 did not stack (identical counts), so the cause of the earlier doubling is unconfirmed.</p>
+<pre><code>python 03_create_network_dataset.py    # copies are skipped; creates + builds only</code></pre>
+      <p>Do not click Build Network again afterward in Pro unless you tick Force Full Build: a double build stacked two generations of system junctions once (a bogus 16,334 junctions / 37,728 edges). A Force Full Build in Pro after a scripted build on 2026-09-29 did not stack (identical counts), so the cause of the earlier doubling is unconfirmed.</p>
       <div class="note"><strong>Worth knowing, not yet confirmed:</strong> every scripted <code>BuildNetwork</code> call in this repository (scripts 03, 04, <code>LRS_updates.py</code>) is a bare <code>arcpy.na.BuildNetwork(nd_path)</code> with no explicit force-full-build argument. It does not matter for either build in this procedure &mdash; both are the first build of a brand-new network dataset instance, so there are no stale cached weight tables to inherit, which is specifically what Force Full Build guards against. It would matter a great deal for any future in-place evaluator edit against a scripted build path (script 04's steady-state Prod sync, in particular) &mdash; nobody has confirmed whether the scripted call defaults to full or incremental.</div>
       <p>And separately: a build that runs much longer than about two minutes on this network is almost certainly blocked on a SQL Server session, not working. Check Task Manager CPU first (near-idle means stuck), then ask whoever administers <code>ms-gis-sql-q21</code>. One of these ran for 18 hours before a DBA killed it.</p>
     </div>
@@ -677,7 +678,7 @@ arcpy.management.Rename(FD + r"\SDEADM.TRNLRS_traffic_turn_staging", "TRNLRS_tra
   <details class="phase" open>
     <summary><span class="pill pill-notstarted">Phase 6</span> Re-apply the SQL grants under the new IDs</summary>
     <div class="body">
-      <p><strong>Do not skip this.</strong> Without it nobody can open the network dataset at all. Follow <code>network_dataset_sql_permissions.md</code>; the audit query in its section 2b lists the IDs and their grant status in one pass. <strong>The registration IDs changed twice in this procedure</strong> &mdash; once after Phase 3's throwaway build, again after Phase 5's final build. Only grant against the IDs current after Phase 5; granting after Phase 3 wastes the step, since the network dataset gets deleted again in Phase 5.</p>
+      <p><strong>Do not skip this.</strong> Without it nobody can open the network dataset at all. Follow <code>network_dataset_sql_permissions.md</code>; the audit query in its section 2b lists the IDs and their grant status in one pass. <strong>The registration IDs are assigned by Phase 5's build</strong>, so grant only after it. (Before 2026-09-29 they changed twice, because Phase 3 also built a network.)</p>
 <pre><code>SELECT name FROM sys.tables
 WHERE schema_id = SCHEMA_ID('SDEADM')
   AND (name LIKE 'N\_%' ESCAPE '\' OR name LIKE 'ND\_%' ESCAPE '\')
@@ -705,14 +706,14 @@ ORDER BY name;</code></pre>
 <section id="alt">
   <h2>Why delete and rebuild, not an in-place edge sync</h2>
   <p><strong>Agreed 2026-09-16.</strong> QA's whole network is a disposable snapshot. It is not kept in sync with anything, nothing downstream depends on its identity, and the legacy <code>TRN_street_network</code> stays live and untouched throughout. So instead of the in-place edge refresh (<code>DeleteRows</code> into the existing FD copy, matching what script 04 does in Prod's steady state), the procedure above deletes QA's network dataset and its three source classes outright and rebuilds from Prod's current <code>_VW</code>.</p>
-  <p><strong>Correction to an earlier version of this section:</strong> this used to claim the step count was "almost identical" between the two approaches. Having actually traced the script logic (see Phase 3's note), that is not true &mdash; delete-and-rebuild costs a <strong>second full build cycle</strong> that an in-place sync would not need, because none of the tracked scripts can refresh the edge/junction FD copies without also creating and building the network dataset in the same call. What it buys instead:</p>
+  <p><strong>Correction to an earlier version of this section:</strong> this used to claim the step count was "almost identical" between the two approaches. Until 2026-09-29 it was true that delete-and-rebuild cost a second, throwaway build cycle, because script 03 could not copy sources without building the network. A copy-only mode removed that cost. What it buys:</p>
   <ul>
     <li>No stale-copy ambiguity, and no risk of the in-place sync accidentally touching QA's own (unrelated) <code>_VW</code> instead of the FD copy.</li>
     <li>Sidesteps the controller-dataset <code>TruncateTable</code>/<code>DeleteRows</code> mechanics entirely &mdash; there is nothing to truncate when the class itself is deleted first.</li>
     <li>It is the same procedure that will eventually be used to build Prod, so rehearsing it in QA has direct value.</li>
-    <li>It forces the <code>CreateNetworkDatasetFromTemplate</code> question to be answered on the first build cycle, which is the top open item on the roadmap &mdash; for free, since that cycle has to happen anyway.</li>
+    <li>It forces the <code>CreateNetworkDatasetFromTemplate</code> question to be answered in Phase 5, or earlier and without touching QA by <code>test_template_create.py</code>.</li>
   </ul>
-  <p>What it costs: the extra build cycle (call it 2&ndash;10 minutes of wall time, not counting the turn remap in between), and the backup in Phase 0 becomes mandatory rather than prudent, since there is no in-place copy of any hand-authored turn edits left behind once everything is deleted.</p>
+  <p>What it costs: the backup in Phase 0 becomes mandatory rather than prudent, since there is no in-place copy of any hand-authored turn edits left behind once everything is deleted.</p>
 </section>
 
 <section id="risks">
@@ -722,14 +723,14 @@ ORDER BY name;</code></pre>
     <tr><th>Phase</th><th>Rough effort</th><th>What can go wrong</th></tr>
     <tr><td>0&ndash;1 Baseline and Prod check</td><td>30 min</td><td>Corrections are not actually in Prod's <code>_VW</code> yet, and the whole exercise is premature. This is the point of Phase 1.</td></tr>
     <tr><td>2 Delete ND + 3 sources</td><td>10 min</td><td>Deleting a source before the network dataset gives <code>ERROR 001919</code>. Order in the procedure above avoids this.</td></tr>
-    <tr><td>3 First build (fresh edge/junction)</td><td>15&ndash;30 min</td><td>Picking QA's own <code>_VW</code> instead of Prod's by mistake if doing any part of this by hand in Catalog &mdash; both now exist and share a name. <code>ERROR 030386</code> if the template regressed. A large jump in build time signals a blocked SQL session, not real work.</td></tr>
+    <tr><td>3 Copy fresh sources</td><td>10&ndash;15 min</td><td>Picking QA's own <code>_VW</code> instead of Prod's by mistake if doing any part of this by hand in Catalog &mdash; both now exist and share a name. The script always reads Prod's.</td></tr>
     <tr><td>4 Turn remap and verify</td><td>1&ndash;2 hours</td><td>Skip rate or agreement rate outside tolerance after the source corrections. Needs a human to read the categories, not a retry.</td></tr>
     <tr><td>5 Swap and second build</td><td>30 min, or all day if blocked</td><td>A build blocked on a SQL session with no error shown &mdash; the same 18-hour incident this project already hit once. Double-building on top of either path (scripted or a stray manual Build Network click) stacks two generations of junctions.</td></tr>
-    <tr><td>6 SQL grants</td><td>30 min</td><td>Granting against Phase 3's IDs instead of Phase 5's &mdash; they are different, and only Phase 5's are the ones anyone will actually connect to. Forgetting entirely means nobody can open the network at all.</td></tr>
+    <tr><td>6 SQL grants</td><td>30 min</td><td>Granting before Phase 5's build, when the IDs do not exist yet. Forgetting entirely means nobody can open the network at all.</td></tr>
     <tr><td>7 Smoke tests</td><td>45 min</td><td>Travel Mode restrictions not enabled, producing a false pass on the turn test.</td></tr>
   </table>
   </div>
-  <p style="margin-top:14px;">Call it <strong>half a day of attention</strong>, spread across a day, assuming nothing blocks &mdash; the same estimate as before, even though the corrected procedure has one more build cycle than originally described; the extra cycle is quick (a few minutes) and mostly offsets against no longer needing the in-place <code>DeleteRows</code>/<code>TruncateTable</code> handling. The two historically expensive failures were a forgotten Force Full Build and an 18-hour blocked build, and both are avoidable by watching for them.</p>
+  <p style="margin-top:14px;">Call it <strong>half a day of attention</strong>, spread across a day, assuming nothing blocks &mdash; the same estimate as before. The two historically expensive failures were a forgotten Force Full Build and an 18-hour blocked build, and both are avoidable by watching for them.</p>
 </section>
 
 <section id="open">

@@ -16,8 +16,8 @@ G are still open.
 review: 1,184 live turns and **5** `Cannot find at junction` failures (3 sub-metre gaps, 2 exact
 coincidences on edge 18393), not 1,180 and 9. (2) Finding
 [C](#c-lrs_updatespy-will-fail-on-first-prod-run) was re-verified against the code on
-2026-09-29 and is still present: `sync_network_edge_source()` calls `append_feature()`, which
-calls `TruncateTable`. Older text in the roadmap that said both sync paths use `DeleteRows` was
+2026-09-29 and was **fixed later that day**: `sync_network_edge_source()` used to call `append_feature()`, which
+called `TruncateTable`; it now delegates to `04_sync_and_rebuild_network.sync_and_rebuild()`. Older text in the roadmap that said both sync paths use `DeleteRows` was
 wrong and has been corrected. (3) The 2026-09-23/24 meetings added a competing explanation for
 some of the geometry errors (Pro 3.5.8 client against the Prod 11.3.0 geodatabase, upgrade to
 11.5 planned 2026-09-26/27) and 57 new unexplained issues; see
@@ -124,14 +124,14 @@ cold, into a state where the docs and the code disagree about whether the last s
 
 ## A0. Duplicate / degenerate turn signatures -- found not to recur under the rewritten script (2026-08-31)
 
-Discovered via diagnostic scripts (`network_dataset/scripts/08_find_duplicate_siblings.py`,
+Discovered via diagnostic scripts (`network_dataset/scripts/diagnostics/08_find_duplicate_siblings.py`,
 `09_classify_origin_duplicate.py`, `classify_unresolved_turns.py`) and their outputs
 (`network_dataset/intermediate_results/*.csv`) that predate A1-A4 and were uploaded to the repo separately.
 This is **not** the same bug as A1-A4 -- it only shows up once the OID/FCID/Edge1End-level
 failures are fixed and turns actually start resolving, which is exactly why it wasn't visible
 earlier: every prior build had turns failing 100% for a more fundamental reason.
 
-**Evidence.** Against an earlier, hand-patched build (`network_dataset/scripts/patch.py`, which recomputed
+**Evidence.** Against an earlier, hand-patched build (`network_dataset/scripts/archive/patch_turn_edge1end.py`, which recomputed
 `Edge1End` in place using the same `Edge1Pos >= 0.5` heuristic A1 identifies as unsound), 1,209
 turns produced 1,021 successful builds, 165 `Turn element already exists` failures, and 23
 `Cannot find at junction` failures. `turn_review_for_mel.csv` / `intersection_context_check_v2.csv`
@@ -184,7 +184,7 @@ missing.
 
 ## A0b. Junction alignment check (run 2026-08-31) -- grade separation, not a transform bug; a handful of real anomalies
 
-`network_dataset/scripts/06_check_junction_alignment.py` compares `TRNLRS_TRN_STREET` edge endpoints against
+`network_dataset/scripts/diagnostics/06_check_junction_alignment.py` compares `TRNLRS_TRN_STREET` edge endpoints against
 `SDEADM.INT_RouteOnRoute` (generated independently from `LRSN_Route` geometry via
 `GenerateIntersections`) at every active route intersection. It was written because three
 hand-picked intersections (Blowers/Barrington, Barrington/Salter, Upper Water/Hollis) showed
@@ -320,7 +320,7 @@ endpoint connectivity, `0.5` is the canonical position of the single element.
 
 **Follow-up bug found and fixed (2026-08-31, same day).** Run against QA, this integrity
 check came back at 70.9% (846/1194) — well below the 95% gate. Diagnosis
-(`network_dataset/scripts/diagnose_edge1end_disagreement.py`) found 345 of the 348 disagreements shared one
+(`network_dataset/scripts/diagnostics/diagnose_edge1end_disagreement.py`) found 345 of the 348 disagreements shared one
 exact signature: Edge1 and Edge2 tied at 0.0m on **both** possible endpoint pairings
 simultaneously. That happens when two edges are digitised between the same pair of
 cross-street nodes — e.g. the two carriageways of a divided road — and it is a genuine

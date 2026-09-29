@@ -603,7 +603,7 @@
   <details class="phase" open>
     <summary><span class="pill pill-partial">Citywide audit</span> 249 route intersections with no aligned edge endpoint</summary>
     <div class="body">
-      <p><code>network_dataset/scripts/06_check_junction_alignment.py</code> is a read-only diagnostic that compares every <code>TRNLRS_TRN_STREET</code> edge endpoint against <code>SDEADM.INT_RouteOnRoute</code>, the Route Intersection Class generated independently from <code>LRSN_Route</code> by <code>arcpy.locref.GenerateIntersections</code>. Run citywide on 2026-08-31:</p>
+      <p><code>network_dataset/scripts/diagnostics/06_check_junction_alignment.py</code> is a read-only diagnostic that compares every <code>TRNLRS_TRN_STREET</code> edge endpoint against <code>SDEADM.INT_RouteOnRoute</code>, the Route Intersection Class generated independently from <code>LRSN_Route</code> by <code>arcpy.locref.GenerateIntersections</code>. Run citywide on 2026-08-31:</p>
       <div class="stat-row">
         <div class="stat"><span class="n">249</span><span class="l">active route intersections with no edge endpoint within 1 cm</span></div>
         <div class="stat"><span class="n">221</span><span class="l">of those with no edge endpoint within 10 m at all</span></div>
@@ -784,7 +784,7 @@
 </section>
 
 <footer>
-  Sources: <code>network_dataset/docs/network_build_status.md</code>, <code>network_dataset/docs/network_dataset_script_review.md</code>, <code>network_dataset/docs/turn_rebuild_qa_test_runbook.md</code>, <code>network_dataset/docs/network_dataset_migration_plan.md</code>, <code>network_dataset/scripts/06_check_junction_alignment.py</code>, <code>scripts/LRS_updates.py</code>, and the "RE: LRS Network dataset" and "FW: Esri Case #04248942" email threads of 2026-09-11 and 2026-09-10.
+  Sources: <code>network_dataset/docs/network_build_status.md</code>, <code>network_dataset/docs/network_dataset_script_review.md</code>, <code>network_dataset/docs/turn_rebuild_qa_test_runbook.md</code>, <code>network_dataset/docs/network_dataset_migration_plan.md</code>, <code>network_dataset/scripts/diagnostics/06_check_junction_alignment.py</code>, <code>scripts/LRS_updates.py</code>, and the "RE: LRS Network dataset" and "FW: Esri Case #04248942" email threads of 2026-09-11 and 2026-09-10.
 </footer>
 
 </div>

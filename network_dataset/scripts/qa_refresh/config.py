@@ -26,6 +26,11 @@ STAGING_TURN = os.path.join(
 )
 QA_STANDALONE_VIEW = os.path.join(QA_SDE, "SDEADM.TRNLRS_TRN_STREET_VW")
 
+# Step 01 also exports the network sources to a file geodatabase in OUTPUT_DIR. A
+# database-level refresh of QA from Prod removes the whole network feature dataset,
+# the in-SDE turn backup included; the file geodatabase survives it.
+OFFLINE_BACKUP = True
+
 SCRIPT_03 = Path(os.path.join(CORE_SCRIPTS_DIR, "03_create_network_dataset.py"))
 SCRIPT_05 = Path(os.path.join(CORE_SCRIPTS_DIR, "05_rebuild_traffic_turns.py"))
 VERIFY_SCRIPT = Path(os.path.join(CORE_SCRIPTS_DIR, "verify_turn_rebuild.py"))

@@ -61,7 +61,7 @@ def sync_and_rebuild(
     streets_target_fc: str = None,
     network: str = None,
 ):
-    """Truncate the FD edge source copy, reload from the standalone FC, and rebuild the network.
+    """Delete the rows of the FD edge source copy, reload from the standalone FC, and rebuild the network.
 
     Both the standalone edge source and the FD copy/network dataset being
     refreshed live in prod_sde_connection -- this script does not support
@@ -109,6 +109,14 @@ def sync_and_rebuild(
 
     count = int(arcpy.management.GetCount(streets_target_fc)[0])
     logger.info(f"Sync complete -- {count:,} features loaded.")
+
+    # Append gives every row a new OBJECTID, and turn features store their edge
+    # references as OBJECTIDs, so the turns no longer point at the right edges.
+    logger.warning(
+        "The edge copy was reloaded, so every turn's edge references are now stale. "
+        "The rebuild will report Turns: 0 until the turn remap is run again "
+        "(network_dataset/scripts/qa_refresh, steps 04 to 06)."
+    )
 
     logger.info(f"Rebuilding network dataset: {network}")
     arcpy.na.BuildNetwork(network)
