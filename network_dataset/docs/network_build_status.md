@@ -11,7 +11,7 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 Source: [`meetings/2026-09-23_and_2026-09-24_check_in_notes.md`](meetings/2026-09-23_and_2026-09-24_check_in_notes.md).
 The repository holds no live evidence newer than the 2026-09-18 QA rebuild. **Confirmed by Alex
 on the evening of 2026-09-28:** the Prod geodatabase upgrade happened; QA has **not** been refreshed from Prod;
-the network-creation overview has **not** gone to Ryan; the next check-in is 2026-09-30. Anything
+the network-creation overview has **not** gone to Ryan; the next check-in is Tuesday 2026-09-29. Anything
 below about the refresh is therefore still a plan.
 
 - **Acceptance testing restarted and paused again.** Robbie tested the distance network after
