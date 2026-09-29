@@ -17,6 +17,20 @@ to Ryan; the next check-in is 2026-09-30. Where the backup was written (path, co
 includes the grants snapshot committed in `network_dataset_sql_permissions.md`) is **not recorded**
 here; add it below when known. Anything below about the refresh itself is still a plan.
 
+**Later on 2026-09-29: QA network recreated from the template.** The QA refresh was deliberately
+skipped (Alex is content with QA's freshness; the goal is to recreate the network after the Prod
+11.5 upgrade). `qa_refresh` steps 00 to 03 ran. The first step 03 failed with `ERROR 030386`
+because the T: copy of `network_template.xml` was the stale 2026-07-14 VBScript file. After
+deploying the committed template, step 03 created and built `TRNLRS_street_network` with no
+errors: **Edges 37,674, Junctions 16,187, Turns 0** (Turns 0 is expected until the remap). The
+edge copy holds 18,583 of Prod's 18,644 features, with 61 WA streets excluded by
+`network_exclusions.py`. Still to do: steps 04 to 07, grants under the new registration IDs
+(object class IDs 40578 to 40581), smoke tests, Directions, template re-export. Junctions and
+turns were copied from QA's legacy classes, which are older than the Prod edge copy. Open
+question: whether Prod's `TRNLRS_TRN_STREET_VW` was regenerated after the upgrade (the notes say
+the post-upgrade re-extract was still to be scheduled); if not, the copied edges may still carry
+the geometry gaps.
+
 - **Acceptance testing restarted and paused again.** Robbie tested the distance network after
   the LRS corrections and got errors back. Melanie and Ryan are looking at **57 new issues** they
   cannot trace (islands such as McNabs, a newly added street that had been snapped correctly, an

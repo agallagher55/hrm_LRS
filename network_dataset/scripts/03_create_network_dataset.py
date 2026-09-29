@@ -212,10 +212,30 @@ def main():
             logger.error(msg)
             sys.exit(f"ERROR: {msg}")
         if "ERROR 030386" in msgs:
+            stale_hint = ""
+
+            try:
+                with open(TEMPLATE_XML, encoding="utf-8") as template_file:
+                    template_text = template_file.read()
+
+                if "Select Case" in template_text:
+                    stale_hint = (
+                        f"The template at {TEMPLATE_XML} contains VBScript source "
+                        "('Select Case'), so it is a stale deployed copy, not the "
+                        "committed Python template. On 2026-09-29 this was the whole "
+                        "cause: copy network_dataset/data/network_template.xml from the "
+                        "repo over it and re-run this script (the source copies are "
+                        "skipped, so re-running is safe).\n\n"
+                    )
+            except OSError:
+                pass
+
             msg = (
+                stale_hint +
                 "ArcGIS rejected the network template because it still identifies "
-                "one or more Field Script evaluators as VBScript. This is a known "
-                "ArcGIS Pro 3.5.8 blocker for the committed template; changing its "
+                "one or more Field Script evaluators as VBScript. If the template "
+                "is already the committed Python version, this is the older "
+                "ArcGIS Pro 3.5.8 blocker; changing its "
                 "Language values to Python did not convert the underlying evaluator. "
                 "The source feature classes were copied before network creation was "
                 "attempted, so do not delete or recopy them. Create "

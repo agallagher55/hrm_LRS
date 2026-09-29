@@ -18,7 +18,7 @@ cd /d T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\qa_refresh
 | 00 | `python 00_confirm_sources.py` | Read-only confirmation of the configured Prod input, QA target, live counts, and `MODDATE` ranges. |
 | 01 | `python 01_backup_and_baseline.py` | Save a timestamped QA turn backup and a JSON baseline report. |
 | 02 | `python 02_delete_network_sources.py` | Delete the network dataset first, then its three source classes. This is the first destructive step. Set `CONFIRM_DELETE_QA_NETWORK = True` in the script immediately before running it. |
-| 03 | `python 03_initial_build.py` | Copy a fresh Prod edge snapshot into QA and attempt the preliminary build. The committed template is currently rejected by ArcGIS Pro 3.5.8 with `ERROR 030386`; complete the interactive creation procedure below. |
+| 03 | `python 03_initial_build.py` | Copy a fresh Prod edge snapshot into QA and attempt the preliminary build. Creates and builds `TRNLRS_street_network` from the committed template (worked end to end on 2026-09-29). If it fails with `ERROR 030386`, first confirm the deployed `data\network_template.xml` is the committed one (see Troubleshooting); the interactive procedure below is the fallback. |
 | 04 | `python 04_remap_turns.py` | Create `TRNLRS_traffic_turn_staging` against the fresh edge copy. |
 | 05 | `python 05_verify_staging_turns.py` | Run the independent staging-turn verifier. Also complete the spatial review checklist before continuing. |
 | 06 | `python 06_swap_and_final_build.py` | Swap the exact reviewed staging class and perform the one final build. Set `CONFIRM_REVIEWED_STAGING = True` in the script only after completing the review. |
@@ -57,6 +57,15 @@ here.
 ## Troubleshooting
 
 ### Step 03: `ERROR 030386` about VBScript evaluators in ArcGIS Pro 3.5.8
+
+> **Resolved 2026-09-29: check the deployed template first.** The 2026-09-29 failure was a
+> stale copy of `network_template.xml` on the T: drive (dated 2026-07-14, still VBScript
+> `Select Case`, no `Language` key). After copying the committed template over it,
+> `03_initial_build.py` created the network in about 13 seconds and built it in about 9 with
+> 0 errors (Edges 37,674, Junctions 16,187, Turns 0). The committed template therefore works
+> under Pro 3.5.8, and steps 03 and 06 no longer need the interactive procedure. Script 03
+> now says so in its error text when the deployed template contains `Select Case`. Everything
+> below is the fallback, and the 2026-09-18 account of it is kept for history.
 
 This is a confirmed issue for this workflow, not a PyCharm or Python-launcher
 problem. On September 18, 2026, step 03 successfully copied all three source
