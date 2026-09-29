@@ -644,11 +644,19 @@ scenarios still reproduce on Pro 3.5.8.
 - [x] Exclusion profiles in `network_exclusions.py`: `GENERAL` (WA, islands; what scripts 03 and 04
       use) and `HRFE` (adds emergency access roads, `FULL_NAME LIKE '%EMERGENCY ACCESS%'`, which
       Robbie says matches 4 rows). Per-rule counts are logged. Unit tests in `scripts/tests`.
-- [ ] HRFE exclusions from Robbie's 2026-09-01 and 2026-09-17 emails, still to define. Run
-      `scripts/diagnostics/10_find_candidate_exclusions.py` against Prod and send its CSV to Robbie
-      and Melanie: **transit access roads** ("TA# RD", so a name pattern, not `STR_TYPE` `ATA`),
-      and **ETAs**, which are emergency turnaround road segments between divided highways (not turns),
-      with no query given yet. Then add them to `HRFE_EXTRA`.
+- [ ] HRFE exclusions from Robbie's 2026-09-01 and 2026-09-17 emails: **waiting on Robbie's reply**
+      to Alex's 2026-09-29 email (record: [`meetings/2026-09-29_HRFE_network_dataset_email_thread.md`](meetings/2026-09-29_HRFE_network_dataset_email_thread.md)).
+      Diagnostic run against Prod on 2026-09-29 (18,644 rows; output in
+      `intermediate_results/candidate_exclusions_20260929.csv`): **transit access roads**
+      `FULL_NAME LIKE 'TA[0-9]%'` = 124 rows (TA1 to TA52, all `STR_TYPE` `RD`; the looser `TA%` adds
+      85 ordinary streets; `STR_TYPE` `ATA` = 0); **ETAs** `FULL_NAME LIKE '% ETA [0-9]%'` = 22 rows
+      ("HIGHWAY nnn ETA n", Expressway class, `STR_TYPE` null, a guessed search); emergency access = 4
+      and WA = 61, as expected. Once he confirms, add the transit and ETA patterns to `HRFE_EXTRA` and
+      a test. Also asked: whether removing ETAs and emergency access roads is really the intent for a
+      fire network.
+- [ ] HRFE additions from the same thread, not started: bridge break (location needed), routes
+      outside HRM, Station 2 left turn on University Ave (**urgent**), driveways, a new HRFE feature
+      dataset in QA, and how splits survive an LRS update.
 - [ ] Decide whether the HRFE (speed) network is a second network dataset or an added cost
 - [ ] Decide the turn-OID-stability question before prod cutover (see
       [`network_dataset_script_review.md` §D](network_dataset_script_review.md#d-turn-references-do-not-survive-an-lrs-refresh-structural))
