@@ -76,7 +76,17 @@ EDGE_FC = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_TRN_STREET"
 
 # Optional: system junction FC, used only for the junctions.md cross-check in
 # step 5. Set to None to skip that check entirely.
-SYSTEM_JUNCTION_FC = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_street_network_Junctions"
+# Its name follows the name the network dataset was CREATED with, not its current
+# name. The 2026-09-01 and 2026-09-18 wizard-built QA network has
+# TRNLRS_network_Junctions (confirmed in SQL 2026-09-29); earlier template-built
+# networks had TRNLRS_street_network_Junctions. Use whichever exists.
+SYSTEM_JUNCTION_CANDIDATES = [
+    SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_network_Junctions",
+    SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_street_network_Junctions",
+]
+SYSTEM_JUNCTION_FC = next(
+    (path for path in SYSTEM_JUNCTION_CANDIDATES if arcpy.Exists(path)), None
+)
 JUNCTION_CHECK_TOLERANCE = 0.5  # metres
 
 # Field on EDGE_FC to pull for a human-readable location in the report. Adjust if

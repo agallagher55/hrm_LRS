@@ -197,11 +197,16 @@ WHERE p.major_id = OBJECT_ID('SDEADM.TRNLRS_TRN_STREET');
 
 Grant `SELECT ... TO PUBLIC` on any of the four missing it.
 
-> **Name check needed (2026-09-29):** Network Dataset Properties on live QA shows the system
-> junction class as `SDEADM.TRNLRS_network_Junctions` (ID 40191), not
-> `TRNLRS_street_network_Junctions` as written here. Run
-> `SELECT name FROM sys.tables WHERE name LIKE '%Junctions%'` first and use the real name in
-> the grants below. A rebuild from the template may name it differently.
+> **Name confirmed in SQL (2026-09-29):** on QA, `sys.tables` holds `TRNLRS_NETWORK_JUNCTIONS`
+> and **no** `TRNLRS_STREET_NETWORK_JUNCTIONS` (Network Dataset Properties agrees: ID 40191).
+> The system junction class is named after the name the network was *created* with. Template
+> builds through 2026-07-14 created `TRNLRS_street_network_Junctions`; the wizard-built
+> 2026-09-01 and 2026-09-18 networks created `TRNLRS_network_Junctions` (probably the wizard's
+> default network name, unverified). Everywhere below that says `TRNLRS_street_network_Junctions`
+> means the fourth source table under **whatever name exists now**. Query it first:
+> `SELECT name FROM sys.tables WHERE name LIKE '%Junctions%'`. Note that
+> `OBJECT_ID('SDEADM.TRNLRS_street_network_Junctions')` returns NULL on current QA, so a
+> permission query keyed on that name silently returns no rows.
 
 **`SDEADM.TRNLRS_street_network_Junctions` is easy to overlook.** It's the auto-created
 *system junction* feature class (the `SystemJunctionSource` in `network_template.xml`) --

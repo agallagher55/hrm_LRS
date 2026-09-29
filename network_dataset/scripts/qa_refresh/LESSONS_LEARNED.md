@@ -175,15 +175,16 @@ it's cheap and would have saved real time this session.
   current default-based encoding would then apply `true` to that new source's
   turns too unless explicitly overridden, where the old override-based
   encoding would have defaulted them to `false`. Revisit then, not now.
-- **Correction, 2026-09-29: the "fix" below was probably wrong.** Network Dataset Properties on
-  the live QA network (screenshot, 2026-09-29) lists the system junction source as
-  **`SDEADM.TRNLRS_network_Junctions`** (Object Class ID 40191, the same ID the template gives
-  it). So the export's `TRNLRS_network_Junctions` matched the live object, and the docs, SQL
-  grant instructions and `classify_unresolved_turns.py` that say
-  `TRNLRS_street_network_Junctions` do not match live QA. A likely explanation, unverified:
-  the network was first created as `TRNLRS_network` and renamed later, which does not rename
-  its system junction class (and would also explain the top-level `Name` mislabel). Check the
-  real table name in SQL before granting or scripting against it.
+- **Correction, 2026-09-29: the "fix" below was wrong, confirmed in SQL.** On QA, `sys.tables`
+  contains `TRNLRS_NETWORK_JUNCTIONS` and no `TRNLRS_STREET_NETWORK_JUNCTIONS`; Network Dataset
+  Properties lists `SDEADM.TRNLRS_network_Junctions` (ID 40191, the ID the template gives it).
+  So the export's `TRNLRS_network_Junctions` matched the live object. The system junction class
+  is named after the name the network was created with, so this is not a mislabel: the
+  wizard-built 2026-09-01/09-18 network was probably created as `TRNLRS_network` and renamed,
+  which does not rename its system junction class (this would also explain the top-level
+  `Name`; the wizard-default cause is unverified). `classify_unresolved_turns.py` now looks for
+  either name. Docs that say `TRNLRS_street_network_Junctions` describe the earlier
+  template-built networks.
 - **Also caught by that same review, since questioned (see above):** the exported
   template's `SystemJunctionSource.Name` read `TRNLRS_network_Junctions`
   instead of `TRNLRS_street_network_Junctions` — the identical
