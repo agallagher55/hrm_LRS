@@ -200,14 +200,14 @@ The initial network intentionally reproduces the legacy network's limited routin
 
 The repository cannot answer these, and every later step depends on the answers.
 
-- Did the Prod geodatabase upgrade to 11.5 happen, and which Pro version is on each machine?
-- Was QA refreshed from Prod, by what method (database restore or data copy), and is
-  `SDEADM.TRNLRS_network` (network dataset, remapped `TRNLRS_traffic_turn`, turn backup) still
-  in QA?
-- Did the network-creation overview go to Ryan, and did Ryan reply to Esri about sharing the file
-  geodatabase?
-- Which Tuesday is the next check-in, and when will Alex do the post-upgrade re-extract (Friday
-  2026-10-02 was the leaning)?
+- ~~Did the Prod geodatabase upgrade to 11.5 happen?~~ **Yes** (Alex, 2026-09-29). Still open:
+  which Pro version is on each machine.
+- ~~Was QA refreshed from Prod?~~ **No** (Alex, 2026-09-29), so QA's network is intact. Still
+  open: whether and how it will be refreshed (database restore or data copy).
+- ~~Did the network-creation overview go to Ryan?~~ **No, not yet** (Alex, 2026-09-29). Still
+  open: whether Ryan has replied to Esri about sharing the file geodatabase.
+- ~~Which check-in?~~ **2026-09-30** (tomorrow, per Alex on 2026-09-29). Still open: when Alex
+  does the post-upgrade re-extract (Friday 2026-10-02 was the leaning).
 - Record the QA baseline as one dated run report (build date, source counts, turn count,
   evaluator definitions, current build-errors file).
 
@@ -246,9 +246,13 @@ artefact, and edits nobody can attribute. Separate them instead of fixing blind:
   the network's edge copy, **not** to `TRNLRS_TRN_STREET_VW`: the standalone class is an org-wide
   product with unaudited consumers (see the impact-assessment item), and Robbie only wants the
   islands out of routing.
-- Ask Robbie what he meant by the item he says he has asked for "45 times" (the transcript is
-  unreadable at that word; context suggests water access or similar non-road segments, which the
-  roadmap treats carefully because civic addresses geocode to water access roads).
+- Also exclude **WA (water access) streets**. Robbie says he has asked for this "45 times" (the
+  transcript reads "the was"; Alex confirmed it means WA on 2026-09-29). Melanie agrees because
+  some overlap roads. The June concern was that civic addresses are coded to WA streets, which
+  matters for geocoding but not for a network-only exclusion. Before applying, count
+  `STR_TYPE = 'WA'` rows in the edge source and confirm nothing (locator, service) is built on the
+  network's edge copy. The migration plan's older advice to filter in the SQL that feeds
+  `TRNLRS_TRN_STREET_VW` should not be followed for WA.
 - Rebuild the network per the refresh runbook, then Robbie retests the distance network.
 
 ### 5. Close the loop with Esri and decide the two-network structure

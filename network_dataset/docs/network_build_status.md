@@ -9,8 +9,10 @@ For full technical details see [`network_dataset_migration_plan.md`](network_dat
 ## Update 2026-09-29 (from the 2026-09-23 and 2026-09-24 meetings)
 
 Source: [`meetings/2026-09-23_and_2026-09-24_check_in_notes.md`](meetings/2026-09-23_and_2026-09-24_check_in_notes.md).
-The repository holds no live evidence newer than the 2026-09-18 QA rebuild, so everything below
-about the weekend upgrade and refresh is what was **planned**, not confirmed done.
+The repository holds no live evidence newer than the 2026-09-18 QA rebuild. **Confirmed by Alex
+on 2026-09-29:** the Prod geodatabase upgrade happened; QA has **not** been refreshed from Prod;
+the network-creation overview has **not** gone to Ryan; the next check-in is 2026-09-30. Anything
+below about the refresh is therefore still a plan.
 
 - **Acceptance testing restarted and paused again.** Robbie tested the distance network after
   the LRS corrections and got errors back. Melanie and Ryan are looking at **57 new issues** they
@@ -48,8 +50,14 @@ about the weekend upgrade and refresh is what was **planned**, not confirmed don
   network must be rebuilt through the full `qa_refresh` procedure (about half a day) before
   Robbie can retest. **Depends on the refresh method** (database restore versus copying data
   in); Alex knows which was used.
-- **Island segments** (McNabs and similar) are to be filtered out of the network; Melanie will
-  supply the filter. Robbie says these cannot route and are caught in QC anyway.
+- **Island segments and WA (water access) streets** are to be filtered out of the network.
+  Melanie will supply the island filter. Robbie says islands cannot route and are caught in QC
+  anyway; on WA streets, he has asked for their removal repeatedly (confirmed by Alex on
+  2026-09-29 that "the WAs" in the 2026-09-23 transcript means WA streets). This revisits the
+  June position that WA needed care because civic addresses are coded to them. The older plan in
+  `network_dataset_migration_plan.md` says to filter in the SQL that populates
+  `TRNLRS_TRN_STREET_VW`; that would remove WA from an org-wide product and any geocoding built
+  on it, so filtering only the network's edge copy is safer.
 - **Correction to earlier status text.** The 2026-09-18 QA rebuild superseded the 2026-09-01
   numbers still quoted in older sections: **Edges 37,788, Junctions 16,185, Turns 1,184** (not
   1,180), **5** turns rejected at build (not 9), SQL registration `N_3` / **`ND_40192`** (not
