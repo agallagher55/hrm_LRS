@@ -175,7 +175,16 @@ it's cheap and would have saved real time this session.
   current default-based encoding would then apply `true` to that new source's
   turns too unless explicitly overridden, where the old override-based
   encoding would have defaulted them to `false`. Revisit then, not now.
-- **Also caught by that same review, already fixed:** the exported
+- **Correction, 2026-09-29: the "fix" below was probably wrong.** Network Dataset Properties on
+  the live QA network (screenshot, 2026-09-29) lists the system junction source as
+  **`SDEADM.TRNLRS_network_Junctions`** (Object Class ID 40191, the same ID the template gives
+  it). So the export's `TRNLRS_network_Junctions` matched the live object, and the docs, SQL
+  grant instructions and `classify_unresolved_turns.py` that say
+  `TRNLRS_street_network_Junctions` do not match live QA. A likely explanation, unverified:
+  the network was first created as `TRNLRS_network` and renamed later, which does not rename
+  its system junction class (and would also explain the top-level `Name` mislabel). Check the
+  real table name in SQL before granting or scripting against it.
+- **Also caught by that same review, since questioned (see above):** the exported
   template's `SystemJunctionSource.Name` read `TRNLRS_network_Junctions`
   instead of `TRNLRS_street_network_Junctions` — the identical
   missing-`street_` mislabeling as the top-level `Name`/`CatalogPath`

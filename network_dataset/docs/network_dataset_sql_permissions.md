@@ -197,6 +197,12 @@ WHERE p.major_id = OBJECT_ID('SDEADM.TRNLRS_TRN_STREET');
 
 Grant `SELECT ... TO PUBLIC` on any of the four missing it.
 
+> **Name check needed (2026-09-29):** Network Dataset Properties on live QA shows the system
+> junction class as `SDEADM.TRNLRS_network_Junctions` (ID 40191), not
+> `TRNLRS_street_network_Junctions` as written here. Run
+> `SELECT name FROM sys.tables WHERE name LIKE '%Junctions%'` first and use the real name in
+> the grants below. A rebuild from the template may name it differently.
+
 **`SDEADM.TRNLRS_street_network_Junctions` is easy to overlook.** It's the auto-created
 *system junction* feature class (the `SystemJunctionSource` in `network_template.xml`) --
 a separate physical table from `TRNLRS_street_junction`, generated automatically when the
