@@ -31,6 +31,14 @@ After step 07, follow Phase 6 and Phase 7 in
 tests. Those DBA and interactive route checks are intentionally not automated
 here.
 
+## Testing a template change without touching QA
+
+`python test_template_create.py` copies the three QA network sources into a scratch file
+geodatabase, creates and builds the network there from `data\network_template.xml`, exports a
+template back out, and checks the Directions settings survived. QA is only read, so it is safe
+while the live network is in use. Run it after any template edit, before relying on the edit in a
+rebuild. It was written on 2026-09-29 and had not yet been run at the time of writing.
+
 ## Safety and configuration
 
 - **Check the deployed scripts and template against the repo before a run.** On 2026-09-29 two
