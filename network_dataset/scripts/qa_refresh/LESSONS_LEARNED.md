@@ -41,7 +41,10 @@ it's cheap and would have saved real time this session.
   is by design (idempotent reruns), but it means step 03 can silently build
   on stale QA data if step 02 wasn't actually run or didn't finish. **After
   seeing that log line, verify the QA edge FC's row count against Prod's
-  current `TRNLRS_TRN_STREET_VW`** before trusting the rest of the pipeline.
+  current `TRNLRS_TRN_STREET_VW`** before trusting the rest of the pipeline. Since
+  2026-09-29 the copy is expected to be *smaller* by the WA/island exclusions in
+  `network_exclusions.py`; the skip path now also warns if the stale copy still holds
+  excluded rows.
 - **The "Create Network Dataset" GP tool's Elevation Model defaults to
   "Elevation fields", not "None".** Not called out in the README's
   `ERROR 030386` recovery steps — easy to miss and build elevation-aware

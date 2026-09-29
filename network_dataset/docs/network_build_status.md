@@ -57,7 +57,12 @@ below about the refresh is therefore still a plan.
   June position that WA needed care because civic addresses are coded to them. The older plan in
   `network_dataset_migration_plan.md` says to filter in the SQL that populates
   `TRNLRS_TRN_STREET_VW`; that would remove WA from an org-wide product and any geocoding built
-  on it, so filtering only the network's edge copy is safer.
+  on it, so filtering only the network's edge copy is safer. **Implemented 2026-09-29** in
+  `scripts/network_exclusions.py`, called by scripts 03 and 04: `STR_TYPE = 'WA'` is excluded
+  now; the island FDMID list is empty until Melanie supplies it. Not yet run against any
+  environment. Consequences: the edge copy has fewer rows than `TRNLRS_TRN_STREET_VW` by design;
+  turns on excluded edges are skipped by the remap; `LRS_updates.py`'s
+  `sync_network_edge_source()` does **not** apply the exclusions.
 - **Correction to earlier status text.** The 2026-09-18 QA rebuild superseded the 2026-09-01
   numbers still quoted in older sections: **Edges 37,788, Junctions 16,185, Turns 1,184** (not
   1,180), **5** turns rejected at build (not 9), SQL registration `N_3` / **`ND_40192`** (not
@@ -562,7 +567,9 @@ scenarios still reproduce on Pro 3.5.8.
       (both the live network and `network_template.xml` currently lack it)
 - [ ] Before any wholesale QA-from-Prod refresh: back up QA's `TRNLRS_network` contents and
       confirm the refresh method (see the 2026-09-29 update)
-- [ ] Filter island segments out of the edge source (Melanie supplies the filter)
+- [x] WA exclusion coded in `network_exclusions.py` (scripts 03 and 04), untested against a live
+      database
+- [ ] Island exclusion: Melanie supplies the FDMID list, then add it to `EXCLUDED_FDMIDS`
 - [ ] Decide whether the HRFE (speed) network is a second network dataset or an added cost
 - [ ] Decide the turn-OID-stability question before prod cutover (see
       [`network_dataset_script_review.md` §D](network_dataset_script_review.md#d-turn-references-do-not-survive-an-lrs-refresh-structural))

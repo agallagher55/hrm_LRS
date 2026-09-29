@@ -242,7 +242,10 @@ artefact, and edits nobody can attribute. Separate them instead of fixing blind:
 
 - Re-run the LRS extraction so `TRNLRS_TRN_STREET_VW` reflects the corrected data, and confirm by
   spot-checking Robbie's own FDMIDs, not just that a run completed.
-- Implement the island exclusion (McNabs and similar; Melanie supplies the filter). Apply it to
+- Implement the island exclusion (McNabs and similar; Melanie supplies the filter). **Coded
+  2026-09-29 in `scripts/network_exclusions.py`** (used by scripts 03 and 04) with WA active and
+  the island FDMID list empty. It is untested against a live database, and
+  `LRS_updates.py`'s sync path bypasses it. Applied to
   the network's edge copy, **not** to `TRNLRS_TRN_STREET_VW`: the standalone class is an org-wide
   product with unaudited consumers (see the impact-assessment item), and Robbie only wants the
   islands out of routing.

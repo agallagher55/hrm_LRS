@@ -23,6 +23,10 @@ sync_and_rebuild() directly from LRS_updates.py:
     from network_dataset.scripts.04_sync_and_rebuild_network import sync_and_rebuild
     sync_and_rebuild()
 
+The reload goes through network_exclusions.py, which drops WA (water access)
+streets and any listed island FDMIDs, so the FD copy holds fewer rows than
+TRNLRS_TRN_STREET_VW by design.
+
 Once TRNLRS_TRN_STREET_VW is moved into the feature dataset permanently, this
 script and the copy step in 03_create_network_dataset.py can both be retired.
 
@@ -35,6 +39,7 @@ import sys
 
 import arcpy
 
+import network_exclusions
 from log_utils import setup_logger
 
 logger = setup_logger("04_sync_and_rebuild_network")
@@ -91,9 +96,13 @@ def sync_and_rebuild(
     # slower than TruncateTable for large tables (>10k rows), which this is,
     # but it's the only option that doesn't require tearing down and
     # rebuilding the network dataset on every sync.
+    # Build the filtered layer before deleting anything, so a bad exclusion clause
+    # (or an empty result) fails while the existing edge copy is still intact.
+    edges_to_load = network_exclusions.make_filtered_layer(street_source_fc, "edges_to_load", logger)
+
     arcpy.management.DeleteRows(streets_target_fc)
     arcpy.management.Append(
-        inputs=street_source_fc,
+        inputs=edges_to_load,
         target=streets_target_fc,
         schema_type="NO_TEST",
     )

@@ -436,9 +436,13 @@ this repository. The surviving record is the summary below plus the QA review en
 - **Emergency turnarounds** -- flagged by Robbie as potentially needing removal from the
   turn source; confirm scope before finalising turn rebuild
 
-Filtering approach: exclusions should be applied in the SQL/query layer that populates
-`TRNLRS_TRN_STREET_VW`, so ineligible segments never enter the edge source. Re-sync and
-rebuild required after any filter is applied.
+Filtering approach (**revised 2026-09-29**): exclusions are applied where the edge source is
+copied into the network feature dataset, in `scripts/network_exclusions.py`, called by scripts
+03 and 04. They are **not** applied in the SQL that populates `TRNLRS_TRN_STREET_VW`, because
+that class is an org-wide product with unaudited consumers (geocoding among them) and WA
+streets carry civic addresses. The earlier plan to filter at `_VW` should not be followed.
+Currently excluded: `STR_TYPE = 'WA'`. Island FDMIDs are pending Melanie Parker's list. Re-sync
+and rebuild required after any change to the exclusions.
 
 ---
 

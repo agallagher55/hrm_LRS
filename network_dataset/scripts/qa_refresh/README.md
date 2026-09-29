@@ -38,6 +38,10 @@ here.
   avoids `Path.resolve()`, which would replace `T:` with the backing server name.
 - `_shared.py` verifies that scripts 03, 05, and the verifier still point at the
   same QA feature dataset before any delegated operation runs.
+- The QA edge copy now has **fewer rows than Prod's `TRNLRS_TRN_STREET_VW`** by design:
+  `network_exclusions.py` drops WA streets (and any listed island FDMIDs) when scripts 03 and
+  04 load it. Step 00 prints both counts; the difference should equal the rows matching the
+  exclusions, not be zero. Check the "Edge exclusions applied" line in the script 03 log.
 - Step 00 cannot prove historical provenance. It confirms current code paths
   and compares live metadata; spot-check known changed `FDMID` geometries in
   Prod and the QA network edge source.
