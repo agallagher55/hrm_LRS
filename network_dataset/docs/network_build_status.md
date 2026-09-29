@@ -6,6 +6,79 @@
 
 For full technical details see [`network_dataset_migration_plan.md`](network_dataset_migration_plan.md).
 
+## Update 2026-09-29 (from the 2026-09-23 and 2026-09-24 meetings)
+
+Source: [`meetings/2026-09-23_and_2026-09-24_check_in_notes.md`](meetings/2026-09-23_and_2026-09-24_check_in_notes.md).
+The repository holds no live evidence newer than the 2026-09-18 QA rebuild. **Confirmed by Alex
+on 2026-09-29:** the Prod geodatabase upgrade happened; QA has **not** been refreshed from Prod;
+the network-creation overview has **not** gone to Ryan; the next check-in is 2026-09-30. Anything
+below about the refresh is therefore still a plan.
+
+- **Acceptance testing restarted and paused again.** Robbie tested the distance network after
+  the LRS corrections and got errors back. Melanie and Ryan are looking at **57 new issues** they
+  cannot trace (islands such as McNabs, a newly added street that had been snapped correctly, an
+  overshoot, overlaps visible in the address range event, no revision dates). They are in Prod,
+  not caused by testing in QA. The earlier ~500 from 2026-09-11 is not the same list, and Ryan's
+  "3000" almost certainly refers to the July overlap/gap cleanup table, not to the 500.
+- **A second explanation for at least some errors: a Pro / geodatabase version mismatch.**
+  Robbie's ArcGIS Pro is now 3.5.8 while the Prod enterprise geodatabase is still 11.3.0. Melanie
+  has seen gaps and overlaps appear in that combination and expects them to clear when Prod is
+  upgraded to 11.5, planned for the weekend of **2026-09-26/27**. This is unproven. Robbie saw
+  the same errors in QA, whose geodatabase was already 11.5.0, and that is not explained by the
+  mismatch theory. The 2026-09-11 conclusion below ("upstream LRS defects, not network defects")
+  therefore stands for the network dataset, but the **cause** of the geometry errors is now
+  open: real source defects, a version artefact, or both.
+- **The Pro upgrade question is answered.** Jillian asked on 2026-09-09 whether the Pro upgrade
+  proceeds while the Esri case is open. It did: Robbie is already on 3.5.8, and the Prod
+  geodatabase upgrade was scheduled regardless. (Whether LRS editors were held back was not
+  discussed.)
+- **Esri case #04248942.** On 2026-09-22 Esri said they found no workaround and may file a
+  data-specific defect report covering the three scenarios. They asked to share HRM's file
+  geodatabase with Esri Inc.; the team agreed verbally, and Ryan replies. Alex is sending Ryan
+  the network-creation overview (written up in `junction_network_workflow_esri_case.html`).
+- **There are two planned networks, not one.** The current `TRNLRS_street_network` is the
+  **distance network**. A second **HRFE network** will add speed and additional inclusions and
+  exclusions (2026-09-09 and 2026-09-24). The "Travel time cost attribute" section below still
+  frames travel time as an addition to this network; whether it becomes a second network dataset
+  is undecided. Nobody has identified the users of the distance network or how to announce it.
+- **Planned QA refresh, and a risk nobody raised.** Alex will refresh all of QA from Prod over
+  the upgrade weekend, after notifying QA users. Prod has **no** `SDEADM.TRNLRS_network` feature
+  dataset and no network dataset, so a wholesale refresh would remove QA's network dataset, its
+  remapped `TRNLRS_traffic_turn`, the turn backup that `qa_refresh/01_backup_and_baseline.py`
+  writes inside that feature dataset, and all SQL grants on it. It would also discard any
+  hand-authored turns (see the Cogswell ramp item in the runbook). After such a refresh the
+  network must be rebuilt through the full `qa_refresh` procedure (about half a day) before
+  Robbie can retest. **Depends on the refresh method** (database restore versus copying data
+  in); Alex knows which was used.
+- **Island segments and WA (water access) streets** are to be filtered out of the network.
+  Melanie will supply the island filter. Robbie says islands cannot route and are caught in QC
+  anyway; on WA streets, he has asked for their removal repeatedly (confirmed by Alex on
+  2026-09-29 that "the WAs" in the 2026-09-23 transcript means WA streets). This revisits the
+  June position that WA needed care because civic addresses are coded to them. The older plan in
+  `network_dataset_migration_plan.md` says to filter in the SQL that populates
+  `TRNLRS_TRN_STREET_VW`; that would remove WA from an org-wide product and any geocoding built
+  on it, so filtering only the network's edge copy is safer. **Implemented 2026-09-29** in
+  `scripts/network_exclusions.py`, called by scripts 03 and 04: `STR_TYPE = 'WA'` is excluded
+  now; the island FDMID list is empty until Melanie supplies it. Not yet run against any
+  environment. Consequences: the edge copy has fewer rows than `TRNLRS_TRN_STREET_VW` by design;
+  turns on excluded edges are skipped by the remap; `LRS_updates.py`'s
+  `sync_network_edge_source()` does **not** apply the exclusions.
+- **Correction to earlier status text.** The 2026-09-18 QA rebuild superseded the 2026-09-01
+  numbers still quoted in older sections: **Edges 37,788, Junctions 16,185, Turns 1,184** (not
+  1,180), **5** turns rejected at build (not 9), SQL registration `N_3` / **`ND_40192`** (not
+  `ND_40171`). Also, the live QA network has **no Directions configuration** (the 2026-09-18
+  interactive rebuild skipped it) and `network_dataset/data/network_template.xml` has no
+  `<NetworkDirections>` element. Both are still open.
+- **Correction to Step 5 below.** `sync_network_edge_source()` in `LRS_updates.py` does not use
+  `DeleteRows`. It calls `append_feature()`, which calls `TruncateTable`, and will fail with
+  `ERROR 001395` against the controller-dataset edge source. Only the standalone script
+  `04_sync_and_rebuild_network.py` uses `DeleteRows`.
+
+Recommended next steps are in
+[`street_network_meeting_overview.md`](street_network_meeting_overview.md#remaining-work-in-recommended-order).
+
+---
+
 **Where this stands as of 2026-09-15:** QA's network dataset is built, editable, and both
 restriction types are proven with real solves. Independent acceptance testing by Robbie Evans
 started 2026-09-09 and **stopped on 2026-09-11 after roughly 500 source-geometry errors**
@@ -74,7 +147,7 @@ superseded by the 2026-09-01 rebuild — see [the 2026-09-01 update](#update-202
 | 3 | Edit XML template | ✅ Complete (elevation fields cleared — see below) |
 | 4 | Create & build new network dataset | ✅ **QA rebuilt from scratch 2026-09-01** (interactive wizard, Python evaluators). Dev still on its original 2026-06-26 build — VBScript, permanently read-only, not rebuilt. Prod: nothing built. |
 | 5 | Validation | 🔄 Properties ✅; service area ✅; **turn-restriction solve ✅ (2026-09-01)**; **one-way solve ✅ (2026-09-02/03, after a real multi-day debugging saga — see below)**; route comparison / address-range pending. **Robbie Evans's expert acceptance testing is PAUSED (2026-09-11)**: ~500 source-geometry errors found in the first minutes; QA must be refreshed after the LRS fixes land before he can retest. |
-| 5a | Traffic turn rebuild | ✅ **Re-verified 2026-09-01** — 1,189 turns written, 99.7% Edge1End agreement, all 10 verifier checks clean, 5 spatial spot checks correct, **1,180 built as live turn elements** (9 rejected at build, see the 2026-09-01 update) |
+| 5a | Traffic turn rebuild | ✅ **Re-verified 2026-09-01** — 1,189 turns written, 99.7% Edge1End agreement, all 10 verifier checks clean, 5 spatial spot checks correct, **1,180 built as live turn elements** (9 rejected at build, see the 2026-09-01 update). **Superseded by the 2026-09-18 rebuild: 1,184 live turns, 5 rejected** (3 real sub-metre gaps, 2 exact 0.0000 m coincidences on one edge, 18393). |
 
 ### Update 2026-09-01 — QA network dataset rebuilt from scratch
 
@@ -91,7 +164,7 @@ What this means for the state of each environment:
 
 | Environment | Network dataset | Evaluator language | Editable? |
 |---|---|---|---|
-| **QA** | Rebuilt 2026-09-01, built, 1,180 turns | **Python** | ✅ Yes |
+| **QA** | Rebuilt 2026-09-01, rebuilt again 2026-09-18 (Edges 37,788, Junctions 16,185, Turns 1,184). **No Directions configured** on the live network. | **Python** | ✅ Yes |
 | **Dev** | Original 2026-06-26 build, still functional for solves | VBScript | ❌ **Permanently read-only.** Cannot be edited or rebuilt. Will need the same from-scratch rebuild treatment. |
 | **Prod** | Not built | n/a | n/a |
 
@@ -294,7 +367,9 @@ ORDER BY name;
 ```
 
 **QA: superseded — re-done 2026-09-01.** The 2026-09-01 rebuild dropped and reassigned these
-tables again. Current IDs: **`N_3`** (reused the same number a third time) and **`ND_40171`**
+tables again. Then **superseded again on 2026-09-18**: current IDs are **`N_3`** and **`ND_40192`**
+(replacing `ND_40171`, which no longer exists; see `network_dataset_sql_permissions.md`).
+*Historical, 2026-09-01:* **`N_3`** (reused the same number a third time) and **`ND_40171`**
 (replacing `ND_38726`, which no longer exists). Both granted and confirmed working via an
 OS-auth add-to-map test. Full trail in `network_dataset_sql_permissions.md`.
 
@@ -392,7 +467,8 @@ See [`network_traffic_turns.md`](network_traffic_turns.md) for the original diag
 - [x] Re-run `network_dataset/scripts/05_rebuild_traffic_turns.py` against QA + `SDEADM.TRNLRS_network` (2026-07-14 regression; 1,209/1,238 written, 2.3% skipped)
 - [x] Complete the swap in Dev (delete network dataset → swap turn FCs → re-run script 03)
 - [x] Complete the swap in QA (delete network dataset → swap turn FCs → re-run script 03)
-- [ ] Confirm rebuilt Dev and QA networks show nonzero turns in Network Dataset Properties
+- [x] QA: nonzero turns confirmed (1,184 on 2026-09-18). Dev still unconfirmed
+- [ ] (superseded, kept for history) Confirm rebuilt Dev and QA networks show nonzero turns in Network Dataset Properties
 - [x] Re-apply Step 2 PUBLIC SELECT grants under the new registration IDs (QA -- `N_3` + `ND_38726`, 2026-07-14)
 - [ ] Re-apply Step 2 PUBLIC SELECT grants under the new registration IDs (Dev -- still pending)
 - [ ] Confirm turn restriction logic in a solve test (Dev and QA)
@@ -474,14 +550,27 @@ scenarios still reproduce on Pro 3.5.8.
 
 - [x] Robbie's expert network testing results (requested 2026-09-09): **stopped 2026-09-11
       after ~500 source-geometry errors; not a pass or fail, testing is paused**
-- [ ] Robbie sends the ~500 flagged locations to Melanie Parker
-- [ ] LRS team corrects the flagged geometry; confirm the fixes land in prod's
-      `TRNLRS_TRN_STREET_VW` before refreshing QA
+- [x] Robbie sends the ~500 flagged locations to Melanie Parker (implied done: Melanie and Ryan
+      "spent weeks" fixing, per 2026-09-23)
+- [~] LRS team corrects the flagged geometry; confirm the fixes land in prod's
+      `TRNLRS_TRN_STREET_VW` before refreshing QA. **Largely done; 57 new, unexplained issues
+      found 2026-09-24, see the 2026-09-29 update above**
 - [ ] Refresh QA per [`qa_network_refresh_runbook.html`](qa_network_refresh_runbook.html),
       then hand back to Robbie for a retest
 - [ ] Check whether Robbie's ~500 overlap the 7 sub-metre turn-build gaps and the 4 plain-street
       junction anomalies
-- [ ] Send the junction-network workflow write-up to Ryan for Esri Case #04248942
+- [ ] Send the junction-network workflow write-up to Ryan for Esri Case #04248942 (Alex committed
+      to sending it 2026-09-24; not confirmed sent)
+- [ ] Ryan replies to Esri: OK to share the file geodatabase with Esri Inc.; Esri may file a
+      data-specific defect report
+- [ ] Configure Directions on the live QA network, then re-export and re-commit the template
+      (both the live network and `network_template.xml` currently lack it)
+- [ ] Before any wholesale QA-from-Prod refresh: back up QA's `TRNLRS_network` contents and
+      confirm the refresh method (see the 2026-09-29 update)
+- [x] WA exclusion coded in `network_exclusions.py` (scripts 03 and 04), untested against a live
+      database
+- [ ] Island exclusion: Melanie supplies the FDMID list, then add it to `EXCLUDED_FDMIDS`
+- [ ] Decide whether the HRFE (speed) network is a second network dataset or an added cost
 - [ ] Decide the turn-OID-stability question before prod cutover (see
       [`network_dataset_script_review.md` §D](network_dataset_script_review.md#d-turn-references-do-not-survive-an-lrs-refresh-structural))
 
@@ -493,6 +582,13 @@ scenarios still reproduce on Pro 3.5.8.
 
 `TRNLRS_TRN_STREET` (FD copy used by the network) must be kept in sync with
 `TRNLRS_TRN_STREET_VW` (standalone authoritative FC) after every LRS refresh.
+
+**Known defect (verified against the code 2026-09-29):** `sync_network_edge_source()` calls
+`append_feature()`, which calls `arcpy.TruncateTable_management()` on the existing target. That
+fails with `ERROR 001395` on `TRNLRS_TRN_STREET`, a controller-dataset member, so the automated
+sync has never been able to work against a live network. It also runs `BuildNetwork` straight
+after the reload without remapping turns, which leaves every turn pointing at stale OBJECTIDs
+(see the turn-OID-stability decision). Only `04_sync_and_rebuild_network.py` uses `DeleteRows`.
 
 **Implemented in `scripts/LRS_updates.py`:**
 - Network Analyst extension checked out at startup (alongside LocationReferencing); raises

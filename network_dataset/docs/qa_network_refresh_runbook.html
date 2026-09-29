@@ -423,7 +423,7 @@
     <ol style="margin:0 0 10px 0; padding-left:22px;">
       <li><strong>QA's own <code>TRNLRS_TRN_STREET_VW</code>, even though it exists, is not what the network reads.</strong> QA's edge source is <code>SDEADM.TRNLRS_network\TRNLRS_TRN_STREET</code>. The current tracked QA creation script sources that copy from <strong>Prod's</strong> <code>_VW</code> specifically, by hardcoded design. Truncating and loading QA's own copy of the <code>_VW</code> would not refresh the network edge source.</li>
       <li><strong><code>TruncateTable</code> is blocked on the copy that matters anyway</strong> with <code>ERROR 001395</code>, because a registered network source is a controller-dataset member. <code>DeleteRows</code> is the supported equivalent.</li>
-      <li><strong>Reloading the edge source silently destroys all 1,180 live turn restrictions.</strong> <code>DeleteRows</code> + <code>Append</code> reassigns every OBJECTID, and turn edge references are stored as OBJECTIDs. The next build re-emits <code>Cannot find edge element corresponding to turn identifier N</code> for every turn and the Turns count goes to zero.</li>
+      <li><strong>Reloading the edge source silently destroys every live turn restriction (1,184 in QA as of 2026-09-18).</strong> <code>DeleteRows</code> + <code>Append</code> reassigns every OBJECTID, and turn edge references are stored as OBJECTIDs. The next build re-emits <code>Cannot find edge element corresponding to turn identifier N</code> for every turn and the Turns count goes to zero.</li>
     </ol>
     <p style="margin:0;">The agreed path is cleaner than an in-place edge sync anyway: <strong>delete QA's network dataset and its three source classes outright, and rebuild from Prod's current <code>_VW</code></strong>. Verified against the actual scripts, that turns out to require <strong>two full build cycles</strong>, not one &mdash; nothing in this repository refreshes the edge and junction copies independently of a full network build. Full procedure below.</p>
   </div>
@@ -433,7 +433,11 @@
   </div>
 
   <div class="note">
-    <strong>And before any of that:</strong> refreshing QA today would reload the same geometry that stopped acceptance testing on 2026-09-11. Prod's <code>TRNLRS_TRN_STREET_VW</code> has not changed, because nothing in the LRS has been corrected yet. See <a href="#sequence">Sequencing</a>.
+    <strong>Update 2026-09-29, sequencing:</strong> when this page was written (2026-09-15) nothing in the LRS had been corrected. Since then Melanie and Ryan have fixed most of the ~500 that stopped testing on 2026-09-11, 57 new unexplained issues turned up on 2026-09-24, and the Prod geodatabase upgrade to 11.5 was planned for 2026-09-26/27. Re-baseline the errors after that upgrade before deciding when to refresh. See <a href="#sequence">Sequencing</a>.
+  </div>
+
+  <div class="note" style="border-left-color: var(--blocked);">
+    <strong>Do not run a wholesale QA-from-Prod refresh without protecting the network first (added 2026-09-29).</strong> The 2026-09-24 meeting agreed to refresh all of QA from Prod over the upgrade weekend. Prod has no <code>SDEADM.TRNLRS_network</code> feature dataset and no network dataset, so a database-level refresh removes QA's network dataset, its remapped <code>TRNLRS_traffic_turn</code>, the turn backup that step 01 writes inside that same feature dataset, any hand-authored turns, and all SQL grants on it. Before such a refresh: export the network sources to a file geodatabase outside SDE and record the grants. After it: run this procedure from Phase 3 onward (Phase 2's deletes are effectively done for you, but Phase 3 still builds the network, and the turn remap, final build, and grants all have to be redone). A data-level copy that leaves the network feature dataset alone is not affected. Confirm which method is used.
   </div>
 </header>
 
@@ -484,7 +488,7 @@
     <h3><span class="num">4</span> Knock-on: the swap invalidates the SQL grants</h3>
     <div class="body">
       <p>Swapping the turn class requires deleting the network dataset first (<code>ERROR 001919</code> blocks <code>Delete</code> and <code>Rename</code> on a registered source while it exists). Deleting and recreating the network dataset <strong>reassigns its registration IDs</strong>, and the <code>PUBLIC SELECT</code> grants go with the old ones.</p>
-      <p>QA's current IDs are <code>N_3</code> and <code>ND_40171</code>, set on 2026-09-01. After a rebuild they will be different. Until the new ones are granted, <strong>every OS-authentication user, Robbie included, gets <code>DBMS table not found</code> and cannot open the network dataset at all.</strong> This is the single easiest step to forget and the one that most visibly breaks the person you are handing the network back to.</p>
+      <p>QA's IDs as last recorded are <code>N_3</code> and <code>ND_40192</code>, set on 2026-09-18 (<code>ND_40171</code> was the 2026-09-01 value). After a rebuild they will be different. Until the new ones are granted, <strong>every OS-authentication user, Robbie included, gets <code>DBMS table not found</code> and cannot open the network dataset at all.</strong> This is the single easiest step to forget and the one that most visibly breaks the person you are handing the network back to.</p>
     </div>
   </div>
 </section>
@@ -526,7 +530,7 @@
       <ul>
         <li>Network Dataset Properties: build date, source feature counts, <strong>Turns count</strong>, evaluator definitions on <code>Length</code>, <code>OneWay</code>, <code>TrafficTurn</code>.</li>
         <li>Feature counts on all three sources.</li>
-        <li>The current <code>N_&lt;id&gt;</code> and <code>ND_&lt;id&gt;</code> registration IDs (expected <code>N_3</code> and <code>ND_40171</code>).</li>
+        <li>The current <code>N_&lt;id&gt;</code> and <code>ND_&lt;id&gt;</code> registration IDs (expected <code>N_3</code> and <code>ND_40192</code> as of 2026-09-18).</li>
         <li>Back up the current turn class. It is the only copy of any hand-authored turn edits.</li>
       </ul>
 <pre><code>import arcpy
@@ -674,7 +678,7 @@ ORDER BY name;</code></pre>
     <summary><span class="pill pill-notstarted">Phase 7</span> Smoke test before handing it back</summary>
     <div class="body">
       <ul>
-        <li><strong>Properties &rarr; Sources.</strong> Turns count must be nonzero and close to 1,180. Zero means the remap did not take and the whole refresh is void.</li>
+        <li><strong>Properties &rarr; Sources.</strong> Turns count must be nonzero and close to 1,184 (the 2026-09-18 figure). Zero means the remap did not take and the whole refresh is void.</li>
         <li><strong>Build errors file.</strong> Open <code>BuildErrors_&lt;guid&gt;.txt</code> and confirm the GUID matches this run, not an earlier one. Expect zero <code>Cannot find edge element corresponding to turn identifier</code> lines; expect many harmless <code>Standalone user-defined junction is detected</code> warnings; expect a small number of <code>Cannot find at junction</code> lines and <strong>compare that count to the previous 9</strong>. If the source corrections worked, it should drop.</li>
         <li><strong>One-way, both directions.</strong> Route along a <code>STR_DIR = 'FOTD'</code> street: allowed direction solves clean, wrong-way direction returns <code>ERROR 030212</code>. Then route an ordinary two-way street (Barrington St) in both directions and confirm both are clean. <strong>The two-way control is the one that matters</strong>, because a one-way-only test cannot distinguish correct logic from an evaluator accidentally restricting everything.</li>
         <li><strong>Prohibited turn, on and off.</strong> Solve across a known prohibited movement with <code>TrafficTurn</code> enabled, then disabled. Different results means it is enforced; identical results means it is not, whatever the Turns count says.</li>

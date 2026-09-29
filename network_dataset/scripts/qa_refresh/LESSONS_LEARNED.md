@@ -41,7 +41,10 @@ it's cheap and would have saved real time this session.
   is by design (idempotent reruns), but it means step 03 can silently build
   on stale QA data if step 02 wasn't actually run or didn't finish. **After
   seeing that log line, verify the QA edge FC's row count against Prod's
-  current `TRNLRS_TRN_STREET_VW`** before trusting the rest of the pipeline.
+  current `TRNLRS_TRN_STREET_VW`** before trusting the rest of the pipeline. Since
+  2026-09-29 the copy is expected to be *smaller* by the WA/island exclusions in
+  `network_exclusions.py`; the skip path now also warns if the stale copy still holds
+  excluded rows.
 - **The "Create Network Dataset" GP tool's Elevation Model defaults to
   "Elevation fields", not "None".** Not called out in the README's
   `ERROR 030386` recovery steps — easy to miss and build elevation-aware
@@ -172,7 +175,17 @@ it's cheap and would have saved real time this session.
   current default-based encoding would then apply `true` to that new source's
   turns too unless explicitly overridden, where the old override-based
   encoding would have defaulted them to `false`. Revisit then, not now.
-- **Also caught by that same review, already fixed:** the exported
+- **Correction, 2026-09-29: the "fix" below was wrong, confirmed in SQL.** On QA, `sys.tables`
+  contains `TRNLRS_NETWORK_JUNCTIONS` and no `TRNLRS_STREET_NETWORK_JUNCTIONS`; Network Dataset
+  Properties lists `SDEADM.TRNLRS_network_Junctions` (ID 40191, the ID the template gives it).
+  So the export's `TRNLRS_network_Junctions` matched the live object. The system junction class
+  is named after the name the network was created with, so this is not a mislabel: the
+  wizard-built 2026-09-01/09-18 network was probably created as `TRNLRS_network` and renamed,
+  which does not rename its system junction class (this would also explain the top-level
+  `Name`; the wizard-default cause is unverified). `classify_unresolved_turns.py` now looks for
+  either name. Docs that say `TRNLRS_street_network_Junctions` describe the earlier
+  template-built networks.
+- **Also caught by that same review, since questioned (see above):** the exported
   template's `SystemJunctionSource.Name` read `TRNLRS_network_Junctions`
   instead of `TRNLRS_street_network_Junctions` — the identical
   missing-`street_` mislabeling as the top-level `Name`/`CatalogPath`

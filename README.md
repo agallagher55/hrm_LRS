@@ -15,7 +15,7 @@ hrm_LRS/
     ├── scripts/              # Build, sync, and turn-rebuild scripts
     ├── data/                 # Extracted config, XML template, schema diffs
     ├── docs/                 # Migration plan, build status, runbooks, roadmap
-    │   └── meetings/         # "Road Network Check In" transcripts
+    │   └── meetings/         # "Road Network Check In" transcripts, email threads, meeting notes
     └── intermediate_results/ # Diagnostic CSVs from the turn rebuild
 ```
 

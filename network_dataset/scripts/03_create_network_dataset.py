@@ -39,6 +39,12 @@ Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
   the E_* event tables). It must already exist -- this script verifies its
   presence but does not create it.
 
+Note on edge exclusions:
+  The edge copy (TRNLRS_TRN_STREET) is loaded through network_exclusions.py,
+  which drops WA (water access) streets and any listed island FDMIDs. The
+  authoritative TRNLRS_TRN_STREET_VW is not filtered, so the row count of the
+  copy is expected to be lower than the source's. See network_exclusions.py.
+
 Note on TRNLRS_traffic_turn:
   copy_fc_to_fd() below skips copying a source FC if the destination already
   exists in the feature dataset. If TRNLRS_traffic_turn has previously been
@@ -59,6 +65,7 @@ from pathlib import Path
 
 import arcpy
 
+import network_exclusions
 from log_utils import setup_logger
 
 logger = setup_logger("03_create_network_dataset")
@@ -117,21 +124,32 @@ TEMPLATE_XML = REPO_ROOT / "data" / "network_template.xml"
 # ---------------------------------------------------------------------------
 
 
-def copy_fc_to_fd(source_path, feature_dataset, fc_name, error_hint=""):
-    """Copy a feature class into the feature dataset, skipping if already present."""
+def copy_fc_to_fd(source_path, feature_dataset, fc_name, error_hint="", apply_exclusions=False):
+    """
+    Copy a feature class into the feature dataset, skipping if already present.
+
+    apply_exclusions loads only the edges that network_exclusions.py keeps. Use it
+    for the edge source only.
+    """
     dest = os.path.join(feature_dataset, fc_name)
     if arcpy.Exists(dest):
         logger.info(
             f"Already present in feature dataset, skipping copy: {fc_name} "
             f"(existing data at {dest} was NOT refreshed)"
         )
+        if apply_exclusions:
+            network_exclusions.count_excluded(dest, logger)
         return
     if not arcpy.Exists(source_path):
         msg = f"Source feature class not found: {source_path}" + (f" {error_hint}" if error_hint else "")
         logger.error(msg)
         sys.exit(f"ERROR: {msg}")
     logger.info(f"Copying into feature dataset: {source_path} -> {dest}")
-    arcpy.management.CopyFeatures(source_path, dest)
+    if apply_exclusions:
+        source = network_exclusions.make_filtered_layer(source_path, f"{fc_name}_keep", logger)
+    else:
+        source = source_path
+    arcpy.management.CopyFeatures(source, dest)
     logger.info(f"Copy complete: {fc_name}")
 
 
@@ -171,6 +189,7 @@ def main():
     copy_fc_to_fd(
         STANDALONE_EDGE_SOURCE, FEATURE_DATASET, EDGE_SOURCE_NAME,
         error_hint="Run LRS_updates.py to populate TRNLRS_TRN_STREET_VW before proceeding.",
+        apply_exclusions=True,
     )
     copy_fc_to_fd(SOURCE_JUNCTION, FEATURE_DATASET, "TRNLRS_street_junction")
     copy_fc_to_fd(SOURCE_TURN, FEATURE_DATASET, "TRNLRS_traffic_turn")

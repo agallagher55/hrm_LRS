@@ -423,6 +423,11 @@
     Esri's 2026-09-01 and 2026-09-09 emails ask the same two things twice: <strong>(1)</strong> the high-level workflow the coworker follows to create the junction network, and <strong>(2)</strong> any error messages hit along the way, with screenshots. The "coworker" is Alex Gallagher, and the workflow is the one documented here. Esri's read so far is that the behaviour is <em>data-specific, not version-specific</em>, and the evidence below is consistent with that.
   </div>
 
+  <div class="callout" style="border-left-color: var(--blocked);">
+    <strong class="tag" style="color: var(--blocked);">Update 2026-09-29: Esri's reply of 2026-09-22</strong>
+    Esri wrote on 2026-09-22 that they could not find a workaround and <strong>may submit a data-specific defect report</strong> to Esri Inc. covering the three scenarios. They asked whether HRM agrees to share the file geodatabase with Esri Inc.; the team agreed in the 2026-09-24 check-in (verbal, not a formal sign-off), and Ryan replies. Ryan was still waiting for this workflow write-up on 2026-09-24, and Alex committed to sending it that day; it is not confirmed sent. <strong>Two things changed since the draft reply below was written:</strong> (1) HRM has since learned that a Pro 3.5.8 client against the still-11.3.0 Prod geodatabase can itself show gaps and overlaps, with the Prod upgrade to 11.5 planned for 2026-09-26/27. Esri reproduced the behaviour on a file geodatabase copy, so that mismatch cannot explain Ryan's three scenarios, but it may explain some of what Robbie saw. (2) The statement below that everything "reproduced on Pro 3.5.8" supports "data-specific, not version-specific" should be read with that caveat until the post-upgrade re-test is done. Suggested: re-run the three scenarios after the upgrade and tell Esri the result before they file.
+  </div>
+
   <div class="note">
     <strong>Terminology:</strong> what the case calls the "junction network" is the ArcGIS <strong>network dataset</strong> <code>TRNLRS_street_network</code>, built inside the feature dataset <code>SDEADM.TRNLRS_network</code>. Junctions are one of its three sources. The small intersection errors matter because network datasets connect edges by <strong>coincident endpoints</strong>, so a segment that overshoots or falls short of an intersection does not form a junction there at all.
   </div>
