@@ -16,8 +16,8 @@ G are still open.
 review: 1,184 live turns and **5** `Cannot find at junction` failures (3 sub-metre gaps, 2 exact
 coincidences on edge 18393), not 1,180 and 9. (2) Finding
 [C](#c-lrs_updatespy-will-fail-on-first-prod-run) was re-verified against the code on
-2026-09-29 and is still present: `sync_network_edge_source()` calls `append_feature()`, which
-calls `TruncateTable`. Older text in the roadmap that said both sync paths use `DeleteRows` was
+2026-09-29 and was **fixed later that day**: `sync_network_edge_source()` used to call `append_feature()`, which
+called `TruncateTable`; it now delegates to `04_sync_and_rebuild_network.sync_and_rebuild()`. Older text in the roadmap that said both sync paths use `DeleteRows` was
 wrong and has been corrected. (3) The 2026-09-23/24 meetings added a competing explanation for
 some of the geometry errors (Pro 3.5.8 client against the Prod 11.3.0 geodatabase, upgrade to
 11.5 planned 2026-09-26/27) and 57 new unexplained issues; see
@@ -124,14 +124,14 @@ cold, into a state where the docs and the code disagree about whether the last s
 
 ## A0. Duplicate / degenerate turn signatures -- found not to recur under the rewritten script (2026-08-31)
 
-Discovered via diagnostic scripts (`network_dataset/scripts/08_find_duplicate_siblings.py`,
+Discovered via diagnostic scripts (`network_dataset/scripts/diagnostics/08_find_duplicate_siblings.py`,
 `09_classify_origin_duplicate.py`, `classify_unresolved_turns.py`) and their outputs
 (`network_dataset/intermediate_results/*.csv`) that predate A1-A4 and were uploaded to the repo separately.
 This is **not** the same bug as A1-A4 -- it only shows up once the OID/FCID/Edge1End-level
 failures are fixed and turns actually start resolving, which is exactly why it wasn't visible
 earlier: every prior build had turns failing 100% for a more fundamental reason.
 
-**Evidence.** Against an earlier, hand-patched build (`network_dataset/scripts/patch.py`, which recomputed
+**Evidence.** Against an earlier, hand-patched build (`network_dataset/scripts/archive/patch_turn_edge1end.py`, which recomputed
 `Edge1End` in place using the same `Edge1Pos >= 0.5` heuristic A1 identifies as unsound), 1,209
 turns produced 1,021 successful builds, 165 `Turn element already exists` failures, and 23
 `Cannot find at junction` failures. `turn_review_for_mel.csv` / `intersection_context_check_v2.csv`
@@ -184,7 +184,7 @@ missing.
 
 ## A0b. Junction alignment check (run 2026-08-31) -- grade separation, not a transform bug; a handful of real anomalies
 
-`network_dataset/scripts/06_check_junction_alignment.py` compares `TRNLRS_TRN_STREET` edge endpoints against
+`network_dataset/scripts/diagnostics/06_check_junction_alignment.py` compares `TRNLRS_TRN_STREET` edge endpoints against
 `SDEADM.INT_RouteOnRoute` (generated independently from `LRSN_Route` geometry via
 `GenerateIntersections`) at every active route intersection. It was written because three
 hand-picked intersections (Blowers/Barrington, Barrington/Salter, Upper Water/Hollis) showed
@@ -320,7 +320,7 @@ endpoint connectivity, `0.5` is the canonical position of the single element.
 
 **Follow-up bug found and fixed (2026-08-31, same day).** Run against QA, this integrity
 check came back at 70.9% (846/1194) — well below the 95% gate. Diagnosis
-(`network_dataset/scripts/diagnose_edge1end_disagreement.py`) found 345 of the 348 disagreements shared one
+(`network_dataset/scripts/diagnostics/diagnose_edge1end_disagreement.py`) found 345 of the 348 disagreements shared one
 exact signature: Edge1 and Edge2 tied at 0.0m on **both** possible endpoint pairings
 simultaneously. That happens when two edges are digitised between the same pair of
 cross-street nodes — e.g. the two carriageways of a divided road — and it is a genuine
@@ -820,10 +820,10 @@ now actively mislead:
    `BOTH` (15,812), `FOTD` (2,792), `NULL` (7), `FDTO` (1). No codes exist beyond what the
    evaluator already handles.
 7. ~~Export the corrected template and commit it over `network_dataset/data/network_template.xml`.~~
-   **Done 2026-09-03.** **Still open: confirm `03_create_network_dataset.py` can actually
-   rebuild from it (gap #13)** — `CreateNetworkDatasetFromTemplate` with Python evaluators has
-   never been tested in this project. Until this is confirmed, there is no proven automated
-   rebuild path and the LRS-refresh automation story is unverified.
+   **Done 2026-09-03.** **Confirmed 2026-09-29 (gap #13 closed):**
+   `03_create_network_dataset.py` created and built the network from the committed template
+   with 0 errors, and the step 06 orchestrator repeated it with the reviewed turn class. The
+   LRS-refresh automation story (`LRS_updates.py` on Prod) is still unproven.
 8. **Rebuild Dev the same way** (gap #16) — and do it before anything happens to Dev's network
    dataset, because it is currently the only surviving copy of the original VBScript logic.
 9. **Re-apply Dev's SQL grants** (still pending since 07-14) using the procedure in
@@ -907,7 +907,7 @@ destroyed and recreated the turn FC again), #8 (prod topology/ownership), #9 (co
 |---|---|---|
 | 11 | **9 turns rejected at build with `Cannot find at junction`.** 7 explained: script 05's `SNAP_TOLERANCE = 0.5` is looser than the network's build-time XY tolerance (`0.001`), so genuine 0.006–0.41 m gaps in `TRNLRS_TRN_STREET` pass the remap but fail the build. **2 are unexplained** — an exact 0.0000 m coincidence that still failed. | Small (0.76% of turns unenforced) but the 2 unexplained ones mean the failure mode isn't fully understood. Worth checking whether a third turn referencing the same shared edge is the real culprit. |
 | 12 | **Is the `SNAP_TOLERANCE` / build-tolerance mismatch worth fixing?** Options: tighten the script (rejects more turns), snap the 7 real gaps in the edge source (surgical, ~7 vertices), or accept it. | Recurs on every rebuild. Nobody has decided. |
-| 13 | **Can `03_create_network_dataset.py` rebuild from a Python-evaluator template at all?** `CreateNetworkDatasetFromTemplate` has never been run against one in this project. | If it can't, the automated rebuild path stays broken and every future rebuild needs the manual wizard — which also breaks the LRS-refresh automation story. |
+| 13 | ~~**Can `03_create_network_dataset.py` rebuild from a Python-evaluator template at all?**~~ **Closed 2026-09-29: yes.** Created in about 13 s and built in about 9 s, 0 errors; an earlier failure that day was a stale VBScript copy of the template on the T: drive. | If it can't, the automated rebuild path stays broken and every future rebuild needs the manual wizard — which also breaks the LRS-refresh automation story. |
 | 14 | ~~What is `STR_DIR`'s full domain?~~ **Closed 2026-09-03.** `BOTH` (15,812), `FOTD` (2,792), `NULL` (7), `FDTO` (1) — nothing beyond the four values the evaluator already handles. | — |
 | 15 | **Are `N` and `T` (both-directions-blocked) intentional?** Still open — the domain query (#14) found zero rows with either code, so this is moot for current data, but the codes remain in the evaluator for whenever/if such a row appears. | Low urgency now; revisit if `N`/`T` ever shows up in the data. |
 | 16 | **Dev has no migration path yet.** It is still VBScript, permanently read-only, and cannot be rebuilt from the stale template either. | Dev is now behind QA and will need the same from-scratch treatment. Its live network is currently the *only* place the original VBScript logic exists. |

@@ -20,10 +20,17 @@ def setup_logger(name):
     a persistent record of what actually happened (e.g. whether a feature
     class was freshly copied or skipped because it already existed).
     """
+    logger = logging.getLogger(name)
+
+    # A script can be imported more than once in a run (an entry point, then the
+    # orchestrator). Reuse the existing logger instead of stacking a second set of
+    # handlers, which printed every line twice.
+    if logger.handlers:
+        return logger
+
     LOG_DIR.mkdir(exist_ok=True)
     log_file = LOG_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_{name}.log"
 
-    logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter(

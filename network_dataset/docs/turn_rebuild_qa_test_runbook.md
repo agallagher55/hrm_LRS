@@ -93,7 +93,7 @@ Then set `TURN_FC` back to the staging path for the rest of the run.
 
 ### 0.6 Junction alignment check -- DONE (2026-08-31), result: no transform bug, mostly grade separation
 
-`network_dataset/scripts/06_check_junction_alignment.py` has already been run against QA. Result: 249 active
+`network_dataset/scripts/diagnostics/06_check_junction_alignment.py` has already been run against QA. Result: 249 active
 route intersections have no aligned edge endpoint (221 `NO_MATCH` within the 10m search
 radius, 28 matched but offset 0.03m-10m). The offset vectors point in every direction with no
 shared sign or ratio -- this rules out the systematic-transform hypothesis the script was
@@ -205,7 +205,7 @@ This compares the source's own `Edge1End` against the junction this script finds
 - **< 95%** — the script warns and will refuse an auto-swap. **Stop and send me the log.**
 
 **Update 2026-08-31, same day:** the run that motivated writing this gate came back at
-70.9% (846/1194). `network_dataset/scripts/diagnose_edge1end_disagreement.py` traced 345 of the 348
+70.9% (846/1194). `network_dataset/scripts/diagnostics/diagnose_edge1end_disagreement.py` traced 345 of the 348
 disagreements to one exact cause: Edge1 and Edge2 tying at 0.0m on **both** possible endpoint
 pairings simultaneously — the signature of two edges digitised between the same pair of
 cross-street nodes (e.g. the two carriageways of a divided road). That's a genuine geometric
@@ -224,7 +224,7 @@ below 95%, or the total skip rate is above ~10%.
 
 ## Phase 1.5 — A newly surfaced issue: duplicate / degenerate turn signatures
 
-**Added 2026-08-31, after locally-held diagnostic work (`network_dataset/scripts/08_find_duplicate_siblings.py`,
+**Added 2026-08-31, after locally-held diagnostic work (`network_dataset/scripts/diagnostics/08_find_duplicate_siblings.py`,
 `09_classify_origin_duplicate.py`, `classify_unresolved_turns.py`, and
 `network_dataset/intermediate_results/*.csv`) was uploaded to the repo.** This predates and is independent of
 the A1-A4 rewrite -- it's a different failure mode that only shows up once turns actually
@@ -339,7 +339,11 @@ arcpy.management.Rename(fd + r"\SDEADM.TRNLRS_traffic_turn_staging", "TRNLRS_tra
 python 03_create_network_dataset.py
 ```
 
-**This fails with `ERROR 030386`.** `network_dataset/data/network_template.xml`'s `Length` and `OneWay`
+> **Superseded 2026-09-29.** The failure described below was the VBScript template that existed
+> on 2026-09-01. The committed template is now Python and creates and builds by script (see
+> `scripts/qa_refresh/README.md`); the interactive procedure is a fallback only.
+
+**This failed with `ERROR 030386` on 2026-09-01.** `network_dataset/data/network_template.xml`'s `Length` and `OneWay`
 evaluators are VBScript, which ArcGIS Pro 3.5 refuses to build a network dataset from at all.
 Do not chase this by trying to edit the evaluators on an already-built network dataset in
 Properties — Dev's existing ND was tried and is permanently "Read-only network dataset" for

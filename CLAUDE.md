@@ -86,8 +86,17 @@ Dataset wizard, not `CreateNetworkDatasetFromTemplate` against an old VBScript-b
 template — that reproduces `ERROR 030386`), then re-export the template via
 `CreateTemplateFromNetworkDataset`.
 
+### Deployed copies on the T: drive drift from the repo
+Two stale files on the T: drive each cost time on 2026-09-29: `data\network_template.xml` (a July
+VBScript copy, which made script 03 fail with `ERROR 030386`) and `scripts\run_full_network_rebuild.py`
+(an older `main()` with no arguments, which made step 06 raise a `TypeError`). Neither changed any
+data. Before a run, compare file sizes or hashes of the T: scripts and template with the repo.
+Script 03 now refuses to continue if its template contains VBScript (`Select Case`).
+
 ### Recreating the network dataset by hand (`ERROR 030386` workaround) — two more gotchas
-Confirmed 2026-09-18, on top of the fix above:
+**Fallback only, as of 2026-09-29.** The committed template is Python and creates and builds by
+script (`qa_refresh` step 03 and the step 06 orchestrator), so the interactive wizard is needed
+only if that template is ever rejected again. Confirmed 2026-09-18, on top of the fix above:
 
 - **The Elevation Model parameter defaults to "Elevation fields", not "None"**, whether
   you use the interactive New Network Dataset wizard or the `arcpy.na.CreateNetworkDataset`

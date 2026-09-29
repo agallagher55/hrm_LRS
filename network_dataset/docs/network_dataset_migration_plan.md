@@ -136,6 +136,10 @@ Script expressions (`[SHAPE.STLength()]` for Length; `[STR_DIR]` inside a Select
 OneWay) rather than direct field evaluators. `STR_DIR` is present and unchanged in the new
 source, so no evaluator changes are needed.
 
+> **Update 2026-09-29:** the corrected Python template now creates and builds by script
+> (`qa_refresh` step 03 and the step 06 orchestrator), and it carries a Directions block merged
+> in from the 2026-09-03 export (untested by a create).
+>
 > **⚠️ Superseded 2026-09-01.** "No evaluator changes are needed" was true of the *field
 > mappings*, but is now wrong about the evaluators themselves. VBScript evaluators are
 > deprecated and **must** be converted to Python: ArcGIS Pro 3.5 refuses to build a network
@@ -587,13 +591,15 @@ hrm_LRS/
         ├── 03_create_network_dataset.py
         ├── 04_sync_and_rebuild_network.py
         ├── 05_rebuild_traffic_turns.py
-        ├── 06_check_junction_alignment.py        ← edge endpoint vs. route intersection audit
         ├── 06_migrate_network_fd.py              ← moves network source FCs from SDEADM.TRNLRS
         │                                           into SDEADM.TRNLRS_network (never run)
         ├── verify_turn_rebuild.py                ← independent 10-check turn verifier
         ├── run_full_network_rebuild.py           ← remap → swap → recreate → build orchestrator
         ├── log_utils.py
-        └── (one-off diagnostics: patch.py, classify_unresolved_turns.py,
-             08_find_duplicate_siblings.py, 09_classify_origin_duplicate.py,
-             diagnose_edge1end_disagreement.py)
+        ├── qa_refresh/                           ← ordered QA network-refresh workflow (see its README.md)
+        ├── diagnostics/                          ← read-only investigation scripts
+        │     (06_check_junction_alignment.py: edge endpoint vs. route intersection audit,
+        │      08_find_duplicate_siblings.py, 09_classify_origin_duplicate.py,
+        │      classify_unresolved_turns.py, diagnose_edge1end_disagreement.py)
+        └── archive/                              ← finished one-offs (patch_turn_edge1end.py)
 ```

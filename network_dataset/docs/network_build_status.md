@@ -6,16 +6,36 @@
 
 For full technical details see [`network_dataset_migration_plan.md`](network_dataset_migration_plan.md).
 
-## Update 2026-09-29 (from the 2026-09-23 and 2026-09-24 meetings)
+## Status at the end of 2026-09-29
+
+- **QA's network was recreated and built by script** through the `qa_refresh` procedure, from
+  Prod data re-extracted after the 11.5 upgrade: Edges 37,674, Junctions 16,187, **Turns 1,184**
+  (the same five turns rejected as on 2026-09-18). Run details are in the table below.
+- **Grants applied** (`N_3`, `ND_40986`; the source tables already had theirs). A non-admin login
+  can add the network to a map. Recorded in `network_dataset_sql_permissions.md`.
+- **Handed to Robbie Evans to retest.** Smoke tests, a check that the gaps are actually fixed,
+  and Directions on the live network are still open.
+- **The committed template now includes Directions** (merged from the 2026-09-03 export, not yet
+  proven by a create). Test it with `qa_refresh/test_template_create.py`.
+- **Review changes, later on 2026-09-29:** step 03 is now copy-only (`03_copy_sources.py`; the network is created
+  and built once, in step 06); step 01 exports the sources to a file geodatabase outside SDE; safety checks in
+  steps 00, 02 and 06; the `LRS_updates.py` edge sync delegates to `04_sync_and_rebuild_network.py`; diagnostics
+  moved to `scripts/diagnostics/`. None of it has run against a live database yet.
+- A wholesale QA-from-Prod database refresh was **not** done, so QA's legacy junction and turn
+  classes are older than the Prod edge copy.
+
+## Update 2026-09-29 (from the 2026-09-23 and 2026-09-24 meetings, then the QA run)
 
 Source: [`meetings/2026-09-23_and_2026-09-24_check_in_notes.md`](meetings/2026-09-23_and_2026-09-24_check_in_notes.md).
-The repository holds no live evidence newer than the 2026-09-18 QA rebuild. **Confirmed by Alex
+The paragraphs below were written during the day, in order; the run table further down is the
+authoritative record. **Confirmed by Alex
 on 2026-09-29:** the Prod geodatabase upgrade to 11.5 **finished**; the QA network was **backed up**
 and the QA-refresh heads-up was **sent** to QA users (later the same day); QA has **not** yet been
 refreshed from Prod as far as this repository knows; the network-creation overview has **not** gone
 to Ryan; the next check-in is 2026-09-30. Where the backup was written (path, counts, whether it
 includes the grants snapshot committed in `network_dataset_sql_permissions.md`) is **not recorded**
-here; add it below when known. Anything below about the refresh itself is still a plan.
+here; add it below when known. (The backup was taken; the refresh itself was replaced by the
+scripted network rebuild described next.)
 
 **Later on 2026-09-29: QA network recreated from the template.** The QA refresh was deliberately
 skipped (Alex is content with QA's freshness; the goal is to recreate the network after the Prod
@@ -117,10 +137,12 @@ and turns were copied from QA's legacy classes, which were not refreshed from Pr
   `<NetworkDirections>` block and the edge source's `<NetworkSourceDirections>` (`STR_NAME`,
   `STR_TYPE`, `FULL_NAME`) were merged in from the 2026-09-03 export, unchanged; the merge is not
   yet proven by a scripted create. The **live QA network still has no Directions**.
-- **Correction to Step 5 below.** `sync_network_edge_source()` in `LRS_updates.py` does not use
-  `DeleteRows`. It calls `append_feature()`, which calls `TruncateTable`, and will fail with
-  `ERROR 001395` against the controller-dataset edge source. Only the standalone script
-  `04_sync_and_rebuild_network.py` uses `DeleteRows`.
+- **Correction to Step 5 below, fixed 2026-09-29.** `sync_network_edge_source()` in `LRS_updates.py`
+  used to call `append_feature()`, which calls `TruncateTable` and would have failed with
+  `ERROR 001395` against the controller-dataset edge source (and would have reloaded WA streets,
+  bypassing the exclusions). It now calls `04_sync_and_rebuild_network.sync_and_rebuild()`, which
+  uses `DeleteRows` and the exclusions. Tested only with a stub (no arcpy); the first real run is
+  the test. The sync still leaves every turn's edge references stale.
 
 Recommended next steps are in
 [`street_network_meeting_overview.md`](street_network_meeting_overview.md#remaining-work-in-recommended-order).
@@ -201,7 +223,8 @@ superseded by the 2026-09-01 rebuild — see [the 2026-09-01 update](#update-202
 
 QA's `TRNLRS_street_network` was **deleted and rebuilt from scratch** on 2026-09-01. This was
 not a routine rebuild — the delete happened as part of the normal turn-FC swap, and then
-recreating it from `network_dataset/data/network_template.xml` proved **impossible**: `ERROR 030386`, because
+recreating it from `network_dataset/data/network_template.xml` proved **impossible** at the time (superseded: the
+re-exported Python template creates and builds by script since 2026-09-29): `ERROR 030386`, because
 that template's `Length`/`OneWay` evaluators are VBScript, which ArcGIS Pro 3.5 refuses to
 build from. The documented fix (convert evaluators to Python via Properties) is itself blocked,
 because a network dataset carrying VBScript evaluators opens **permanently read-only** in Pro

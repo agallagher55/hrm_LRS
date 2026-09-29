@@ -63,6 +63,15 @@ TRNLRS_NETWORK_FD           = "SDEADM.TRNLRS_network"
 NETWORK_FD_EDGE_COPY_NAME   = "TRNLRS_TRN_STREET"
 NETWORK_DATASET_NAME        = "TRNLRS_street_network"
 
+# The edge sync itself lives in network_dataset/scripts/04_sync_and_rebuild_network.py,
+# so there is one tested implementation (DeleteRows plus Append through the edge
+# exclusions). Point this at the deployed copy of that script. The default works
+# when this file sits in the repo's scripts/ folder.
+NETWORK_SYNC_SCRIPT = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..", "network_dataset", "scripts", "04_sync_and_rebuild_network.py",
+)
+
 MTM5_SPATIAL_REFERENCE = (
     'PROJCS["NAD_1983_CSRS_2010_MTM_5_Nova_Scotia",'
     'GEOGCS["GCS_North_American_1983_CSRS_2010",'
@@ -536,28 +545,63 @@ class DynSegFeature:
         self._update_street_lanes(street_lanes_feature)
 
 
+def _load_network_sync_script():
+    """Load 04_sync_and_rebuild_network.py by path (its name is not a valid module name)."""
+    import importlib.util
+
+    script = os.path.normpath(NETWORK_SYNC_SCRIPT)
+
+    if not os.path.exists(script):
+        raise RuntimeError(
+            f"Network sync script not found: {script}. Deploy "
+            "network_dataset/scripts (including network_exclusions.py and log_utils.py) "
+            "or set NETWORK_SYNC_SCRIPT."
+        )
+
+    script_dir = os.path.dirname(script)
+
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+
+    spec = importlib.util.spec_from_file_location("network_sync", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    return module
+
+
 def sync_network_edge_source(sde_connection: str):
     """Sync the network edge source FC and rebuild the network dataset.
 
-    Truncates TRNLRS_TRN_STREET (the FD copy referenced by the network dataset)
-    and reloads it from TRNLRS_TRN_STREET_VW (the standalone authoritative FC
-    maintained by LRS_updates.py), then rebuilds TRNLRS_street_network.
+    Reloads TRNLRS_TRN_STREET (the FD copy referenced by the network dataset) from
+    TRNLRS_TRN_STREET_VW (the standalone authoritative FC maintained by this script)
+    and rebuilds TRNLRS_street_network. The work is done by
+    04_sync_and_rebuild_network.sync_and_rebuild(), which uses DeleteRows instead of
+    TruncateTable (TruncateTable fails with ERROR 001395 on a network source) and
+    applies the edge exclusions (WA streets and listed islands).
 
-    This keeps the network dataset current after each LRS refresh without
-    requiring a separate scheduled task.  Remove this function and its call
-    once TRNLRS_TRN_STREET_VW is moved into the feature dataset permanently.
+    Reloading the edge copy reassigns every OBJECTID, so every turn's edge
+    references break. Run the turn remap (network_dataset/scripts/qa_refresh, steps
+    04 to 06) afterwards, or the rebuilt network has Turns: 0.
+
+    Remove this function and its call once TRNLRS_TRN_STREET_VW is moved into the
+    feature dataset permanently.
     """
-    standalone = os.path.join(sde_connection, LRS_VIEW_NAME)
-    fd_copy    = os.path.join(sde_connection, TRNLRS_NETWORK_FD, NETWORK_FD_EDGE_COPY_NAME)
-    network    = os.path.join(sde_connection, TRNLRS_NETWORK_FD, NETWORK_DATASET_NAME)
+    sync_script = _load_network_sync_script()
 
-    logger.info(f"Syncing network edge source: {LRS_VIEW_NAME} → {NETWORK_FD_EDGE_COPY_NAME}")
-    append_feature(standalone, fd_copy, sde_connection)
+    logger.info(f"Syncing network edge source: {LRS_VIEW_NAME} -> {NETWORK_FD_EDGE_COPY_NAME}")
 
-    logger.info(f"Rebuilding network dataset: {NETWORK_DATASET_NAME}")
-    arcpy.na.BuildNetwork(network)
-    logger.info(arcpy.GetMessages())
-    logger.info("Network rebuild complete.")
+    try:
+        sync_script.sync_and_rebuild(prod_sde_connection=sde_connection)
+
+    except SystemExit as exit_request:
+        # 04 exits on a missing dataset. Raise instead, so run_error_processing runs.
+        raise RuntimeError(f"Network edge sync stopped: {exit_request}") from exit_request
+
+    logger.warning(
+        "Network edge sync done. Turn edge references are NOT remapped by this sync: "
+        "check Turns in the network's Properties and rerun the turn remap if it is 0."
+    )
 
 
 def run_error_processing(error_message):

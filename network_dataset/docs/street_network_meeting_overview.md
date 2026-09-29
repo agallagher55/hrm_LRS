@@ -220,6 +220,8 @@ The repository cannot answer these, and every later step depends on the answers.
 
 ### 2. Protect QA's network work from the refresh
 
+**Status 2026-09-29: done, and moot.** The backup was taken and no database refresh was run; QA's network was rebuilt by script instead.
+
 Prod has no network feature dataset, so a wholesale QA-from-Prod refresh removes QA's network.
 **Done 2026-09-29 (Alex): QA network backed up, QA-refresh heads-up sent to QA users.** Record the
 backup location and counts. Originally: if the refresh has not happened yet, first: export `TRNLRS_traffic_turn` and the other network
@@ -247,6 +249,8 @@ artefact, and edits nobody can attribute. Separate them instead of fixing blind:
   none of this.
 
 ### 4. Re-extract, filter islands, refresh, rebuild, retest (Alex, then Robbie)
+
+**Status 2026-09-29:** re-extract done; WA exclusion applied (61 rows) and the island list still empty (waiting on Melanie); network rebuilt and granted; Robbie's retest and the gap check are pending.
 
 - Re-run the LRS extraction so `TRNLRS_TRN_STREET_VW` reflects the corrected data, and confirm by
   spot-checking Robbie's own FDMIDs, not just that a run completed.
@@ -281,11 +285,14 @@ artefact, and edits nobody can attribute. Separate them instead of fixing blind:
 
 ### Engineering hygiene, in parallel
 
+**Status 2026-09-29:** the template now has Directions (untested by a create; live QA network still lacks them), and `CreateNetworkDatasetFromTemplate` is proven end to end on QA. The `LRS_updates.py` `append_feature()` fix, turn-OID stability and Prod are still open.
+
 - Configure **Directions** on the live QA network (Base Name `STR_NAME`, Suffix Type `STR_TYPE`,
   Full Name `FULL_NAME`), then re-export and re-commit `network_template.xml`. Both currently
   lack it.
-- Fix `append_feature()` in `LRS_updates.py` to use `DeleteRows`. As written,
-  `sync_network_edge_source()` fails with `ERROR 001395` on the first real run.
+- ~~Fix `append_feature()` in `LRS_updates.py` to use `DeleteRows`.~~ **Done 2026-09-29:**
+  `sync_network_edge_source()` now delegates to `04_sync_and_rebuild_network.sync_and_rebuild()`
+  (DeleteRows plus the edge exclusions). Untested against arcpy; the first real run is the test.
 - Prove `CreateNetworkDatasetFromTemplate` end to end (create and build) on the next rebuild.
 - Decide the turn-OID-stability approach before Prod. Every refresh, including the one planned
   now, forces a turn remap because of it.
@@ -302,6 +309,8 @@ artefact, and edits nobody can attribute. Separate them instead of fixing blind:
   topology may mishandle grade-separated crossings if their geometry shares endpoints.
 
 ### 7. Prove the automated rebuild path
+
+**Status 2026-09-29:** QA half done. `CreateNetworkDatasetFromTemplate` (create and build) and the `run_full_network_rebuild.py --use-existing-staging` workflow both ran on QA. Still open: deploying the updated `LRS_updates.py` after Prod's feature dataset exists, and one full LRS refresh with the network sync.
 
 - Test `CreateNetworkDatasetFromTemplate` with the corrected Python template. The template is
   verified structurally, but the repository records no successful template-driven rebuild with it.

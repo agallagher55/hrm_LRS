@@ -14,6 +14,39 @@ def count(path):
     return int(arcpy.management.GetCount(path)[0]) if arcpy.Exists(path) else None
 
 
+def export_outside_sde(timestamp):
+    """Copy the network sources into a file geodatabase outside SDE and check the counts."""
+    config.OUTPUT_DIR.mkdir(exist_ok=True)
+    gdb = arcpy.management.CreateFileGDB(
+        str(config.OUTPUT_DIR), f"qa_network_sources_{timestamp}.gdb"
+    ).getOutput(0)
+    counts = {}
+
+    for name, source in [
+        ("TRNLRS_TRN_STREET", config.EDGE),
+        ("TRNLRS_street_junction", config.JUNCTION),
+        ("TRNLRS_traffic_turn", config.TURN),
+    ]:
+        if not arcpy.Exists(source):
+            print(f"Not exported, not found: {source}")
+            continue
+
+        target = os.path.join(gdb, name)
+        arcpy.management.CopyFeatures(source, target)
+
+        if count(source) != count(target):
+            raise RuntimeError(
+                f"Export count mismatch for {name}: source={count(source)}, copy={count(target)}"
+            )
+
+        counts[name] = count(target)
+        print(f"Exported {name}: {counts[name]:,} rows")
+
+    print(f"Sources exported outside SDE to {gdb}")
+
+    return {"gdb": gdb, "counts": counts}
+
+
 def main():
     load_and_validate_core_scripts()
     require_exists(config.TURN, "Live QA turn feature class")
@@ -30,11 +63,14 @@ def main():
             f"Backup count mismatch: source={source_count}, backup={backup_count}"
         )
 
+    offline = export_outside_sde(timestamp) if config.OFFLINE_BACKUP else None
+
     baseline = {
         "captured_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "qa_sde": config.QA_SDE,
         "network": config.NETWORK,
         "backup": backup,
+        "offline_backup": offline,
         "counts": {
             "edge": count(config.EDGE),
             "junction": count(config.JUNCTION),

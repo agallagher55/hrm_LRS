@@ -431,6 +431,9 @@
   <div class="note">
     <strong>Terminology:</strong> what the case calls the "junction network" is the ArcGIS <strong>network dataset</strong> <code>TRNLRS_street_network</code>, built inside the feature dataset <code>SDEADM.TRNLRS_network</code>. Junctions are one of its three sources. The small intersection errors matter because network datasets connect edges by <strong>coincident endpoints</strong>, so a segment that overshoots or falls short of an intersection does not form a junction there at all.
   </div>
+  <div class="note">
+    <strong>Updates since this page was prepared (2026-09-15).</strong> After the Prod upgrade to 11.5 and a fresh LRS extract, QA's network was recreated from the committed template and built on 2026-09-29: <strong>Edges 37,674, Junctions 16,187, Turns 1,184</strong>. The same five turns were rejected at build as on 2026-09-18 (staging turn Object IDs 686, 746, 747, 829 and 830: three real sub-metre gaps and two exact 0.0000 m coincidences), so they are not explained by Pro and geodatabase versions being out of step. The email draft further down is the 2026-09-15 text and has not been edited.
+  </div>
 </header>
 
 <section id="env">
@@ -440,7 +443,7 @@
   <table>
     <tr><th>Item</th><th>Value</th><th>Note</th></tr>
     <tr><td>ArcGIS Pro</td><td>3.3.5 for the original build (2026-06-26); 3.5.8 for the QA rebuild and all work from 2026-09-01 onward</td><td>The rebuild had to move to 3.5.8, see <code>ERROR 030386</code> below</td></tr>
-    <tr><td>Enterprise geodatabase</td><td>QA 11.5.0, Prod 11.3.0</td><td>All network work to date is in QA. Nothing is built in Prod yet.</td></tr>
+    <tr><td>Enterprise geodatabase</td><td>QA 11.5.0; Prod was 11.3.0 and was upgraded to 11.5 (finished by 2026-09-29)</td><td>All network work to date is in QA. Nothing is built in Prod yet. The 2026-09-29 rebuild ran after the upgrade.</td></tr>
     <tr><td>RDBMS</td><td>SQL Server 2022</td><td>QA instance <code>ms-gis-sql-q21</code>, Prod <code>ms-gis-sql-p21</code></td></tr>
     <tr><td>Coordinate system</td><td><code>NAD_1983_CSRS_2010_MTM_5_Nova_Scotia</code></td><td><strong>Projected, not geographic.</strong> This answers Esri's original question 3. XY tolerance 0.001 m, XY resolution 0.0001 m.</td></tr>
     <tr><td>Feature dataset spatial references</td><td>Identical across <code>SDEADM.TRNLRS</code>, <code>SDEADM.TRNLRS_network</code>, and the legacy <code>SDEADM.TRN_streets_routes</code></td><td>Confirmed. No reprojection happens on any copy step in this workflow, so no on-the-fly transform is introduced by it.</td></tr>
@@ -509,7 +512,7 @@
     <h3><span class="num">4</span> Create the network dataset</h3>
     <p class="why">Originally <code>arcpy.na.CreateNetworkDatasetFromTemplate</code>; since 2026-09-01, Pro's interactive New Network Dataset wizard.</p>
     <div class="body">
-      <p>The original path exported an XML template off the legacy network with <code>CreateTemplateFromNetworkDataset</code>, edited it (renamed sources, cleared elevation field references), and recreated from it. That path is currently blocked, see <code>ERROR 030386</code> in the error table.</p>
+      <p>The original path exported an XML template off the legacy network with <code>CreateTemplateFromNetworkDataset</code>, edited it (renamed sources, cleared elevation field references), and recreated from it. That path was blocked on 2026-09-01, see <code>ERROR 030386</code> in the error table. <strong>Update 2026-09-29:</strong> the re-exported Python template now creates and builds by script (created in about 13 seconds, built in about 9, no errors); an <code>ERROR 030386</code> earlier that day came from a stale July copy of the template on a shared drive, not from the committed template.</p>
       <p>QA's current network dataset was therefore created by hand: right-click <code>SDEADM.TRNLRS_network</code> &rarr; New &rarr; Network Dataset, add the three sources, configure attributes and evaluators, finish.</p>
     </div>
   </div>
@@ -520,7 +523,7 @@
       <ul>
         <li><strong>Connectivity:</strong> endpoint only, one connectivity group, version 1 policy on both edge and junction sources.</li>
         <li><strong>Elevation:</strong> <code>NetworkElevationModel</code> = 0 (none). The LRS pipeline does not segment elevation, so <code>FROM_ELEV</code> / <code>TO_ELEV</code> do not exist on the new edge source and all elevation field references were cleared. <strong>This matters for this case:</strong> with no elevation model, connectivity is decided purely by whether two endpoints coincide.</li>
-        <li><strong><code>Length</code></strong> cost attribute, metres, Python Field Script <code>!Shape!</code> on both directions.</li>
+        <li><strong><code>Length</code></strong> cost attribute, metres, Python Field Script <code>!Shape.STLength()!</code> on both directions (it was <code>!Shape!</code> in the 2026-09-01 build).</li>
         <li><strong><code>OneWay</code></strong> restriction, prohibited, Python Field Script reading <code>STR_DIR</code>.</li>
         <li><strong><code>TrafficTurn</code></strong> restriction, prohibited, constant <code>True</code> on the turn source.</li>
         <li><strong>Directions:</strong> Base Name &rarr; <code>STR_NAME</code>, Suffix Type &rarr; <code>STR_TYPE</code>, Full Name &rarr; <code>FULL_NAME</code>.</li>
@@ -600,7 +603,7 @@
   <details class="phase" open>
     <summary><span class="pill pill-partial">Citywide audit</span> 249 route intersections with no aligned edge endpoint</summary>
     <div class="body">
-      <p><code>network_dataset/scripts/06_check_junction_alignment.py</code> is a read-only diagnostic that compares every <code>TRNLRS_TRN_STREET</code> edge endpoint against <code>SDEADM.INT_RouteOnRoute</code>, the Route Intersection Class generated independently from <code>LRSN_Route</code> by <code>arcpy.locref.GenerateIntersections</code>. Run citywide on 2026-08-31:</p>
+      <p><code>network_dataset/scripts/diagnostics/06_check_junction_alignment.py</code> is a read-only diagnostic that compares every <code>TRNLRS_TRN_STREET</code> edge endpoint against <code>SDEADM.INT_RouteOnRoute</code>, the Route Intersection Class generated independently from <code>LRSN_Route</code> by <code>arcpy.locref.GenerateIntersections</code>. Run citywide on 2026-08-31:</p>
       <div class="stat-row">
         <div class="stat"><span class="n">249</span><span class="l">active route intersections with no edge endpoint within 1 cm</span></div>
         <div class="stat"><span class="n">221</span><span class="l">of those with no edge endpoint within 10 m at all</span></div>
@@ -781,7 +784,7 @@
 </section>
 
 <footer>
-  Sources: <code>network_dataset/docs/network_build_status.md</code>, <code>network_dataset/docs/network_dataset_script_review.md</code>, <code>network_dataset/docs/turn_rebuild_qa_test_runbook.md</code>, <code>network_dataset/docs/network_dataset_migration_plan.md</code>, <code>network_dataset/scripts/06_check_junction_alignment.py</code>, <code>scripts/LRS_updates.py</code>, and the "RE: LRS Network dataset" and "FW: Esri Case #04248942" email threads of 2026-09-11 and 2026-09-10.
+  Sources: <code>network_dataset/docs/network_build_status.md</code>, <code>network_dataset/docs/network_dataset_script_review.md</code>, <code>network_dataset/docs/turn_rebuild_qa_test_runbook.md</code>, <code>network_dataset/docs/network_dataset_migration_plan.md</code>, <code>network_dataset/scripts/diagnostics/06_check_junction_alignment.py</code>, <code>scripts/LRS_updates.py</code>, and the "RE: LRS Network dataset" and "FW: Esri Case #04248942" email threads of 2026-09-11 and 2026-09-10.
 </footer>
 
 </div>

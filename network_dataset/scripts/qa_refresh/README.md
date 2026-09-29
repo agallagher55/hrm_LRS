@@ -15,13 +15,13 @@ cd /d T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\qa_refresh
 
 | Order | Command | Purpose |
 |---|---|---|
-| 00 | `python 00_confirm_sources.py` | Read-only confirmation of the configured Prod input, QA target, live counts, and `MODDATE` ranges. |
-| 01 | `python 01_backup_and_baseline.py` | Save a timestamped QA turn backup and a JSON baseline report. |
-| 02 | `python 02_delete_network_sources.py` | Delete the network dataset first, then its three source classes. This is the first destructive step. Set `CONFIRM_DELETE_QA_NETWORK = True` in the script immediately before running it. |
-| 03 | `python 03_initial_build.py` | Copy a fresh Prod edge snapshot into QA and attempt the preliminary build. Creates and builds `TRNLRS_street_network` from the committed template (worked end to end on 2026-09-29). If it fails with `ERROR 030386`, first confirm the deployed `data\network_template.xml` is the committed one (see Troubleshooting); the interactive procedure below is the fallback. |
-| 04 | `python 04_remap_turns.py` | Create `TRNLRS_traffic_turn_staging` against the fresh edge copy. |
+| 00 | `python 00_confirm_sources.py` | Read-only confirmation of the configured Prod input, QA target, live counts, and `MODDATE` ranges. Also prints the size and date of the deployed scripts and template and warns about stale copies. |
+| 01 | `python 01_backup_and_baseline.py` | Save a timestamped QA turn backup and a JSON baseline report, and export the edge, junction and turn sources to a file geodatabase under `output/` that survives a database-level QA refresh (`OFFLINE_BACKUP` in `config.py`). |
+| 02 | `python 02_delete_network_sources.py` | Delete the network dataset first, then its three source classes. This is the first destructive step. Refuses to run without a recent (24 hour) step 01 backup, and its export outside SDE, that still exist. Set `CONFIRM_DELETE_QA_NETWORK = True` in the script immediately before running it. |
+| 03 | `python 03_copy_sources.py` | Copy the edge source from Prod (minus the WA and island exclusions) and the junction and raw turn classes from QA's legacy classes into `SDEADM.TRNLRS_network`. **Creates and builds nothing**: the network is created and built once, in step 06, after the turn remap. |
+| 04 | `python 04_remap_turns.py` | Create `TRNLRS_traffic_turn_staging` against the fresh edge copy. Needs no network dataset. |
 | 05 | `python 05_verify_staging_turns.py` | Run the independent staging-turn verifier. Also complete the spatial review checklist before continuing. |
-| 06 | `python 06_swap_and_final_build.py` | Swap the exact reviewed staging class and perform the one final build. Set `CONFIRM_REVIEWED_STAGING = True` in the script only after completing the review. |
+| 06 | `python 06_swap_and_final_build.py` | Swap the exact reviewed staging class, then create the network from the template and build it once. Set `CONFIRM_REVIEWED_STAGING = True` in the script only after completing the review. Stops before changing anything if the deployed `run_full_network_rebuild.py` is a stale copy. |
 | 07 | `python 07_verify_live_turns.py` | Re-run the independent verifier against the live turn class after the swap. |
 
 After step 07, follow Phase 6 and Phase 7 in
@@ -33,7 +33,7 @@ here.
 
 ## Testing a template change without touching QA
 
-`python test_template_create.py` copies the three QA network sources into a scratch file
+`python test_template_create.py` (run it before step 02 after any template edit, since step 03 no longer creates a network) copies the three QA network sources into a scratch file
 geodatabase, creates and builds the network there from `data\network_template.xml`, exports a
 template back out, and checks the Directions settings survived. QA is only read, so it is safe
 while the live network is in use. Run it after any template edit, before relying on the edit in a
@@ -60,23 +60,30 @@ rebuild. It was written on 2026-09-29 and had not yet been run at the time of wr
 - Step 00 cannot prove historical provenance. It confirms current code paths
   and compares live metadata; spot-check known changed `FDMID` geometries in
   Prod and the QA network edge source.
-- Step 01 writes the turn backup inside the QA network feature dataset and a
-  baseline JSON file under `output/`. Copy the backup to independent storage if
-  required by the change plan.
+- Step 01 writes the turn backup inside the QA network feature dataset, a baseline JSON file
+  under `output/`, and a file geodatabase export of the three sources under `output/`
+  (git-ignored). The in-SDE backup is lost in a database-level QA refresh; the export is not.
+  Record the current SQL grants separately (see `network_dataset_sql_permissions.md`).
 - Steps 02 and 06 use confirmation globals, which default to `False`, so they
   cannot be launched destructively by an accidental double-click. Review the
   applicable prerequisites, set the global at the top of the script to `True`,
   run the step without arguments, and reset the global to `False` afterward.
-- Never manually click **Build Network** after steps 03 or 06.
+- Do not click **Build Network** by hand after step 06 unless you tick **Force Full
+  Build**. A forced manual rebuild after step 03 on 2026-09-29 did not stack system junctions
+  (the counts were identical). The earlier doubling (16,334 junctions and 37,728 edges) was seen
+  with plain builds, and its cause is unconfirmed. Whether the scripted `BuildNetwork` call
+  forces a full build is also unconfirmed.
 
 ## Troubleshooting
 
-### Step 03: `ERROR 030386` about VBScript evaluators in ArcGIS Pro 3.5.8
+### Step 06 or `test_template_create.py`: `ERROR 030386` about VBScript evaluators in ArcGIS Pro 3.5.8
+
+> Step 03 used to create and build a preliminary network, so this error surfaced there. Since 2026-09-29 step 03 only copies sources, and the network is first created in step 06 (or in `test_template_create.py`). The account below is written around the old step 03.
 
 > **Resolved 2026-09-29: check the deployed template first.** The 2026-09-29 failure was a
 > stale copy of `network_template.xml` on the T: drive (dated 2026-07-14, still VBScript
 > `Select Case`, no `Language` key). After copying the committed template over it,
-> `03_initial_build.py` created the network in about 13 seconds and built it in about 9 with
+> the old step 03 (now `03_copy_sources.py`) created the network in about 13 seconds and built it in about 9 with
 > 0 errors (Edges 37,674, Junctions 16,187, Turns 0). The committed template therefore works
 > under Pro 3.5.8, and steps 03 and 06 no longer need the interactive procedure. Script 03
 > now says so in its error text when the deployed template contains `Select Case`. Everything
@@ -106,14 +113,14 @@ hit `ERROR 030386` -- the only real test is running
 `CreateNetworkDatasetFromTemplate` against it. `../../data/network_template.xml`
 was re-exported and committed 2026-09-18 from a network that passed both the
 one-way and prohibited-turn smoke tests, and separately confirmed (via a
-disposable test network dataset) to clear evaluator validation -- but full
-unattended create-and-build success has not yet been observed end to end;
-see the "Open" note in `../../docs/roadmap_lrs_network.html`.
+disposable test network dataset) to clear evaluator validation. Full
+create-and-build success was then observed end to end on 2026-09-29 (see the
+note at the top of this section).
 
-The script now recognizes this error and prints this recovery direction in its
-terminal and log output. It cannot safely rewrite the evaluator identity or
-automate the Network Dataset wizard, so the interactive procedure is required
-until a genuinely Python-backed template has been exported and committed.
+The script recognizes this error and prints this recovery direction in its
+terminal and log output, and it now checks up front whether the deployed
+template still contains VBScript. The interactive procedure below is only
+needed if the committed template itself is ever rejected.
 
 When this happens, **do not rerun step 02**: step 03 copies the edge, junction,
 and raw turn sources before it attempts to create the network, so those fresh
