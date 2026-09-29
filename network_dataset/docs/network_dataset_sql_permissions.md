@@ -412,6 +412,30 @@ The four source tables' own grants are not reset by a network-dataset-only rebui
 network dataset's own `N_<id>`/`ND_<id>` tables were dropped and recreated), so they are
 expected to still be fine from 2026-09-01, but were not independently re-verified this cycle.
 
+## Pre-refresh snapshot (QA, `ms-gis-sql-q21`, 2026-09-29)
+
+Recorded before a planned QA-from-Prod refresh, so the grants can be restored afterwards.
+Nothing was changed; this is the state from the 2026-09-18 rebuild, confirmed by SQL.
+
+- **Registration groups.** `N_3` is 6 of 6 with `PUBLIC SELECT`; `ND_40192` is 2 of 2. The
+  legacy `N_2` (6 of 6) and `ND_7293` (2 of 2) are untouched. `ND_38752`, `ND_39207` and
+  `ND_396` (`DIRTYOBJECTS` only, 0 grants) are the known orphans, and `ND_12010`/`ND_21268`
+  are granted orphans. Nothing unexpected.
+- **Source tables.** All four have an identical pattern: `PUBLIC` SELECT;
+  `HRM\GIS_LRS_EVENT_EDITOR` SELECT, INSERT, UPDATE, DELETE; `sde` SELECT, INSERT, UPDATE,
+  DELETE. The four are `TRNLRS_TRN_STREET`, `TRNLRS_street_junction`, `TRNLRS_traffic_turn`,
+  and the system junction class, which is **`TRNLRS_NETWORK_JUNCTIONS`** (see the name note
+  in step 5). No table is missing a principal.
+- **To restore after a rebuild:** `PUBLIC SELECT` on the new `N_<id>` (6) and `ND_<id>` (2)
+  tables; `PUBLIC SELECT` and the four editor permissions on the four source tables (name the
+  system junction class as it exists after the rebuild). The `sde` grants are not part of the
+  manual procedure.
+- Raw output was saved as `qa_grants_audit_20260929.csv` and
+  `qa_source_table_grants_20260929.csv` (no header rows; columns are `reg_group, table_count,
+  example_table, tables_with_public_select` and `table_name, principal, permission_name`).
+
+---
+
 ## Historical status (QA, 2026-07-13, superseded above)
 
 | Table set | Status |
