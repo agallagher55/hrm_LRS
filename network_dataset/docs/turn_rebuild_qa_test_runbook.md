@@ -339,7 +339,11 @@ arcpy.management.Rename(fd + r"\SDEADM.TRNLRS_traffic_turn_staging", "TRNLRS_tra
 python 03_create_network_dataset.py
 ```
 
-**This fails with `ERROR 030386`.** `network_dataset/data/network_template.xml`'s `Length` and `OneWay`
+> **Superseded 2026-09-29.** The failure described below was the VBScript template that existed
+> on 2026-09-01. The committed template is now Python and creates and builds by script (see
+> `scripts/qa_refresh/README.md`); the interactive procedure is a fallback only.
+
+**This failed with `ERROR 030386` on 2026-09-01.** `network_dataset/data/network_template.xml`'s `Length` and `OneWay`
 evaluators are VBScript, which ArcGIS Pro 3.5 refuses to build a network dataset from at all.
 Do not chase this by trying to edit the evaluators on an already-built network dataset in
 Properties — Dev's existing ND was tried and is permanently "Read-only network dataset" for

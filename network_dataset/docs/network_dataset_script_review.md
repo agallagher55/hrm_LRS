@@ -820,10 +820,10 @@ now actively mislead:
    `BOTH` (15,812), `FOTD` (2,792), `NULL` (7), `FDTO` (1). No codes exist beyond what the
    evaluator already handles.
 7. ~~Export the corrected template and commit it over `network_dataset/data/network_template.xml`.~~
-   **Done 2026-09-03.** **Still open: confirm `03_create_network_dataset.py` can actually
-   rebuild from it (gap #13)** — `CreateNetworkDatasetFromTemplate` with Python evaluators has
-   never been tested in this project. Until this is confirmed, there is no proven automated
-   rebuild path and the LRS-refresh automation story is unverified.
+   **Done 2026-09-03.** **Confirmed 2026-09-29 (gap #13 closed):**
+   `03_create_network_dataset.py` created and built the network from the committed template
+   with 0 errors, and the step 06 orchestrator repeated it with the reviewed turn class. The
+   LRS-refresh automation story (`LRS_updates.py` on Prod) is still unproven.
 8. **Rebuild Dev the same way** (gap #16) — and do it before anything happens to Dev's network
    dataset, because it is currently the only surviving copy of the original VBScript logic.
 9. **Re-apply Dev's SQL grants** (still pending since 07-14) using the procedure in
@@ -907,7 +907,7 @@ destroyed and recreated the turn FC again), #8 (prod topology/ownership), #9 (co
 |---|---|---|
 | 11 | **9 turns rejected at build with `Cannot find at junction`.** 7 explained: script 05's `SNAP_TOLERANCE = 0.5` is looser than the network's build-time XY tolerance (`0.001`), so genuine 0.006–0.41 m gaps in `TRNLRS_TRN_STREET` pass the remap but fail the build. **2 are unexplained** — an exact 0.0000 m coincidence that still failed. | Small (0.76% of turns unenforced) but the 2 unexplained ones mean the failure mode isn't fully understood. Worth checking whether a third turn referencing the same shared edge is the real culprit. |
 | 12 | **Is the `SNAP_TOLERANCE` / build-tolerance mismatch worth fixing?** Options: tighten the script (rejects more turns), snap the 7 real gaps in the edge source (surgical, ~7 vertices), or accept it. | Recurs on every rebuild. Nobody has decided. |
-| 13 | **Can `03_create_network_dataset.py` rebuild from a Python-evaluator template at all?** `CreateNetworkDatasetFromTemplate` has never been run against one in this project. | If it can't, the automated rebuild path stays broken and every future rebuild needs the manual wizard — which also breaks the LRS-refresh automation story. |
+| 13 | ~~**Can `03_create_network_dataset.py` rebuild from a Python-evaluator template at all?**~~ **Closed 2026-09-29: yes.** Created in about 13 s and built in about 9 s, 0 errors; an earlier failure that day was a stale VBScript copy of the template on the T: drive. | If it can't, the automated rebuild path stays broken and every future rebuild needs the manual wizard — which also breaks the LRS-refresh automation story. |
 | 14 | ~~What is `STR_DIR`'s full domain?~~ **Closed 2026-09-03.** `BOTH` (15,812), `FOTD` (2,792), `NULL` (7), `FDTO` (1) — nothing beyond the four values the evaluator already handles. | — |
 | 15 | **Are `N` and `T` (both-directions-blocked) intentional?** Still open — the domain query (#14) found zero rows with either code, so this is moot for current data, but the codes remain in the evaluator for whenever/if such a row appears. | Low urgency now; revisit if `N`/`T` ever shows up in the data. |
 | 16 | **Dev has no migration path yet.** It is still VBScript, permanently read-only, and cannot be rebuilt from the stale template either. | Dev is now behind QA and will need the same from-scratch treatment. Its live network is currently the *only* place the original VBScript logic exists. |

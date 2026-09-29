@@ -1,8 +1,9 @@
-"""Copy fresh sources and attempt the preliminary QA network build.
+"""Copy fresh sources and create and build the preliminary QA network.
 
-ArcGIS Pro 3.5.8 currently rejects the committed template with ERROR 030386 because
-its scripted evaluators retain a legacy VBScript evaluator identity. See the
-README's step 03 troubleshooting section before rerunning a failed build.
+The committed Python template creates and builds by script (first observed on
+2026-09-29). If this fails with ERROR 030386, compare the deployed
+data/network_template.xml with the repo copy first: the failure on 2026-09-29 was a stale
+VBScript copy on the T: drive. See the README's step 03 troubleshooting section.
 """
 
 from _shared import load_and_validate_core_scripts

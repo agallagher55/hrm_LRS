@@ -353,6 +353,11 @@
     QA has a working, editable network dataset, and both hard restriction types (one-way and prohibited turns) are proven correct with real solve tests. That was the hard part, and it is done. What is left is acceptance testing, a handful of data-policy decisions that need a business owner rather than an engineer, and turning the rebuild into something that survives a Prod cutover unattended. Dev still runs the original VBScript-based build and cannot be edited in place. Prod has nothing built yet. Treat this as late validation and pre-production, not production-ready.
   </div>
 
+  <div class="callout">
+    <strong class="tag">Changed 2026-09-29: QA rebuilt by script and handed to Robbie</strong>
+    After the Prod 11.5 upgrade and the LRS re-extract, QA's network was recreated through the <code>qa_refresh</code> procedure: <strong>Edges 37,674, Junctions 16,187, Turns 1,184</strong>, the same five turns rejected as on 2026-09-18. The corrected Python template <strong>created and built by script</strong>; an earlier failure that day was a stale July copy of the template on the T: drive. SQL grants are applied (<code>N_3</code>, <code>ND_40986</code>) and a non-admin login can open the network. Still open: smoke tests, confirming the gaps are actually gone, Directions on the live network, and Robbie's retest. Details in <code>network_build_status.md</code>.
+  </div>
+
   <div class="callout" style="border-left-color: var(--blocked);">
     <strong class="tag" style="color: var(--blocked);">Changed since 2026-09-15 (meetings of 2026-09-23 and 2026-09-24)</strong>
     <strong>Testing restarted and paused again on 57 new, untraceable issues.</strong> Melanie Parker and Ryan Lowe cannot find where they came from (islands such as McNabs, a newly snapped street, an overshoot, address-range overlaps, no revision dates). They are in Prod. Separately, Robbie Evans's Pro is now 3.5.8 while the Prod geodatabase is still 11.3.0, and Melanie has seen gaps and overlaps appear in that mismatch; the Prod upgrade to 11.5 was planned for 2026-09-26/27. That does not explain the same errors appearing in QA (already 11.5.0), so the cause is open. <strong>Esri (2026-09-22)</strong> found no workaround and may file a data-specific defect report; the team agreed to share the file geodatabase with Esri Inc. <strong>Two networks are planned</strong>: this distance network and a later HRFE network with speed and extra inclusions/exclusions. <strong>Risk:</strong> a wholesale QA refresh from Prod would erase QA's network dataset and remapped turns, because Prod has no <code>TRNLRS_network</code>. Confirmed by Alex on 2026-09-29: the Prod geodatabase upgrade happened, QA has not been refreshed, the overview has not gone to Ryan, and the next check-in is Tuesday 2026-09-29. Nothing else after 2026-09-18 is confirmed in this repository. See <code>meetings/2026-09-23_and_2026-09-24_check_in_notes.md</code> and the rewritten next steps in <code>street_network_meeting_overview.md</code>.
@@ -460,7 +465,7 @@
     <summary><span class="pill pill-partial">Mixed by environment</span> Phase 4: Create and build the network dataset</summary>
     <div class="body">
       <div class="stat-row">
-        <div class="stat"><span class="n">✅ QA</span><span class="l">rebuilt from scratch 2026-09-01</span></div>
+        <div class="stat"><span class="n">✅ QA</span><span class="l">rebuilt from the template 2026-09-29</span></div>
         <div class="stat"><span class="n">⚠️ Dev</span><span class="l">original 2026-06-26 build, read-only</span></div>
         <div class="stat"><span class="n">❌ Prod</span><span class="l">nothing built</span></div>
       </div>
@@ -544,19 +549,19 @@ End Select                                  End Select</code></pre>
     <h3><span class="num">1</span> Establish the current live baseline</h3>
     <p class="why">The repository's docs are several days ahead of the last time anything was actually queried live. Cheap to do, and it's the foundation everything after this decision rests on.</p>
     <ul class="todo">
-      <li>In QA, confirm directly: network build date, source feature counts, turn count in Properties, current evaluator definitions, and a fresh <code>BuildErrors_&lt;guid&gt;.txt</code></li>
-      <li>Record the result as one short, dated run report</li>
+      <li class="done"><span class="tag">2026-09-29</span> In QA, confirm directly: network build date, source feature counts, turn count in Properties, current evaluator definitions, and a fresh <code>BuildErrors_&lt;guid&gt;.txt</code></li>
+      <li class="done"><span class="tag">2026-09-29</span> Record the result as one short, dated run report (the run table in <code>network_build_status.md</code>)</li>
     </ul>
   </div>
 
   <div class="milestone">
     <h3><span class="num">2</span> Prove the automated rebuild path</h3>
-    <p class="why">Right now the only way to build this network dataset correctly is the manual interactive wizard. Nothing about this project survives a Prod cutover, or a future evaluator change, without a rebuild path that doesn't depend on someone remembering 6 wizard steps.</p>
+    <p class="why">Until 2026-09-29 the only way to build this network dataset correctly was the manual interactive wizard; the template path now works on QA. Nothing about this project survives a Prod cutover, or a future evaluator change, without a rebuild path that doesn't depend on someone remembering 6 wizard steps.</p>
     <ul class="todo">
-      <li>Test <code>CreateNetworkDatasetFromTemplate</code> against the corrected Python-evaluator <code>network_dataset/data/network_template.xml</code> (never actually tried in this project)</li>
+      <li class="done"><span class="tag">2026-09-29</span> Test <code>CreateNetworkDatasetFromTemplate</code> against the corrected Python-evaluator <code>network_dataset/data/network_template.xml</code>: created and built with 0 errors. The Directions block merged into the template afterwards is still untested (<code>qa_refresh/test_template_create.py</code>)</li>
       <li>Fix <code>LRS_updates.py</code>'s <code>append_feature()</code> to use <code>DeleteRows</code> instead of <code>TruncateTable</code> before it ever runs against prod</li>
       <li>Decide the turn-OID-stability question: an LRS refresh truncates and reloads <code>TRNLRS_TRN_STREET</code>, which reassigns every row's <code>OBJECTID</code> and silently breaks every turn's edge reference. The documented claim that "turns don't need rebuilding on each refresh" is incorrect. Pick one: remap turns every refresh cycle, make edge <code>OBJECTID</code>s stable via a keyed update instead of truncate/reload, or store turns against a stable street-identity key and re-derive edge references at build time.</li>
-      <li>Run <code>network_dataset/scripts/run_full_network_rebuild.py</code> end to end in a non-production environment</li>
+      <li class="done"><span class="tag">2026-09-29</span> Run <code>network_dataset/scripts/run_full_network_rebuild.py</code> end to end in a non-production environment (QA, via <code>qa_refresh</code> step 06)</li>
       <li>Deploy the updated <code>LRS_updates.py</code>, but only after Prod's feature dataset and network actually exist</li>
       <li>Run one full LRS refresh end to end and confirm: source refresh, edge-copy sync, one network build, expected source/element counts, a clean build-errors file, permissions, and a smoke solve</li>
     </ul>
@@ -569,11 +574,11 @@ End Select                                  End Select</code></pre>
       <li class="done"><span class="tag">2026-09-11</span> Robbie Evans's independent expert testing, requested 2026-09-09 &ndash; <strong>stopped early</strong>, roughly 500 streets flagged as not calculating due to dangling segments while editing. Not a pass or a fail; he never reached the restriction tests.</li>
       <li><span class="tag">Robbie</span> Send the roughly 500 flagged locations to Melanie Parker</li>
       <li><span class="tag">LRS team</span> Correct the flagged geometry at source. Volume and effort unknown until the list lands. Mel and Ryan expected to share it.</li>
-      <li><span class="tag">Alex</span> Confirm the corrections are actually present in Prod's <code>TRNLRS_TRN_STREET_VW</code>, by spot-checking Robbie's own FDMIDs, not just by checking that a refresh ran</li>
-      <li><span class="tag">Alex</span> Refresh QA per <a href="qa_network_refresh_runbook.html">the QA refresh runbook</a>: sync edge copy &rarr; re-remap turns &rarr; verify &rarr; swap &rarr; recreate &rarr; Force Full Build &rarr; re-apply SQL grants. Roughly half a day. <strong>Not</strong> a truncate-and-load.</li>
+      <li><span class="tag">Alex</span> Re-extract done 2026-09-29; still to do: confirm the corrections are actually present in Prod's <code>TRNLRS_TRN_STREET_VW</code>, by spot-checking Robbie's own FDMIDs, not just by checking that a refresh ran</li>
+      <li class="done"><span class="tag">2026-09-29</span> Done by script rather than a database refresh: QA's network was rebuilt through the qa_refresh procedure. Original item: Refresh QA per <a href="qa_network_refresh_runbook.html">the QA refresh runbook</a>: sync edge copy &rarr; re-remap turns &rarr; verify &rarr; swap &rarr; recreate &rarr; Force Full Build &rarr; re-apply SQL grants. Roughly half a day. <strong>Not</strong> a truncate-and-load.</li>
       <li><span class="tag">Decision</span> Refresh QA once at the end, or in batches as corrections land? Each refresh is a half-day rebuild, so batching is cheaper; one early partial refresh would confirm a fixed segment actually resolves the editing error before the LRS team works through all 500 on that assumption.</li>
       <li>Check whether Robbie's roughly 500 overlap the 7 sub-metre turn-build gaps and the 4 plain-street junction anomalies. If they do, the corrections may close some of the 5 rejected turns for free, visible as that count dropping in the next build-errors file.</li>
-      <li>Robbie retests the refreshed QA network (turn and one-way restrictions)</li>
+      <li><span class="tag">Robbie</span> Retest the refreshed QA network (turn and one-way restrictions). Handed over 2026-09-29 after grants and a non-admin add-to-map check; smoke tests still to record</li>
       <li>Run side-by-side Route solves against the legacy network and compare path and length cost: ordinary streets, divided roads, bridges/underpasses, and rural roads</li>
       <li>Perform the still-undone address-range / geocoding field checks</li>
       <li>Re-run a smaller service-area comparison framed consistently as distance (a genuine 5-minute test needs a time cost attribute, which doesn't exist yet)</li>
@@ -587,10 +592,10 @@ End Select                                  End Select</code></pre>
     <p class="why">These need a GIS/transportation business owner to decide, not more engineering. Several have been open since the first QA review on 2026-06-29.</p>
     <ul class="todo">
       <li>Transit access roads (<code>STR_TYPE</code> ≈ <code>ATA</code>): include or exclude from vehicle routing</li>
-      <li>Water access roads (<code>STR_TYPE = 'WA'</code>): civic addresses are geocoded to them, so exclusion needs care, not a blanket filter</li>
+      <li class="done"><span class="tag">2026-09-29</span> Water access roads (<code>STR_TYPE = 'WA'</code>): excluded from the network's edge copy only (61 rows), not from <code>TRNLRS_TRN_STREET_VW</code>, because civic addresses are geocoded to them</li>
       <li>George's Island road segment: present in the network but not reachable by road; should likely be excluded</li>
       <li>Emergency turnarounds in the turn source: possible exclusion flagged by Robbie, never confirmed</li>
-      <li>Confirm whether Mel's hand-authored Cogswell ramp turns survived the 2026-09-01 turn-FC swap, or were destroyed by it (depends on whether they were authored against the old turn table, which is carried through each remap, or directly against the live <code>TRNLRS_traffic_turn</code>, which is not)</li>
+      <li class="done"><span class="tag">2026-09-29</span> Closed by count: the step 01 backup held 1,189 records, equal to the remap output, so nothing hand-authored existed. Original question: confirm whether Mel's hand-authored Cogswell ramp turns survived the 2026-09-01 turn-FC swap, or were destroyed by it (depends on whether they were authored against the old turn table, which is carried through each remap, or directly against the live <code>TRNLRS_traffic_turn</code>, which is not)</li>
       <li>Bishop St (<code>TRNLRS_TRN_STREET</code> OID 12002): geometry confirmed digitized backwards relative to its real-world sign (2026-09-03, confirmed with HRM's GIS team). Scope of a wider audit is unknown; only this one edge has been checked.</li>
       <li>Manually review 4 plain-street junction anomalies with no grade-separation excuse: Hemlock Dr / High Timber Dr (8.7 m offset), Wright Ave / Countryview Dr (9.36 m), Skreia Rd / Sailview Lane (6.26 m), Massachusetts Ave / Lady Hammond Rd (7.44 m)</li>
       <li>Confirm whether no elevation modelling (endpoint-only connectivity) is acceptable for first release, particularly at grade-separated crossings whose geometry happens to share endpoints</li>

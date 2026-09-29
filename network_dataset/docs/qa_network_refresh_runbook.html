@@ -343,6 +343,15 @@
     margin: 14px 0;
     font-size: 13.8px;
   }
+  .warning {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blocked);
+    border-radius: 6px;
+    padding: 11px 14px;
+    margin: 14px 0;
+    font-size: 13.8px;
+  }
   .email {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -414,7 +423,7 @@
 
 <header class="hero" id="answer">
   <h1>Refreshing the Street Network in QA</h1>
-  <p class="meta">Prepared <strong>2026-09-15</strong> &middot; Written in response to Robbie Evans's 2026-09-11 acceptance testing and Jillian Landry's direction to hold testing until the source errors are fixed</p>
+  <p class="meta">Prepared <strong>2026-09-15</strong> &middot; Written in response to Robbie Evans's 2026-09-11 acceptance testing and Jillian Landry's direction to hold testing until the source errors are fixed &middot; Last updated <strong>2026-09-29</strong> after the first full scripted run</p>
   <p class="meta">Compiled from what is committed to this repository. Verify against the live QA environment before running anything; where the two disagree, QA is the authority.</p>
 
   <div class="answer">
@@ -438,6 +447,10 @@
 
   <div class="note" style="border-left-color: var(--blocked);">
     <strong>Do not run a wholesale QA-from-Prod refresh without protecting the network first (added 2026-09-29).</strong> The 2026-09-24 meeting agreed to refresh all of QA from Prod over the upgrade weekend. Prod has no <code>SDEADM.TRNLRS_network</code> feature dataset and no network dataset, so a database-level refresh removes QA's network dataset, its remapped <code>TRNLRS_traffic_turn</code>, the turn backup that step 01 writes inside that same feature dataset, any hand-authored turns, and all SQL grants on it. Before such a refresh: export the network sources to a file geodatabase outside SDE and record the grants. After it: run this procedure from Phase 3 onward (Phase 2's deletes are effectively done for you, but Phase 3 still builds the network, and the turn remap, final build, and grants all have to be redone). A data-level copy that leaves the network feature dataset alone is not affected. Confirm which method is used.
+  </div>
+
+  <div class="note">
+    <strong>Executed 2026-09-29.</strong> This procedure ran end to end on QA by script, without a database refresh, after the Prod 11.5 upgrade and the LRS re-extract. Results: <strong>Edges 37,674, Junctions 16,187, Turns 1,184</strong>; remap 1,189 written and 49 skipped (4.0%); both verifiers 10 of 10; the same five turns rejected at build as on 2026-09-18. What differed from the plan below: the corrected template <strong>did</strong> create and build by script (the one 030386 failure was a stale July copy of the template on the T: drive); a second stale T: file, <code>run_full_network_rebuild.py</code>, broke the first try at step 06; the source classes kept their SQL grants after being recreated, so only the <code>N_3</code> and <code>ND_40986</code> sets needed granting; and the Phase 3 build is only a rehearsal, since Phase 5 deletes and recreates the network anyway. See <code>network_build_status.md</code> for the run table.
   </div>
 </header>
 
@@ -505,11 +518,11 @@
   <table>
     <tr><th>#</th><th>Step</th><th>Owner</th><th>Status</th></tr>
     <tr><td>1</td><td>Robbie sends the roughly 500 flagged locations to Melanie Parker</td><td>Robbie Evans</td><td>Committed to in his 2026-09-11 email</td></tr>
-    <tr><td>2</td><td>Corrections made in the LRS source (routes / event data)</td><td>LRS team, Mel and Ryan</td><td>Not started. Volume unknown until the list lands.</td></tr>
-    <tr><td>3</td><td>Prod LRS refresh regenerates <code>TRNLRS_TRN_STREET_VW</code> with the corrections</td><td><code>LRS_updates.py</code> on its normal cycle</td><td>Automatic once step 2 lands</td></tr>
-    <tr><td>4</td><td><strong>Confirm the corrections are actually present in Prod's <code>_VW</code></strong> before refreshing QA</td><td>Alex</td><td>Do not skip. See the procedure's Phase 1.</td></tr>
-    <tr><td>5</td><td>Refresh QA using the procedure below</td><td>Alex</td><td>Roughly half a day</td></tr>
-    <tr><td>6</td><td>Robbie retests</td><td>Robbie Evans</td><td></td></tr>
+    <tr><td>2</td><td>Corrections made in the LRS source (routes / event data)</td><td>LRS team, Mel and Ryan</td><td>Largely done by 2026-09-24 (Mel and Ryan); 57 new unexplained issues remained</td></tr>
+    <tr><td>3</td><td>Prod LRS refresh regenerates <code>TRNLRS_TRN_STREET_VW</code> with the corrections</td><td><code>LRS_updates.py</code> on its normal cycle</td><td>Re-extract done after the 11.5 upgrade (Alex, 2026-09-29)</td></tr>
+    <tr><td>4</td><td><strong>Confirm the corrections are actually present in Prod's <code>_VW</code></strong> before refreshing QA</td><td>Alex</td><td>Spot-check of Robbie's own FDMIDs still to do. See the procedure's Phase 1.</td></tr>
+    <tr><td>5</td><td>Refresh QA using the procedure below</td><td>Alex</td><td>Done 2026-09-29, by script and without a database refresh</td></tr>
+    <tr><td>6</td><td>Robbie retests</td><td>Robbie Evans</td><td>Handed over 2026-09-29; smoke tests and the gap check still to record</td></tr>
   </table>
   </div>
 
@@ -616,8 +629,8 @@ arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_traffic_turn")</code></pre>
     <div class="body">
       <p><strong>This cycle exists because nothing in this repository refreshes the edge and junction feature-dataset copies independently of a full network build.</strong> <code>03_create_network_dataset.py</code>'s <code>copy_fc_to_fd()</code> only copies a source if the destination does not already exist, and network creation is bundled into that same script call &mdash; there is no "just refresh the copies" mode. Since Phase 2 deleted all three sources, running script 03 now copies a fresh <code>TRNLRS_TRN_STREET</code> from <strong>Prod's</strong> <code>TRNLRS_TRN_STREET_VW</code> (never QA's &mdash; see the note in <a href="#qavw">Why it is not a truncate and load</a>) and a fresh <code>TRNLRS_street_junction</code> from the legacy <code>TRN_street_junction</code>, and &mdash; because the turn class does not exist either &mdash; a raw, unremapped copy of legacy <code>TRN_traffic_turn</code>. It then creates and builds the network dataset immediately, against the corrected Python-evaluator template committed 2026-09-03.</p>
 <pre><code>python 03_create_network_dataset.py</code></pre>
-      <p><strong>Expect this build's errors file to show <code>Cannot find edge element corresponding to turn identifier N</code> for essentially every turn, and Properties to show Turns: 0.</strong> That is not a failure to chase here &mdash; the turn class attached in this cycle is the raw, pre-remap copy, and Phase 5 replaces it. What this cycle actually verifies: that the corrected template builds cleanly end to end via <code>CreateNetworkDatasetFromTemplate</code> for the first time in this project (the top open item on the roadmap), and that the fresh edge/junction copies are in place. Confirm the edge feature count matches Prod's <code>_VW</code> before moving on.</p>
-      <div class="note"><strong>If this fails with <code>ERROR 030386</code> or anything else,</strong> fall back to the interactive wizard: right-click <code>SDEADM.TRNLRS_network</code> &rarr; New &rarr; Network Dataset, add the three sources, endpoint connectivity, no elevation model, and the three attributes matching the template (<code>Length</code> as Python Field Script <code>!Shape!</code>; <code>OneWay</code> as the Python <code>oneway_restricted(!STR_DIR!)</code> function on Along/Against with <code>FDTO</code>/<code>FOTD</code> respectively; <code>TrafficTurn</code> as a constant). Build with <strong>Force Full Build</strong> checked. If it works, re-export the template afterward with <code>arcpy.na.CreateTemplateFromNetworkDataset</code> and diff it against the committed one before trusting the scripted path next time.</div>
+      <p><strong>Expect this build's errors file to show <code>Cannot find edge element corresponding to turn identifier N</code> for essentially every turn, and Properties to show Turns: 0.</strong> That is not a failure to chase here &mdash; the turn class attached in this cycle is the raw, pre-remap copy, and Phase 5 replaces it. What this cycle actually verifies: that the corrected template builds cleanly end to end via <code>CreateNetworkDatasetFromTemplate</code> (first observed end to end on 2026-09-29: created in about 13 seconds, built in about 9, 0 errors), and that the fresh edge/junction copies are in place. Confirm the edge feature count matches Prod's <code>_VW</code> before moving on.</p>
+      <div class="note"><strong>If this fails with <code>ERROR 030386</code>, first compare the deployed <code>data\network_template.xml</code> with the repo copy:</strong> on 2026-09-29 the failure was a stale July VBScript file on the T: drive, and copying the committed template over it fixed it. <strong>For anything else,</strong> fall back to the interactive wizard: right-click <code>SDEADM.TRNLRS_network</code> &rarr; New &rarr; Network Dataset, add the three sources, endpoint connectivity, no elevation model, and the three attributes matching the template (<code>Length</code> as Python Field Script <code>!Shape!</code>; <code>OneWay</code> as the Python <code>oneway_restricted(!STR_DIR!)</code> function on Along/Against with <code>FDTO</code>/<code>FOTD</code> respectively; <code>TrafficTurn</code> as a constant). Build with <strong>Force Full Build</strong> checked. If it works, re-export the template afterward with <code>arcpy.na.CreateTemplateFromNetworkDataset</code> and diff it against the committed one before trusting the scripted path next time.</div>
     </div>
   </details>
 
@@ -655,7 +668,7 @@ arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_street_network")      # releases t
 arcpy.management.Delete(FD + r"\SDEADM.TRNLRS_traffic_turn")        # the raw Phase-3 copy
 arcpy.management.Rename(FD + r"\SDEADM.TRNLRS_traffic_turn_staging", "TRNLRS_traffic_turn")</code></pre>
 <pre><code>python 03_create_network_dataset.py    # skips copying all three sources; creates + builds only</code></pre>
-      <p>Do not click Build Network again afterward in Pro on top of either path: a double build stacks two generations of system junctions, which is how a bogus 16,334 junctions / 37,728 edges showed up earlier in this project.</p>
+      <p>Do not click Build Network again afterward in Pro unless you tick Force Full Build: a double build stacked two generations of system junctions once (a bogus 16,334 junctions / 37,728 edges). A Force Full Build in Pro after step 03 on 2026-09-29 did not stack (identical counts), so the cause of the earlier doubling is unconfirmed.</p>
       <div class="note"><strong>Worth knowing, not yet confirmed:</strong> every scripted <code>BuildNetwork</code> call in this repository (scripts 03, 04, <code>LRS_updates.py</code>) is a bare <code>arcpy.na.BuildNetwork(nd_path)</code> with no explicit force-full-build argument. It does not matter for either build in this procedure &mdash; both are the first build of a brand-new network dataset instance, so there are no stale cached weight tables to inherit, which is specifically what Force Full Build guards against. It would matter a great deal for any future in-place evaluator edit against a scripted build path (script 04's steady-state Prod sync, in particular) &mdash; nobody has confirmed whether the scripted call defaults to full or incremental.</div>
       <p>And separately: a build that runs much longer than about two minutes on this network is almost certainly blocked on a SQL Server session, not working. Check Task Manager CPU first (near-idle means stuck), then ask whoever administers <code>ms-gis-sql-q21</code>. One of these ran for 18 hours before a DBA killed it.</p>
     </div>
@@ -670,6 +683,7 @@ WHERE schema_id = SCHEMA_ID('SDEADM')
   AND (name LIKE 'N\_%' ESCAPE '\' OR name LIKE 'ND\_%' ESCAPE '\')
 ORDER BY name;</code></pre>
       <p>Grant <code>SELECT</code> to <code>PUBLIC</code> on the six <code>N_&lt;id&gt;_*</code> tables and the two <code>ND_&lt;id&gt;_*</code> tables under whatever the new IDs turn out to be, plus all four source classes: <code>TRNLRS_TRN_STREET</code>, <code>TRNLRS_street_junction</code>, <code>TRNLRS_traffic_turn</code>, and the easily-missed auto-created <code>TRNLRS_street_network_Junctions</code>. Re-apply the editor writes to <code>HRM\GIS_LRS_EVENT_EDITOR</code> if turn editing is still expected.</p>
+      <div class="note"><strong>2026-09-29:</strong> the four source tables already carried <code>public</code> SELECT and the editor role's SELECT/INSERT/UPDATE/DELETE after being recreated (likely inherited from the feature dataset, unconfirmed), so only <code>N_3</code> and <code>ND_40986</code> needed granting. Run the four-table permissions query first and grant only what is missing. The system junction class is now named <code>TRNLRS_STREET_NETWORK_JUNCTIONS</code>.</div>
       <p>Then confirm with an actual add-to-map under an OS-auth connection, not by reading the grants back.</p>
     </div>
   </details>
@@ -678,8 +692,8 @@ ORDER BY name;</code></pre>
     <summary><span class="pill pill-notstarted">Phase 7</span> Smoke test before handing it back</summary>
     <div class="body">
       <ul>
-        <li><strong>Properties &rarr; Sources.</strong> Turns count must be nonzero and close to 1,184 (the 2026-09-18 figure). Zero means the remap did not take and the whole refresh is void.</li>
-        <li><strong>Build errors file.</strong> Open <code>BuildErrors_&lt;guid&gt;.txt</code> and confirm the GUID matches this run, not an earlier one. Expect zero <code>Cannot find edge element corresponding to turn identifier</code> lines; expect many harmless <code>Standalone user-defined junction is detected</code> warnings; expect a small number of <code>Cannot find at junction</code> lines and <strong>compare that count to the previous 9</strong>. If the source corrections worked, it should drop.</li>
+        <li><strong>Properties &rarr; Sources.</strong> Turns count must be nonzero and close to 1,184 (the 2026-09-18 and 2026-09-29 figure). Zero means the remap did not take and the whole refresh is void.</li>
+        <li><strong>Build errors file.</strong> Open <code>BuildErrors_&lt;guid&gt;.txt</code> and confirm the GUID matches this run, not an earlier one. Expect zero <code>Cannot find edge element corresponding to turn identifier</code> lines; expect many harmless <code>Standalone user-defined junction is detected</code> warnings; expect a small number of <code>Cannot find at junction</code> lines and <strong>compare that count to the previous 5</strong> (2026-09-18 and 2026-09-29; it was 9 on 2026-09-01). If the source corrections worked, it should drop.</li>
         <li><strong>One-way, both directions.</strong> Route along a <code>STR_DIR = 'FOTD'</code> street: allowed direction solves clean, wrong-way direction returns <code>ERROR 030212</code>. Then route an ordinary two-way street (Barrington St) in both directions and confirm both are clean. <strong>The two-way control is the one that matters</strong>, because a one-way-only test cannot distinguish correct logic from an evaluator accidentally restricting everything.</li>
         <li><strong>Prohibited turn, on and off.</strong> Solve across a known prohibited movement with <code>TrafficTurn</code> enabled, then disabled. Different results means it is enforced; identical results means it is not, whatever the Turns count says.</li>
       </ul>
@@ -725,7 +739,7 @@ ORDER BY name;</code></pre>
     <li><strong>Does <code>arcpy.na.BuildNetwork</code> default to a full build when called without an explicit force-full-build argument?</strong> Every scripted call in this repository omits it. Doesn't matter for either build in this procedure (both are first builds of a new network dataset instance), but matters a great deal the next time an evaluator is edited in place through a script rather than the interactive wizard &mdash; most relevantly, script 04's Prod steady-state sync path.</li>
     <li><strong>How many of the roughly 500 flagged locations are actually fixable in the LRS,</strong> and how long will that take? Neither the list nor an estimate exists yet. That number drives whether to batch the QA refresh or do it once.</li>
     <li><strong>Do the seven sub-metre turn-build gaps overlap Robbie's list?</strong> They are the same class of defect. If they do, the corrections may close those turn failures for free, which would show up as the <code>Cannot find at junction</code> count dropping below 9 in Phase 7.</li>
-    <li><strong>Were Mel's Cogswell ramp turns authored against the legacy turn table or the live one?</strong> Still unconfirmed. Determines whether they survive this refresh or were already lost in the 2026-09-01 swap.</li>
+    <li><strong>Were Mel's Cogswell ramp turns authored against the legacy turn table or the live one?</strong> <strong>Closed 2026-09-29.</strong> The step 01 backup held 1,189 records, the same as the remap output, so nothing hand-authored sat on the live class and nothing was lost.</li>
     <li><strong>Is the turn-OID-stability problem being solved, or lived with?</strong> Every refresh needs a full turn remap for as long as the answer is "lived with," and that is a real operational cost once Prod is live. The three options on the table are: remap every cycle, make edge OBJECTIDs stable with a keyed update instead of truncate and reload, or store turns against a stable street key and re-derive edge references at build time. This needs a decision before Prod cutover, not after.</li>
   </ul>
 </section>

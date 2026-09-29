@@ -7,6 +7,12 @@ your next QA refresh — several of these are easy to repeat if you don't know
 to look for them. `README.md` in this folder is the step-by-step procedure;
 this file is the accumulated "watch out for" knowledge that doesn't fit there.
 
+> **Status note (2026-09-29):** the 2026-09-18 sections below describe a run that needed the
+> interactive network recovery. That is no longer the normal path: on 2026-09-29 the committed
+> template created and built by script once the stale T: copy was replaced. Read the
+> "2026-09-29" sections at the end of this file first, and treat the interactive-recovery notes
+> as fallback history.
+
 ## Repo hygiene — resolved this session
 
 A second, stale copy of this entire folder existed at

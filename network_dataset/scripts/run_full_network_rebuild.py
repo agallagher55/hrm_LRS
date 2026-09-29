@@ -25,7 +25,8 @@ Two real bugs came out of running this cycle by hand:
    manual "Build Network" in Pro run in addition to a script-driven build),
    which stacked two generations of system junctions and edges on top of each
    other (16,334 junctions and 37,728 edges observed, both roughly double
-   sane values). This script guarantees BuildNetwork is called exactly once
+   sane values). A later Force Full Build in Pro on top of a scripted build
+   (2026-09-29) did not stack, so the cause of the doubling is unconfirmed. This script guarantees BuildNetwork is called exactly once
    per run by deleting any existing network dataset first and never calling
    build logic more than once.
 

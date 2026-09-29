@@ -1,15 +1,13 @@
 """
 Create the new TRN_street_network (LRS-based) from the modified XML template.
 
-Prerequisites (run in order):
-  1. network_dataset/scripts/01_extract_network_config.py  → network_dataset/data/network_template.xml
-  2. network_dataset/scripts/02_compare_schemas.py         → network_dataset/data/evaluator_field_map.json
-  3. Manually edit network_dataset/data/network_template.xml:
-       - Replace all references to SDEADM.TRN_street with the new edge source name
-       - Update any evaluator fieldName values flagged as ACTION REQUIRED
-       - Confirm junction source name (TRN_street_junction → new junction FC if renamed)
-       - Confirm turn source name (TRN_traffic_turn → TRNLRS_traffic_turn)
-     See network_dataset/docs/network_dataset_migration_plan.md for the full XML editing checklist.
+Prerequisites:
+  - network_dataset/data/network_template.xml is committed and already edited for the
+    TRNLRS_* sources (Python evaluators, no VBScript). The deployed copy must match the
+    repo copy: this script stops early if it still contains VBScript ('Select Case').
+    The original extraction steps (01_extract_network_config.py, 02_compare_schemas.py and
+    the manual XML edits in network_dataset_migration_plan.md) are history.
+  - For a QA rebuild, run this through network_dataset/scripts/qa_refresh (see its README).
 
 Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
   TRNLRS_TRN_STREET_VW is created by LRS_updates.py as a standalone SDE feature
@@ -172,14 +170,35 @@ def build_network(nd_path):
     logger.debug(f"BuildNetwork full messages:\n{arcpy.GetMessages()}")
 
 
+def check_template_is_not_stale():
+    """Stop before copying anything if the deployed template is the old VBScript one.
+
+    On 2026-09-29 a July copy of the template on the T: drive made
+    CreateNetworkDatasetFromTemplate fail with ERROR 030386, after the sources had
+    already been copied. The committed template is Python.
+    """
+    template_text = TEMPLATE_XML.read_text(encoding="utf-8")
+
+    if "Select Case" in template_text:
+        msg = (
+            f"The template at {TEMPLATE_XML} contains VBScript source ('Select Case'), "
+            "so it is a stale copy, not the committed Python template. Copy "
+            "network_dataset/data/network_template.xml from the repo over it and re-run."
+        )
+        logger.error(msg)
+        sys.exit(f"ERROR: {msg}")
+
+
 def main():
     if not TEMPLATE_XML.exists():
         msg = (
             f"Template XML not found at {TEMPLATE_XML}. "
-            "Run 01_extract_network_config.py and edit the template before proceeding."
+            "Copy network_dataset/data/network_template.xml from the repo to that path."
         )
         logger.error(msg)
         sys.exit(f"ERROR: {msg}")
+
+    check_template_is_not_stale()
 
     if not arcpy.Exists(FEATURE_DATASET):
         msg = f"Feature dataset not found: {FEATURE_DATASET}. Update FEATURE_DATASET to the correct path."
@@ -212,33 +231,12 @@ def main():
             logger.error(msg)
             sys.exit(f"ERROR: {msg}")
         if "ERROR 030386" in msgs:
-            stale_hint = ""
-
-            try:
-                with open(TEMPLATE_XML, encoding="utf-8") as template_file:
-                    template_text = template_file.read()
-
-                if "Select Case" in template_text:
-                    stale_hint = (
-                        f"The template at {TEMPLATE_XML} contains VBScript source "
-                        "('Select Case'), so it is a stale deployed copy, not the "
-                        "committed Python template. On 2026-09-29 this was the whole "
-                        "cause: copy network_dataset/data/network_template.xml from the "
-                        "repo over it and re-run this script (the source copies are "
-                        "skipped, so re-running is safe).\n\n"
-                    )
-            except OSError:
-                pass
-
             msg = (
-                stale_hint +
-                "ArcGIS rejected the network template because it still identifies "
-                "one or more Field Script evaluators as VBScript. If the template "
-                "is already the committed Python version, this is the older "
-                "ArcGIS Pro 3.5.8 blocker; changing its "
-                "Language values to Python did not convert the underlying evaluator. "
-                "The source feature classes were copied before network creation was "
-                "attempted, so do not delete or recopy them. Create "
+                "ArcGIS rejected the network template because it identifies one or more "
+                "Field Script evaluators as VBScript, even though the template passed the "
+                "up-front VBScript check. That would be a new problem with the committed "
+                "template. The source feature classes were copied before network creation "
+                "was attempted, so do not delete or recopy them. Create "
                 "TRNLRS_street_network interactively with Python evaluators, then "
                 "continue the QA workflow. See scripts/qa_refresh/README.md, "
                 "'Step 03: ERROR 030386', for the exact evaluator settings.\n\n"

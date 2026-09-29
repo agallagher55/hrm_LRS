@@ -1,5 +1,7 @@
 """Swap the reviewed staging turns and perform exactly one final build."""
 
+import inspect
+
 import config
 from _shared import load_and_validate_core_scripts, load_script, require_exists
 
@@ -18,6 +20,14 @@ def main():
     load_and_validate_core_scripts()
     require_exists(config.STAGING_TURN, "Reviewed staging turn feature class")
     orchestrator = load_script(config.FULL_REBUILD_SCRIPT, "qa_refresh_full_rebuild")
+
+    if "argv" not in inspect.signature(orchestrator.main).parameters:
+        raise RuntimeError(
+            f"{config.FULL_REBUILD_SCRIPT} is a stale copy: its main() takes no arguments. "
+            "Copy network_dataset/scripts/run_full_network_rebuild.py from the repo over it. "
+            "Nothing has been changed."
+        )
+
     orchestrator.main(["--use-existing-staging"])
 
 

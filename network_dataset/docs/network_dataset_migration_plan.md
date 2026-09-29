@@ -136,6 +136,10 @@ Script expressions (`[SHAPE.STLength()]` for Length; `[STR_DIR]` inside a Select
 OneWay) rather than direct field evaluators. `STR_DIR` is present and unchanged in the new
 source, so no evaluator changes are needed.
 
+> **Update 2026-09-29:** the corrected Python template now creates and builds by script
+> (`qa_refresh` step 03 and the step 06 orchestrator), and it carries a Directions block merged
+> in from the 2026-09-03 export (untested by a create).
+>
 > **⚠️ Superseded 2026-09-01.** "No evaluator changes are needed" was true of the *field
 > mappings*, but is now wrong about the evaluators themselves. VBScript evaluators are
 > deprecated and **must** be converted to Python: ArcGIS Pro 3.5 refuses to build a network
