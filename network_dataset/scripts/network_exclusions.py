@@ -12,10 +12,12 @@ Profiles
 --------
 Each network has its own exclusion profile:
 
-  GENERAL  the distance network (TRNLRS_street_network). WA streets and islands.
+  GENERAL  the distance network (TRNLRS_street_network). WA streets, UNDER REVIEW
+           streets and islands.
   HRFE     the fire and emergency network. Everything in GENERAL, plus the extra
            exclusions Robbie Evans listed (email thread "HRFE network dataset",
-           2026-09-01 to 2026-09-17).
+           2026-09-01 to 2026-09-29): emergency access roads, transit access
+           roads and ETAs.
 
 Scripts 03 and 04 use DEFAULT_PROFILE (GENERAL). The HRFE network is not built
 yet; when it is, its build passes profile="HRFE".
@@ -56,10 +58,16 @@ ISLAND_FDMIDS = []
 # WA = water access roads. Robbie Evans and Melanie Parker asked for these to be
 # removed (2026-09-23, confirmed 2026-09-29; Robbie confirmed STR_TYPE = 'WA' on
 # 2026-09-17).
+#
+# UNDER REVIEW streets are LRS placeholders (names like "UNDER REVIEW 329",
+# STR_TYPE 'UN', FCODE 'RRUR'), asked to be omitted on 2026-09-29. The name prefix
+# is the filter as requested. STR_TYPE 'UN' has 41 rows in Prod and is probably the
+# same set, but that has not been checked: run diagnostics/10_find_candidate_exclusions.py
+# and compare the two "Under review" counts before relying on this.
 GENERAL_PROFILE = {
     "str_types": ["WA"],
     "fdmids": list(ISLAND_FDMIDS),
-    "name_patterns": [],
+    "name_patterns": ["UNDER REVIEW%"],
 }
 
 # Extra HRFE exclusions, from Robbie Evans's 2026-09-01 and 2026-09-17 emails.
@@ -70,19 +78,23 @@ GENERAL_PROFILE = {
 #
 #   Transit access roads: he confirmed they look like "TA# RD". Run against Prod
 #   on 2026-09-29, 'TA[0-9]%' matches 124 rows (TA1 to TA52, all STR_TYPE RD); the
-#   looser 'TA%' adds 85 ordinary streets. Robbie confirmed the naming on
-#   2026-09-29; to be added here.
+#   looser 'TA%' adds 85 ordinary streets. Robbie confirmed on 2026-09-29 that no
+#   transit road has another name. One answer, on whether any should be kept, was
+#   ambiguous and is awaiting a follow-up.
 #
 #   ETAs (emergency turnarounds): small connectors between divided highways, 22
 #   rows named "HIGHWAY nnn ETA n" ('% ETA [0-9]%'). Robbie confirmed on
 #   2026-09-29 this is the full set and that HRFE routes are calculated without
-#   them; to be added here. Emergency access roads are evacuation only.
+#   them. Emergency access roads are evacuation only.
+#
+#   Expected effect on the HRFE edge copy: 211 rows from these four sets and WA
+#   (61 + 4 + 124 + 22, no shared FDMIDs), plus the UNDER REVIEW rows.
 #
 #   Record: docs/meetings/2026-09-29_HRFE_network_dataset_email_thread.md
 HRFE_EXTRA = {
     "str_types": [],
     "fdmids": [],
-    "name_patterns": ["%EMERGENCY ACCESS%"],
+    "name_patterns": ["%EMERGENCY ACCESS%", "TA[0-9]%", "% ETA [0-9]%"],
 }
 
 DEFAULT_PROFILE = "GENERAL"

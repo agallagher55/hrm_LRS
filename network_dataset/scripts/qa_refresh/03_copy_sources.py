@@ -14,8 +14,8 @@ def main():
     build, _, _ = load_and_validate_core_scripts()
     build.main(copy_only=True)
     print(
-        "Sources copied. Confirm the edge count equals Prod's minus the excluded WA/island "
-        "rows (see the 'Edge exclusions applied' log line) before step 04."
+        "Sources copied. Confirm the edge count equals Prod's minus the excluded WA, UNDER REVIEW "
+        "and island rows (see the 'Edge exclusions applied' log line) before step 04."
     )
 
 

@@ -15,7 +15,12 @@ network (email thread "HRFE network dataset", 2026-09-01 to 2026-09-17):
   - Emergency access roads: FULL_NAME LIKE '%EMERGENCY ACCESS%'. He says there
     are 4 (expect 4 rows).
   - ETAs (emergency turnarounds): small connectors between divided highways. He
-    gave no query, so the candidates below are guesses to help find them.
+    gave no query, so the candidate below is a guess. It found 22 rows, which he
+    confirmed on 2026-09-29 as the full set.
+
+Also checks UNDER REVIEW streets (names like "UNDER REVIEW 329", STR_TYPE 'UN'),
+which are omitted from every network. The name count and the STR_TYPE 'UN' count
+should agree; if they do not, look at the rows in the CSV before trusting the filter.
 
 For every candidate this prints the row count, the STR_TYPE / ST_CLASS mix of the
 matches, and the first rows. Every matched row is written to OUTPUT_CSV so it can
@@ -63,6 +68,8 @@ CANDIDATES = [
     ("Transit: TA + digit", "FULL_NAME LIKE 'TA[0-9]%'", "first choice for 'TA# RD'"),
     ("Transit: TA prefix", "FULL_NAME LIKE 'TA%'", "wider; look for ordinary names such as TAYLOR"),
     ("Transit: STR_TYPE ATA", "STR_TYPE = 'ATA'", "older guess from a noisy transcript"),
+    ("Under review: name", "FULL_NAME LIKE 'UNDER REVIEW%'", "the filter in the GENERAL profile"),
+    ("Under review: STR_TYPE UN", "STR_TYPE = 'UN'", "41 rows expected; should equal the name count"),
     (
         "ETA: name search",
         "FULL_NAME LIKE '%TURNAROUND%' OR FULL_NAME LIKE '%TURN AROUND%' "

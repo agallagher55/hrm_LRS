@@ -24,7 +24,7 @@ sync_and_rebuild() directly from LRS_updates.py:
     sync_and_rebuild()
 
 The reload goes through network_exclusions.py, which drops WA (water access)
-streets and any listed island FDMIDs, so the FD copy holds fewer rows than
+streets, UNDER REVIEW streets and any listed island FDMIDs, so the FD copy holds fewer rows than
 TRNLRS_TRN_STREET_VW by design.
 
 Once TRNLRS_TRN_STREET_VW is moved into the feature dataset permanently, this

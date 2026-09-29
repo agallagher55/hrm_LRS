@@ -129,8 +129,9 @@ His typed answer to the direction question (capitals are his):
   One answer (keep any or not) is ambiguous; see the table.
 - **Expected effect on the HRFE edge copy:** the four sets (WA 61, emergency access 4, transit
   124, ETAs 22) share no FDMIDs, so 211 rows come out, leaving 18,433 of Prod's 18,644. The
-  general network's copy stays at 18,583 (WA only). These are counts to check on the first
-  HRFE copy, not results.
+  general network's copy would be 18,583 (WA only). Both figures predate the later requirement
+  to omit UNDER REVIEW streets from every network (not part of this thread), which lowers each
+  by that count. These are counts to check on the first HRFE copy, not results.
 
 ---
 
