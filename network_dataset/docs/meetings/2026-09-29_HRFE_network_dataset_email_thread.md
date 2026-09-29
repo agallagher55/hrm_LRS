@@ -142,7 +142,7 @@ His typed answer to the direction question (capitals are his):
 |---|---|
 | Remove water access roads | Done in `network_exclusions.py` (profile `GENERAL`, so both networks). Ran in QA on 2026-09-29: 61 rows excluded, Edges 37,674. |
 | Remove emergency access roads | Confirmed by Robbie 2026-09-29. In the `HRFE` profile (`%EMERGENCY ACCESS%`, 4 rows). No HRFE network exists yet to apply it to. |
-| Remove transit access roads | Filter `TA[0-9]%` (124 rows) confirmed by Robbie 2026-09-29. All 124 removed, no exceptions (Alex's decision, closing his ambiguous answer). In the `GENERAL` profile, so both networks drop them. |
+| Remove transit access roads | Filter `TA[0-9]%` (124 rows) confirmed by Robbie 2026-09-29. All 124 removed, no exceptions (Alex's decision, which closes Robbie's ambiguous answer). In the `GENERAL` profile, so both networks drop them. |
 | Remove ETAs | Confirmed by Robbie 2026-09-29: 22 rows, complete set, remove for HRFE. In the `HRFE` profile. |
 | Break at the bridge trucks cannot cross | Not started. Needs the bridge location from Robbie. |
 | Add main routes outside HRM, broken at weak bridges | Not started. Needs a data source for the routes and the bridge list. |
