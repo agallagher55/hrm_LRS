@@ -31,8 +31,23 @@ After step 07, follow Phase 6 and Phase 7 in
 tests. Those DBA and interactive route checks are intentionally not automated
 here.
 
+## Testing a template change without touching QA
+
+`python test_template_create.py` copies the three QA network sources into a scratch file
+geodatabase, creates and builds the network there from `data\network_template.xml`, exports a
+template back out, and checks the Directions settings survived. QA is only read, so it is safe
+while the live network is in use. Run it after any template edit, before relying on the edit in a
+rebuild. It was written on 2026-09-29 and had not yet been run at the time of writing.
+
 ## Safety and configuration
 
+- **Check the deployed scripts and template against the repo before a run.** On 2026-09-29 two
+  stale copies on the T: drive each cost time: `data\network_template.xml` (July, VBScript) made
+  step 03 fail with `ERROR 030386`, and `scripts\run_full_network_rebuild.py` (old `main()` with
+  no arguments) made step 06 fail with a `TypeError`. Neither had changed anything, but compare
+  file sizes or hashes first.
+- Close Pro map layers, attribute tables and Properties dialogs that hold the QA network or its
+  sources before steps 02 and 06, which delete them.
 - `config.py` derives the repository folders from its own mapped `T:` path and
   holds the expected QA paths. Review it before every refresh. It deliberately
   avoids `Path.resolve()`, which would replace `T:` with the backing server name.

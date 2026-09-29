@@ -36,8 +36,13 @@ one-edge or gapped records and counted as successes. Expect the new run to
 report a HIGHER skip count. That is the real number, not a regression.
 
 Re-run 05 and record the new run below before working this checklist.
-Run number: ____________________
-Result:     ____ written / ____ skipped (____%)
+Run number: 2026-09-29 08:35 run (log: ...\logs\20260929_083522_05_rebuild_traffic_turns.log)
+Result:     1189 written / 49 skipped (4.0%) of 1238 input
+            skips: 33 missing_old_geometry, 11 no_shared_endpoint, 5 unresolved_edge
+            Edge1End integrity 1190/1194 (99.7%), edge DSID 40578
+            (Same figures as the 2026-09-18 run. The 1209/29 and 1209+29=1238
+            arithmetic in section 1 below is from the superseded July run: use
+            1189 + 49 = 1238.)
 
 --------------------------------------------------------------------------
 1. Record count sanity check

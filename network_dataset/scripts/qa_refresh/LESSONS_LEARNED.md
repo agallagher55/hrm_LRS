@@ -260,3 +260,42 @@ This is the first end-to-end template-driven create and build. Lessons:
 - **A run that printed its final message and then had to be stopped** (exit code
   `-1073741510`, interrupted) had already built the network; Properties showed Built at
   08:17:49. Check Properties before assuming a stopped run failed.
+
+### 2026-09-29, rest of the run (steps 04 to 07)
+
+- **Remap and verifier reproduced 2026-09-18 exactly:** 1,189 written, 49 skipped (4.0%), 99.7%
+  Edge1End agreement, 10 of 10 checks. The inputs (QA's legacy `TRN_street` and
+  `TRN_traffic_turn`) had not been refreshed, and the 61 excluded WA edges carried no turns.
+- **Every written turn has exactly two edges** (2,378 references for 1,189 turns).
+- **The step 01 backup closes the Cogswell ramp question by count.** It held 1,189 records,
+  the same as the previous remap, so nothing hand-authored sat on top of it.
+- **A staging turn keeps its geometry.** Staging OID 61 has the same 4.302219 m line as raw
+  OID 66, so a remapped turn can be matched to its legacy turn by geometry length.
+- **A second stale T: file:** `run_full_network_rebuild.py` there had `main()` with no
+  arguments, so step 06's `orchestrator.main(["--use-existing-staging"])` raised `TypeError`
+  before doing anything. Copy the repo version and rerun.
+- **Same five rejected turns as 2026-09-18** (staging OIDs 686, 746, 747, 829, 830, all
+  `Cannot find at junction`) on a rebuild done after the 11.5 upgrade and re-extract. Relevant to
+  the Esri case.
+- **Doubled log lines** during step 06 are cosmetic: script 03 and the orchestrator both
+  attach a logger.
+- **Not yet done at the time of writing:** grants under the new registration IDs, smoke tests,
+  Directions, template re-export, gap check, T: folder sync.
+
+### 2026-09-29, Directions merged into the template
+
+The 2026-09-03 export on T: (`network_template_3_5_8.xml`) still had Directions. Two pieces were
+copied unchanged into `data/network_template.xml`, and nothing else in the file changed (the diff
+is exactly two insertions and the result parses as XML):
+
+- the top-level `<NetworkDirections>` block (length in miles, `Length` as the length attribute),
+  placed between `<SupportsTurns>` and `<Properties>`;
+- the edge source's `<NetworkSourceDirections>` with `STR_NAME`, `STR_TYPE` and `FULL_NAME`,
+  placed right after the edge source's `<Properties>`.
+
+The junction source has none, as in the 2026-09-03 export. **Not yet proven:** no create has run
+with the merged template. Test it before relying on it: the next scripted rebuild will exercise
+it, and a failure there falls back to the previous template in git. The live network is not
+affected and still has no Directions; configure them in Properties, or wait for the next
+rebuild, which changes the registration IDs and so needs the grants redone.
+
