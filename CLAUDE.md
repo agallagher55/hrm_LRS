@@ -9,8 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ArcGIS Pro 3.3.5 for the original build. Network dataset work since 2026-09-01 is on **3.5.8**, and the
   Prod script host was **3.3.7** per Ryan's 2026-08-31 email to Esri. Verify the version before relying on
   any version-specific behaviour below.
-- Enterprise geodatabase: QA 11.5.0, Prod 11.3.0 until the upgrade to 11.5 planned for 2026-09-26/27
-  (not confirmed done in this repo).
+- Enterprise geodatabase: QA 11.5.0. Prod was 11.3.0 until the upgrade to 11.5, which Alex confirmed
+  finished on 2026-09-29 (planned for 2026-09-26/27; exact completion date and patch level not recorded).
+  Anything dated before that describing Prod as 11.3.0 is history.
 
 ### SQL Server instances
 - `ms-gis-sql-q21` → QA
@@ -59,10 +60,11 @@ be deleted to release the lock, then recreated (`CreateNetworkDatasetFromTemplat
 
 ### Client / geodatabase version mismatch can show phantom gaps and overlaps (unconfirmed)
 Reported 2026-09-23 by Melanie Parker: a newer Pro client (3.5.8) against an older enterprise
-geodatabase (Prod 11.3.0, before the planned 11.5 upgrade) shows gaps, overlaps and differences in
+geodatabase (Prod 11.3.0, before the 11.5 upgrade that finished by 2026-09-29) shows gaps, overlaps and differences in
 LRS data that are not really there. Not verified, and it does not explain the same errors seen in
 QA (already 11.5.0), so do not assume it accounts for any given batch of "source geometry errors".
 Before fixing a suspected geometry error, check it from a client and geodatabase pair that match.
+Prod is now on 11.5, so re-baseline the 57 new issues from a matching pair to test the theory.
 
 ### A wholesale QA-from-Prod refresh erases the QA network
 Prod has no `SDEADM.TRNLRS_network` feature dataset and no network dataset. Any database-level

@@ -9,14 +9,15 @@ check of Dev, QA, or Prod.
 ## What changed since 2026-09-15
 
 Source: [`meetings/2026-09-23_and_2026-09-24_check_in_notes.md`](meetings/2026-09-23_and_2026-09-24_check_in_notes.md).
-The repository has no live evidence newer than the 2026-09-18 QA rebuild, so the upgrade weekend
-(2026-09-26/27) and the planned QA refresh are treated as **planned, not confirmed**.
+The repository has no live evidence newer than the 2026-09-18 QA rebuild, so the QA refresh
+is treated as **planned, not confirmed**. Alex confirmed on 2026-09-29 that the Prod upgrade to
+11.5 finished, the QA network was backed up, and the QA-refresh heads-up went out.
 
 - **Testing restarted and found 57 new, untraceable issues** (islands, a freshly snapped street,
   an overshoot, address-range overlaps, no revision dates). Melanie and Ryan expect the Prod
   upgrade to help but cannot say why they appeared.
 - **A version mismatch may explain some of the errors.** Robbie's Pro is 3.5.8; the Prod
-  geodatabase is 11.3.0 until the planned upgrade to 11.5. It does not explain errors seen in QA
+  geodatabase was 11.3.0 until the upgrade to 11.5 (finished by 2026-09-29). It does not explain errors seen in QA
   (already 11.5.0), so the cause is open.
 - **Esri (2026-09-22): no workaround, may file a data-specific defect report,** and asked to share
   the file geodatabase with Esri Inc. The team agreed verbally. This changes how the case reads:
@@ -200,8 +201,8 @@ The initial network intentionally reproduces the legacy network's limited routin
 
 The repository cannot answer these, and every later step depends on the answers.
 
-- ~~Did the Prod geodatabase upgrade to 11.5 happen?~~ **Yes** (Alex, 2026-09-29). Still open:
-  which Pro version is on each machine.
+- ~~Did the Prod geodatabase upgrade to 11.5 happen?~~ **Yes, finished** (Alex, 2026-09-29). Still
+  open: which Pro version is on each machine.
 - ~~Was QA refreshed from Prod?~~ **No** (Alex, 2026-09-29), so QA's network is intact. Still
   open: whether and how it will be refreshed (database restore or data copy).
 - ~~Did the network-creation overview go to Ryan?~~ **No, not yet** (Alex, 2026-09-29). Still
@@ -214,7 +215,8 @@ The repository cannot answer these, and every later step depends on the answers.
 ### 2. Protect QA's network work from the refresh
 
 Prod has no network feature dataset, so a wholesale QA-from-Prod refresh removes QA's network.
-If the refresh has not happened yet, first: export `TRNLRS_traffic_turn` and the other network
+**Done 2026-09-29 (Alex): QA network backed up, QA-refresh heads-up sent to QA users.** Record the
+backup location and counts. Originally: if the refresh has not happened yet, first: export `TRNLRS_traffic_turn` and the other network
 sources to a file geodatabase outside SDE, record the current grants, keep the committed
 template, and note any hand-authored turns (the Cogswell ramp item in the refresh runbook). If it
 has happened, assess what survived and go straight to the `qa_refresh` procedure (about half a
