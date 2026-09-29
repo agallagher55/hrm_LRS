@@ -6,7 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Use pep8 styling
 
 ## Environment
-- ArcGIS Pro 3.3.5
+- ArcGIS Pro 3.3.5 for the original build. Network dataset work since 2026-09-01 is on **3.5.8**, and the
+  Prod script host was **3.3.7** per Ryan's 2026-08-31 email to Esri. Verify the version before relying on
+  any version-specific behaviour below.
+- Enterprise geodatabase: QA 11.5.0, Prod 11.3.0 until the upgrade to 11.5 planned for 2026-09-26/27
+  (not confirmed done in this repo).
 
 ### SQL Server instances
 - `ms-gis-sql-q21` → QA
@@ -52,6 +56,20 @@ be deleted to release the lock, then recreated (`CreateNetworkDatasetFromTemplat
   (`network_dataset/scripts/04_sync_and_rebuild_network.py`). Fix: use `arcpy.management.DeleteRows` instead
   — it's a normal edit operation and IS supported on controller-dataset members (slower than
   `TruncateTable` on large tables, but doesn't require deleting the network dataset).
+
+### Client / geodatabase version mismatch can show phantom gaps and overlaps (unconfirmed)
+Reported 2026-09-23 by Melanie Parker: a newer Pro client (3.5.8) against an older enterprise
+geodatabase (Prod 11.3.0, before the planned 11.5 upgrade) shows gaps, overlaps and differences in
+LRS data that are not really there. Not verified, and it does not explain the same errors seen in
+QA (already 11.5.0), so do not assume it accounts for any given batch of "source geometry errors".
+Before fixing a suspected geometry error, check it from a client and geodatabase pair that match.
+
+### A wholesale QA-from-Prod refresh erases the QA network
+Prod has no `SDEADM.TRNLRS_network` feature dataset and no network dataset. Any database-level
+refresh of QA from Prod therefore removes QA's network dataset, remapped `TRNLRS_traffic_turn`,
+the turn backup that `qa_refresh/01_backup_and_baseline.py` writes into that feature dataset, and
+the SQL grants. Export the network sources outside SDE first, and expect to redo the `qa_refresh`
+procedure from the network build onward.
 
 ### VBScript network evaluators lock the network dataset read-only (ArcGIS Pro 3.4+)
 A network dataset whose `Length`/other evaluators are still VBScript Field/Element Script
@@ -187,7 +205,6 @@ This repository holds all data, scripts, and documentation for the **Halifax Reg
 ```
 hrm_LRS/
 ├── scripts/                 # LRS refresh pipeline (LRS_updates.py)
-├── tests/                   # Data validation and regression tests
 └── network_dataset/         # Creating and maintaining the LRS network dataset
     ├── scripts/              # Build, sync, and turn-rebuild scripts
     │   └── qa_refresh/        # Ordered QA network-refresh workflow (see its README.md)
@@ -230,7 +247,7 @@ The feature class is **truncated and repopulated on every LRS refresh run**, so 
 | `FDMID` | Long | Primary street identifier; links to address range and other event tables |
 | `ROUTE_ID` | Text(255) | LRS route identifier |
 | `STR_NAME` / `STR_TYPE` / `FULL_NAME` | Text | Street name components; `FULL_NAME` sourced from `ROUTENAME` |
-| `STR_DIR` | Text(4) | One-way direction; drives the `OneWay` network restriction evaluator. Known codes (recovered 2026-09-01 from the live network's evaluator, see below): `FDTO` blocks travel **along** the digitized direction, `FOTD` blocks travel **against** it, `N` and `T` block **both** (fully closed segment). Any other value (including blank) is unrestricted in both directions — the real two-way code in this data is `BOTH`. The full domain has never been enumerated beyond `BOTH`/`FDTO`/`FOTD` (plus 7 nulls, project-wide) — these four are simply the values the evaluator tests for. **Known data issue (confirmed with HRM's GIS team, 2026-09-03):** at least one edge (Bishop St between Barrington St and Hollis St, `TRNLRS_TRN_STREET` OID 12002) has its line geometry digitized backwards relative to its real-world one-way sign — `STR_DIR='FOTD'` and the evaluator logic are both correct, but because the edge's digitized direction is flipped, "Along"/"Against Digitized" end up mapping to the wrong real-world compass direction for that one edge. Not a network-dataset bug; a source-geometry data-quality item, scope unknown (only this one edge has been checked). |
+| `STR_DIR` | Text(4) | One-way direction; drives the `OneWay` network restriction evaluator. Known codes (recovered 2026-09-01 from the live network's evaluator, see below): `FDTO` blocks travel **along** the digitized direction, `FOTD` blocks travel **against** it, `N` and `T` block **both** (fully closed segment). Any other value (including blank) is unrestricted in both directions — the real two-way code in this data is `BOTH`. The domain was enumerated on 2026-09-03 and is complete: `BOTH` 15,812 rows, `FOTD` 2,792, `NULL` 7, `FDTO` 1. `N` and `T` appear in the evaluator but not in the data. **Known data issue (confirmed with HRM's GIS team, 2026-09-03):** at least one edge (Bishop St between Barrington St and Hollis St, `TRNLRS_TRN_STREET` OID 12002) has its line geometry digitized backwards relative to its real-world one-way sign — `STR_DIR='FOTD'` and the evaluator logic are both correct, but because the edge's digitized direction is flipped, "Along"/"Against Digitized" end up mapping to the wrong real-world compass direction for that one edge. Not a network-dataset bug; a source-geometry data-quality item, scope unknown (only this one edge has been checked). |
 | `STR_STATUS` | Text(4) | Domain `SNF_street_status` |
 | `ST_CLASS` | Text(40) | Street class; domain `SNF_pst_class`; drives hierarchy evaluator |
 | `FROM_LEFT/TO_LEFT/FROM_RIGHT/TO_RIGHT` | Long | Address ranges for geocoding |

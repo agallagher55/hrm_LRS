@@ -12,6 +12,18 @@ verification** (requires an arcpy/SDE session, which this review did not have).
 Each section below is marked accordingly and records what changed. Findings C, D, E, F and
 G are still open.
 
+**Update 2026-09-29:** (1) The 2026-09-18 QA rebuild supersedes the turn counts quoted in this
+review: 1,184 live turns and **5** `Cannot find at junction` failures (3 sub-metre gaps, 2 exact
+coincidences on edge 18393), not 1,180 and 9. (2) Finding
+[C](#c-lrs_updatespy-will-fail-on-first-prod-run) was re-verified against the code on
+2026-09-29 and is still present: `sync_network_edge_source()` calls `append_feature()`, which
+calls `TruncateTable`. Older text in the roadmap that said both sync paths use `DeleteRows` was
+wrong and has been corrected. (3) The 2026-09-23/24 meetings added a competing explanation for
+some of the geometry errors (Pro 3.5.8 client against the Prod 11.3.0 geodatabase, upgrade to
+11.5 planned 2026-09-26/27) and 57 new unexplained issues; see
+[`meetings/2026-09-23_and_2026-09-24_check_in_notes.md`](meetings/2026-09-23_and_2026-09-24_check_in_notes.md).
+The A0b conclusions are unaffected.
+
 **Update 2026-09-15: external evidence now corroborates A0b, and D is no longer theoretical.**
 Two developments outside this repository:
 
