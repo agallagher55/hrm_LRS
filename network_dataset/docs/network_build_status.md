@@ -644,16 +644,18 @@ scenarios still reproduce on Pro 3.5.8.
 - [x] Exclusion profiles in `network_exclusions.py`: `GENERAL` (WA, islands; what scripts 03 and 04
       use) and `HRFE` (adds emergency access roads, `FULL_NAME LIKE '%EMERGENCY ACCESS%'`, which
       Robbie says matches 4 rows). Per-rule counts are logged. Unit tests in `scripts/tests`.
-- [ ] HRFE exclusions from Robbie's 2026-09-01 and 2026-09-17 emails: **waiting on Robbie's reply**
-      to Alex's 2026-09-29 email (record: [`meetings/2026-09-29_HRFE_network_dataset_email_thread.md`](meetings/2026-09-29_HRFE_network_dataset_email_thread.md)).
+- [ ] HRFE exclusions from Robbie's 2026-09-01 and 2026-09-17 emails: **Robbie replied 2026-09-29**
+      (inline approve/reject images and one typed answer): ETAs (22, complete set) and emergency
+      access roads are to be removed from HRFE routing; transit `TA[0-9]%` has no other names; his
+      answer on whether to keep any transit road is ambiguous and needs a one-line follow-up. Still
+      to do: add the transit and ETA patterns to `HRFE_EXTRA` with a test. Record: [`meetings/2026-09-29_HRFE_network_dataset_email_thread.md`](meetings/2026-09-29_HRFE_network_dataset_email_thread.md)).
       Diagnostic run against Prod on 2026-09-29 (18,644 rows; output in
       `intermediate_results/candidate_exclusions_20260929.csv`): **transit access roads**
       `FULL_NAME LIKE 'TA[0-9]%'` = 124 rows (TA1 to TA52, all `STR_TYPE` `RD`; the looser `TA%` adds
       85 ordinary streets; `STR_TYPE` `ATA` = 0); **ETAs** `FULL_NAME LIKE '% ETA [0-9]%'` = 22 rows
       ("HIGHWAY nnn ETA n", Expressway class, `STR_TYPE` null, a guessed search); emergency access = 4
-      and WA = 61, as expected. Once he confirms, add the transit and ETA patterns to `HRFE_EXTRA` and
-      a test. Also asked: whether removing ETAs and emergency access roads is really the intent for a
-      fire network.
+      and WA = 61, as expected. Expected HRFE edge copy: 211 rows out (the four sets do not overlap),
+      18,433 of 18,644 left.
 - [ ] HRFE additions from the same thread, not started: bridge break (location needed), routes
       outside HRM, Station 2 left turn on University Ave (**urgent**), driveways, a new HRFE feature
       dataset in QA, and how splits survive an LRS update.

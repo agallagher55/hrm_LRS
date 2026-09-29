@@ -70,11 +70,13 @@ GENERAL_PROFILE = {
 #
 #   Transit access roads: he confirmed they look like "TA# RD". Run against Prod
 #   on 2026-09-29, 'TA[0-9]%' matches 124 rows (TA1 to TA52, all STR_TYPE RD); the
-#   looser 'TA%' adds 85 ordinary streets. Waiting on his reply before adding it.
+#   looser 'TA%' adds 85 ordinary streets. Robbie confirmed the naming on
+#   2026-09-29; to be added here.
 #
-#   ETAs (emergency turnarounds): small connectors between divided highways. A name
-#   search found 22 rows named "HIGHWAY nnn ETA n" ('% ETA [0-9]%'). Waiting on
-#   Robbie to confirm that set, and that he wants them removed for HRFE at all.
+#   ETAs (emergency turnarounds): small connectors between divided highways, 22
+#   rows named "HIGHWAY nnn ETA n" ('% ETA [0-9]%'). Robbie confirmed on
+#   2026-09-29 this is the full set and that HRFE routes are calculated without
+#   them; to be added here. Emergency access roads are evacuation only.
 #
 #   Record: docs/meetings/2026-09-29_HRFE_network_dataset_email_thread.md
 HRFE_EXTRA = {

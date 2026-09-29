@@ -75,7 +75,7 @@ Robbie also offered an alternative for the bridge break:
 
 The 11:56 AM message above therefore carries his answers; this one only frames them.
 
-## 2026-09-29, 11:02 AM Halifax time, Alex Gallagher to Robbie Evans (follow-up, awaiting reply)
+## 2026-09-29, 11:03 AM, Alex Gallagher to Robbie Evans (follow-up)
 
 Sent after running `network_dataset/scripts/diagnostics/10_find_candidate_exclusions.py` against
 Prod's `TRNLRS_TRN_STREET_VW` (18,644 rows). The run's output is saved as
@@ -90,7 +90,47 @@ and was attached to the email. What the email reported and asked:
 | ETAs | 22 rows named "HIGHWAY nnn ETA n": Highway 101 (3), 102 (8), 103 (8), 118 (3). All `STR_TYPE` null, class EXPRESSWAY. Found by a guessed name search, so this is a candidate, not a confirmed filter | Are these the ETAs, and is 22 the full set? Are there ETAs not named this way? |
 | Direction | (none) | His 2026-09-01 list says remove ETAs and emergency access roads from the HRFE network, but those are the connectors emergency vehicles are meant to use. Is removal what he wants for HRFE routing, and not the reverse? |
 
-**No reply had been received when this was written.** The email asked for a yes or no per item.
+The email asked for a yes or no per item.
+
+## 2026-09-29, 1:39 PM Halifax time (16:39 UTC), Robbie Evans to Alex Gallagher
+
+> I provided a simple yes/no answer in the original email below as you requested. Thank you for
+> your time and effort on this project. HRFE really appreciates it.
+
+The answers are inline in the quoted copy of Alex's email, as a pair of reaction images (a
+"Drake approves" image and a "Drake rejects" image) under each bullet, plus one typed answer.
+Reading approve as yes and reject as no. Which image sits under which bullet was read from the
+message body, not from any text, so the mapping is this record's interpretation.
+
+| Alex's question | Robbie's answer | Reading |
+|---|---|---|
+| Water access roads: 61 segments, already excluded | approve | Fine. |
+| Emergency access roads: 4 segments, matches your list | approve | Matches. |
+| Transit: are all 124 transit access roads, or are there any you'd want to keep? | reject | **Ambiguous.** "No" to a two-part question: either "not all 124 are transit access roads" or "no, none I'd keep". Needs a one-line follow-up. |
+| Transit: are there transit access roads named differently, not "TA# RD"? | reject | No. There are none. |
+| ETAs: are these the ETAs, and is 22 the full set? | approve | Yes to both. |
+| ETAs: are there any ETAs that aren't named this way? | reject | No. |
+| Direction: is removing ETAs and emergency access roads what you want for HRFE routing? | approve, with typed text below | Yes, remove. |
+
+His typed answer to the direction question (capitals are his):
+
+> YES, EMERGENCY VEHICLES CAN USE ETA'S, BUT WE CALCULATE OUR ROUTES WITHOUT THEM, WE DON'T WANT
+> TO BASE OUR ROUTES ON USING THEM, CAN BE USED WHEN NECESSARY THOUGH. EMERGECNY [sic] ACCESS
+> ROADS ARE FOR EVACUATION, NOT FOR FIRE APPARATUS RESPONDING INTO SUBDIVISIONS.
+
+### What this settles
+
+- **ETAs are removed from the HRFE network.** The 22 segments named "HIGHWAY nnn ETA n" are the
+  complete set. Because vehicles can still use them in the field, they should stay in the general
+  distance network; only the HRFE exclusion profile drops them.
+- **Emergency access roads are removed from the HRFE network.** They are evacuation routes, not
+  routes for apparatus responding into subdivisions.
+- **Transit access roads: `TA[0-9]%` is the filter**, with no transit roads under other names.
+  One answer (keep any or not) is ambiguous; see the table.
+- **Expected effect on the HRFE edge copy:** the four sets (WA 61, emergency access 4, transit
+  124, ETAs 22) share no FDMIDs, so 211 rows come out, leaving 18,433 of Prod's 18,644. The
+  general network's copy stays at 18,583 (WA only). These are counts to check on the first
+  HRFE copy, not results.
 
 ---
 
@@ -99,9 +139,9 @@ and was attached to the email. What the email reported and asked:
 | Request | Status |
 |---|---|
 | Remove water access roads | Done in `network_exclusions.py` (profile `GENERAL`, so both networks). Ran in QA on 2026-09-29: 61 rows excluded, Edges 37,674. |
-| Remove emergency access roads | In the `HRFE` profile (`%EMERGENCY ACCESS%`, 4 rows). No HRFE network exists yet to apply it to. |
-| Remove transit access roads | Candidate filter `TA[0-9]%` (124 rows) found, **waiting on Robbie**. Not yet in any profile. |
-| Remove ETAs | Candidate name pattern found (22 rows), **waiting on Robbie**, including the question of whether he wants them removed at all. Not yet in any profile. |
+| Remove emergency access roads | Confirmed by Robbie 2026-09-29. In the `HRFE` profile (`%EMERGENCY ACCESS%`, 4 rows). No HRFE network exists yet to apply it to. |
+| Remove transit access roads | Filter `TA[0-9]%` (124 rows) confirmed by Robbie 2026-09-29, apart from one ambiguous answer. Not yet in the profile. |
+| Remove ETAs | Confirmed by Robbie 2026-09-29: 22 rows, complete set, remove for HRFE. Not yet in the profile. |
 | Break at the bridge trucks cannot cross | Not started. Needs the bridge location from Robbie. |
 | Add main routes outside HRM, broken at weak bridges | Not started. Needs a data source for the routes and the bridge list. |
 | Station 2 left turn on University Ave (**urgent**) | Not started. |
