@@ -640,7 +640,15 @@ scenarios still reproduce on Pro 3.5.8.
       confirm the refresh method (see the 2026-09-29 update)
 - [x] WA exclusion coded in `network_exclusions.py` (scripts 03 and 04), untested against a live
       database
-- [ ] Island exclusion: Melanie supplies the FDMID list, then add it to `EXCLUDED_FDMIDS`
+- [ ] Island exclusion: Melanie supplies the FDMID list, then add it to `ISLAND_FDMIDS`
+- [x] Exclusion profiles in `network_exclusions.py`: `GENERAL` (WA, islands; what scripts 03 and 04
+      use) and `HRFE` (adds emergency access roads, `FULL_NAME LIKE '%EMERGENCY ACCESS%'`, which
+      Robbie says matches 4 rows). Per-rule counts are logged. Unit tests in `scripts/tests`.
+- [ ] HRFE exclusions from Robbie's 2026-09-01 and 2026-09-17 emails, still to define. Run
+      `scripts/diagnostics/10_find_candidate_exclusions.py` against Prod and send its CSV to Robbie
+      and Melanie: **transit access roads** ("TA# RD", so a name pattern, not `STR_TYPE` `ATA`),
+      and **ETAs**, which are emergency turnaround road segments between divided highways (not turns),
+      with no query given yet. Then add them to `HRFE_EXTRA`.
 - [ ] Decide whether the HRFE (speed) network is a second network dataset or an added cost
 - [ ] Decide the turn-OID-stability question before prod cutover (see
       [`network_dataset_script_review.md` §D](network_dataset_script_review.md#d-turn-references-do-not-survive-an-lrs-refresh-structural))
