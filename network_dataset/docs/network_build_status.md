@@ -651,9 +651,10 @@ scenarios still reproduce on Pro 3.5.8.
   them is coded.
 - [ ] **Transit access roads are removed from every network** (decided 2026-09-29, so they are in
       `GENERAL` next to WA and HRFE inherits them). This changes the distance network too, at its
-      next rebuild; the QA network built on 2026-09-29 (37,674 edges) still contains them. Robbie's
-      answer on whether to keep any of the 124 is ambiguous, so a one-line follow-up to him is
-      still owed.
+      next rebuild; the QA network built on 2026-09-29 (37,674 edges) still contains them. **All 124
+      go, no exceptions** (decided 2026-09-29; this closes Robbie's ambiguous answer on whether to
+      keep any, so no follow-up to him is needed). Nothing is left to code; the change waits on the
+      next edge-copy rebuild.
 - [ ] HRFE exclusions from Robbie's 2026-09-01 and 2026-09-17 emails: **Robbie replied 2026-09-29**
       (inline approve/reject images and one typed answer): ETAs (22, complete set) and emergency
       access roads are to be removed from HRFE routing; transit `TA[0-9]%` has no other names. The

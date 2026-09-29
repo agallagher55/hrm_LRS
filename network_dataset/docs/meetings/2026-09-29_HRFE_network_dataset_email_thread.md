@@ -106,7 +106,7 @@ message body, not from any text, so the mapping is this record's interpretation.
 |---|---|---|
 | Water access roads: 61 segments, already excluded | approve | Fine. |
 | Emergency access roads: 4 segments, matches your list | approve | Matches. |
-| Transit: are all 124 transit access roads, or are there any you'd want to keep? | reject | **Ambiguous.** "No" to a two-part question: either "not all 124 are transit access roads" or "no, none I'd keep". Needs a one-line follow-up. |
+| Transit: are all 124 transit access roads, or are there any you'd want to keep? | reject | **Ambiguous.** "No" to a two-part question: either "not all 124 are transit access roads" or "no, none I'd keep". Closed by Alex's decision to remove all 124, so no follow-up is needed. |
 | Transit: are there transit access roads named differently, not "TA# RD"? | reject | No. There are none. |
 | ETAs: are these the ETAs, and is 22 the full set? | approve | Yes to both. |
 | ETAs: are there any ETAs that aren't named this way? | reject | No. |
@@ -126,8 +126,9 @@ His typed answer to the direction question (capitals are his):
 - **Emergency access roads are removed from the HRFE network.** They are evacuation routes, not
   routes for apparatus responding into subdivisions.
 - **Transit access roads: `TA[0-9]%` is the filter**, with no transit roads under other names.
-  One answer (keep any or not) is ambiguous; see the table. Alex later decided to remove them
-  from every network, not only HRFE, so the rule sits in the `GENERAL` exclusion profile.
+  One answer (keep any or not) was ambiguous; see the table. Alex then decided to remove all
+  124 with no exceptions, and from every network, not only HRFE, so the rule sits in the
+  `GENERAL` exclusion profile. No follow-up to Robbie is needed.
 - **Expected effect on the HRFE edge copy:** the four sets (WA 61, emergency access 4, transit
   124, ETAs 22) share no FDMIDs, so 211 rows come out, leaving 18,433 of Prod's 18,644. With
   transit in the general profile, the general network's copy would be 18,459 (WA and transit,
@@ -141,7 +142,7 @@ His typed answer to the direction question (capitals are his):
 |---|---|
 | Remove water access roads | Done in `network_exclusions.py` (profile `GENERAL`, so both networks). Ran in QA on 2026-09-29: 61 rows excluded, Edges 37,674. |
 | Remove emergency access roads | Confirmed by Robbie 2026-09-29. In the `HRFE` profile (`%EMERGENCY ACCESS%`, 4 rows). No HRFE network exists yet to apply it to. |
-| Remove transit access roads | Filter `TA[0-9]%` (124 rows) confirmed by Robbie 2026-09-29, apart from one ambiguous answer. In the `GENERAL` profile, so both networks drop them. |
+| Remove transit access roads | Filter `TA[0-9]%` (124 rows) confirmed by Robbie 2026-09-29. All 124 removed, no exceptions (Alex's decision, closing his ambiguous answer). In the `GENERAL` profile, so both networks drop them. |
 | Remove ETAs | Confirmed by Robbie 2026-09-29: 22 rows, complete set, remove for HRFE. In the `HRFE` profile. |
 | Break at the bridge trucks cannot cross | Not started. Needs the bridge location from Robbie. |
 | Add main routes outside HRM, broken at weak bridges | Not started. Needs a data source for the routes and the bridge list. |

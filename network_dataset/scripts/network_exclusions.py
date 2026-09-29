@@ -61,8 +61,8 @@ ISLAND_FDMIDS = []
 # Transit access roads are removed from every network (decided 2026-09-29). They are
 # named "TA# RD". Run against Prod on 2026-09-29, 'TA[0-9]%' matches 124 rows (TA1 to
 # TA52, all STR_TYPE RD); the looser 'TA%' adds 85 ordinary streets. Robbie Evans
-# confirmed on 2026-09-29 that no transit road has another name. One of his answers,
-# on whether any should be kept, was ambiguous and is awaiting a follow-up.
+# confirmed on 2026-09-29 that no transit road has another name. All 124 go, with no
+# exceptions (decided 2026-09-29).
 #
 # UNDER REVIEW streets (LRS placeholders named like "UNDER REVIEW 329", STR_TYPE 'UN')
 # are deliberately NOT excluded: a requirement to drop them on 2026-09-29 was withdrawn
