@@ -79,7 +79,53 @@ class PickNearestTests(unittest.TestCase):
         self.assertEqual(cc.classify_endpoint(best[0], best[1]), cc.MID_SEGMENT)
 
 
+class InteriorPointsTests(unittest.TestCase):
+
+    ENDS = [(0.0, 0.0), (100.0, 0.0)]
+
+    def test_points_at_the_segments_own_ends_are_left_out(self):
+        self.assertEqual(cc.interior_points([(0.0, 0.0), (100.0, 0.0)], self.ENDS), [])
+        self.assertEqual(cc.interior_points([(0.0005, 0.0)], self.ENDS), [])
+
+    def test_a_point_part_way_along_is_a_crossing(self):
+        self.assertEqual(cc.interior_points([(40.0, 0.0)], self.ENDS), [(40.0, 0.0)])
+
+    def test_a_point_just_off_an_end_is_a_crossing(self):
+        """A crossing one centimetre from the end is not at the end for End Point connectivity."""
+        self.assertEqual(cc.interior_points([(0.01, 0.0)], self.ENDS), [(0.01, 0.0)])
+
+    def test_repeated_points_are_counted_once(self):
+        points = [(40.0, 0.0), (40.0, 0.0), (70.0, 5.0)]
+
+        self.assertEqual(cc.interior_points(points, self.ENDS), [(40.0, 0.0), (70.0, 5.0)])
+
+    def test_no_points(self):
+        self.assertEqual(cc.interior_points([], self.ENDS), [])
+
+
 class SegmentVerdictTests(unittest.TestCase):
+
+    def test_a_crossing_needs_attention_even_when_both_ends_connect(self):
+        verdict = cc.segment_verdict([cc.END_POINT, cc.END_POINT], crossings=2)
+
+        self.assertEqual(verdict, "needs attention: 2 crossings")
+
+    def test_one_crossing_is_singular(self):
+        self.assertEqual(
+            cc.segment_verdict([cc.END_POINT, cc.FREE_END], crossings=1),
+            "needs attention: 1 crossing",
+        )
+
+    def test_a_crossing_and_a_bad_end_are_both_named(self):
+        verdict = cc.segment_verdict([cc.MID_SEGMENT, cc.FREE_END], crossings=1)
+
+        self.assertIn("mid_segment", verdict)
+        self.assertIn("1 crossing", verdict)
+
+    def test_an_isolated_road_that_crosses_a_street_is_not_called_isolated(self):
+        verdict = cc.segment_verdict([cc.FREE_END, cc.FREE_END], crossings=1)
+
+        self.assertTrue(verdict.startswith("needs attention"))
 
     def test_both_ends_connected_is_ok(self):
         self.assertEqual(cc.segment_verdict([cc.END_POINT, cc.END_POINT]), "ok")

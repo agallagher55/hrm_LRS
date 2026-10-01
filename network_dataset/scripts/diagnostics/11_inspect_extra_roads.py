@@ -9,6 +9,9 @@ Station 2 turning lane, and reports what the network needs to know before they a
   - for each segment, how each end meets the LRS streets (see connectivity_check.py): at a
     street end point (connects), in the middle of a street (needs a split there), a small gap
     (needs snapping), or free (fine for a dead-end driveway)
+  - how many streets each segment crosses away from its own ends, which also need a split
+  - a second CSV, OUTPUT of SPLIT_POINTS_CSV, listing every point where a street would need
+    splitting for the roads to connect
 
 The streets are Prod's TRNLRS_TRN_STREET_VW with the HRFE exclusions applied, which is what the
 HRFE network's edge copy will hold.
@@ -64,6 +67,7 @@ STREETS_FC = PROD_SDE + r"\SDEADM.TRNLRS_TRN_STREET_VW"
 NETWORK_FIELDS = ["STR_DIR", "STR_NAME", "STR_TYPE", "FULL_NAME"]
 
 OUTPUT_CSV = "extra_roads_check.csv"
+SPLIT_POINTS_CSV = "extra_roads_split_points.csv"
 
 
 def line_feature_classes(gdb):
@@ -120,27 +124,80 @@ def nearest_street(point, streets_sr, keep_clause, tolerance):
     return best if best else (None, None, None)
 
 
+def intersection_points(geometry):
+    """Return the (x, y) points of an intersect() result: none, one or several."""
+    if geometry is None or not geometry.pointCount:
+        return []
+
+    part = geometry.getPart()
+
+    if isinstance(part, arcpy.Point):
+        return [(part.X, part.Y)]
+
+    return [(p.X, p.Y) for p in part if p is not None]
+
+
+def crossings(shape, streets_sr, keep_clause, tolerance):
+    """
+    Return [(x, y, street)] where the segment meets a street away from its own two ends.
+
+    Under End Point connectivity such a crossing does not connect, so the street and the road
+    both need a split there.
+    """
+    ends = [(shape.firstPoint.X, shape.firstPoint.Y), (shape.lastPoint.X, shape.lastPoint.Y)]
+    found = []
+
+    with arcpy.da.SearchCursor(
+        STREETS_FC, ["SHAPE@", "FDMID", "FULL_NAME"], keep_clause,
+        spatial_reference=streets_sr, spatial_filter=shape, spatial_relationship="INTERSECTS",
+    ) as cursor:
+
+        for street_shape, fdmid, full_name in cursor:
+            points = intersection_points(shape.intersect(street_shape, 1))
+
+            for x, y in connectivity_check.interior_points(points, ends, tolerance):
+                found.append((x, y, "{} {}".format(fdmid, full_name)))
+
+    return found
+
+
 def check_segments(path, streets_sr, keep_clause, tolerance):
-    """Return one row per segment: its OID, both end classes, the nearest streets and a verdict."""
+    """
+    Return (rows, split_points). rows has one entry per segment: its OID, both end classes, the
+    nearest streets, how many streets it crosses and a verdict. split_points lists every place a
+    street would need splitting for the segment to connect.
+    """
     rows = []
+    split_points = []
 
     with arcpy.da.SearchCursor(path, ["OID@", "SHAPE@"], spatial_reference=streets_sr) as cursor:
 
         for oid, shape in cursor:
             ends = []
 
-            for point in (shape.firstPoint, shape.lastPoint):
+            for label, point in (("start", shape.firstPoint), ("end", shape.lastPoint)):
                 point_geometry = arcpy.PointGeometry(point, streets_sr)
                 distance, to_end, street = nearest_street(
                     point_geometry, streets_sr, keep_clause, tolerance
                 )
-                ends.append((
-                    connectivity_check.classify_endpoint(
-                        distance, to_end, snap_tolerance=tolerance
-                    ),
-                    distance,
-                    street,
-                ))
+                end_class = connectivity_check.classify_endpoint(
+                    distance, to_end, snap_tolerance=tolerance
+                )
+                ends.append((end_class, distance, street))
+
+                if end_class == connectivity_check.MID_SEGMENT:
+                    split_points.append({
+                        "x": round(point.X, 3), "y": round(point.Y, 3), "street": street,
+                        "reason": "{} of segment OID {}".format(label, oid),
+                    })
+
+            crossed = crossings(shape, streets_sr, keep_clause, tolerance)
+
+            for x, y, street in crossed:
+                split_points.append({
+                    "x": round(x, 3), "y": round(y, 3), "street": street,
+                    "reason": "segment OID {} crosses it".format(oid),
+                })
 
             rows.append({
                 "feature_class": os.path.basename(path),
@@ -152,10 +209,13 @@ def check_segments(path, streets_sr, keep_clause, tolerance):
                 "end": ends[1][0],
                 "end_gap_m": None if ends[1][1] is None else round(ends[1][1], 3),
                 "end_street": ends[1][2],
-                "verdict": connectivity_check.segment_verdict([ends[0][0], ends[1][0]]),
+                "crossings": len(crossed),
+                "verdict": connectivity_check.segment_verdict(
+                    [ends[0][0], ends[1][0]], len(crossed)
+                ),
             })
 
-    return rows
+    return rows, split_points
 
 
 def main():
@@ -176,14 +236,19 @@ def main():
         sys.exit("No polyline feature classes found in {}".format(EXTRA_GDB))
 
     all_rows = []
+    all_split_points = []
 
     for path in paths:
         describe(path)
-        rows = check_segments(path, streets_sr, keep_clause, tolerance)
+        rows, split_points = check_segments(path, streets_sr, keep_clause, tolerance)
         all_rows.extend(rows)
+        all_split_points.extend(split_points)
 
         for row in rows:
-            print("  OID {oid}, {length_m} m: start {start}, end {end}. {verdict}".format(**row))
+            print(
+                "  OID {oid}, {length_m} m: start {start}, end {end}, crosses {crossings} "
+                "streets. {verdict}".format(**row)
+            )
 
         print()
 
@@ -200,7 +265,15 @@ def main():
         writer.writeheader()
         writer.writerows(all_rows)
 
-    print("\nReport written to: {}".format(OUTPUT_CSV))
+    with open(SPLIT_POINTS_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["x", "y", "street", "reason"])
+        writer.writeheader()
+        writer.writerows(all_split_points)
+
+    print("\n{} places where a street needs splitting for these roads to connect.".format(
+        len(all_split_points)
+    ))
+    print("Reports written to: {} and {}".format(OUTPUT_CSV, SPLIT_POINTS_CSV))
 
 
 if __name__ == "__main__":

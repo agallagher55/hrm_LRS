@@ -680,9 +680,10 @@ scenarios still reproduce on Pro 3.5.8.
       steps 3 to 8 with grants; then the extra roads (open questions in the runbook).
 - [ ] **HRFE additions, updated 2026-10-01 after Robbie's reply.** The **bridge is dropped**: he will use a
       point barrier on it himself. The **Station 2 segment has arrived** in
-      `monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb` and has not been inspected;
-      run `scripts/diagnostics/11_inspect_extra_roads.py` (written, geometry code untested) to see its schema
-      and whether its ends meet the streets. He will add the **driveways and routes outside HRM** to the same
+      `monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb` and was inspected on 2026-10-01
+      with `scripts/diagnostics/11_inspect_extra_roads.py`: 8 segments, all four network fields present, and 7
+      ends on a street mid-segment (both ends of the Station 2 connector are on University Ave), so those streets
+      need splitting before anything connects (see the runbook). He will add the **driveways and routes outside HRM** to the same
       layer (interpretation). He agreed to the **splits** approach (split points in their own layer,
       re-applied after each sync). Still to do: create the extra-roads feature class in
       `SDEADM.TRNLRS_network_HRFE`, add it to the template as a second edge source, grant Robbie edit access, and

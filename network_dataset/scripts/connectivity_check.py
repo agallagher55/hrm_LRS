@@ -9,6 +9,8 @@ This is the pure logic, kept free of arcpy so it can be tested. The script that 
 real data is diagnostics/11_inspect_extra_roads.py.
 """
 
+import math
+
 # Metres. End Point connectivity joins two ends only if they coincide to within the XY tolerance
 # of the feature dataset's spatial reference, which is far tighter than the 0.5 m that
 # 05_rebuild_traffic_turns.py uses to match a turn to an edge. This is the usual default; the
@@ -76,13 +78,38 @@ def classify_endpoint(distance_to_street, distance_to_street_end, snap_tolerance
     return MID_SEGMENT
 
 
-def segment_verdict(end_classes):
+def interior_points(points, end_points, tolerance=SNAP_TOLERANCE):
     """
-    Summarise a segment from the classes of its two ends.
+    Return the (x, y) points that are not within tolerance of either end of the segment.
+
+    A road that crosses a street away from its own ends does not connect to it under End Point
+    connectivity, and needs a split there just as an end touching mid-street does. The points
+    that are at the segment's own ends are already judged by classify_endpoint, so they are left
+    out here.
+    """
+    kept = []
+
+    for x, y in points:
+        near_an_end = any(
+            math.hypot(x - end_x, y - end_y) <= tolerance for end_x, end_y in end_points
+        )
+
+        if not near_an_end and (x, y) not in kept:
+            kept.append((x, y))
+
+    return kept
+
+
+def segment_verdict(end_classes, crossings=0):
+    """
+    Summarise a segment from the classes of its two ends and how many streets it crosses.
 
     A problem at either end is reported, because it is the end that will not connect.
     """
     problems = [c for c in end_classes if c in PROBLEMS]
+
+    if crossings:
+        problems.append("{} crossing{}".format(crossings, "" if crossings == 1 else "s"))
 
     if problems:
         return "needs attention: " + ", ".join(sorted(set(problems)))

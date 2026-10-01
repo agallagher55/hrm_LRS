@@ -186,6 +186,35 @@ turning lane. Its contents (feature class names, fields, geometry, spatial refer
 ends meet the LRS streets) have not been inspected yet; the repository has no copy of it.
 `scripts/diagnostics/11_inspect_extra_roads.py` is written to do that.
 
+### What Robbie's geodatabase turned out to hold (Alex ran script 11, 2026-10-01)
+
+One feature class, `Segments`: 8 polylines, in the same spatial reference as the streets
+(`NAD_1983_CSRS_2010_MTM_5_Nova_Scotia`, so no datum transformation question), with all four fields
+the network reads (`STR_DIR`, `STR_NAME`, `STR_TYPE`, `FULL_NAME`). How each end meets the HRFE
+streets (Prod `TRNLRS_TRN_STREET_VW` with the HRFE exclusions applied):
+
+| OID | Length | Start | End |
+|---|---|---|---|
+| 2 | 22 m | on University Ave (700004777), mid-street | on University Ave (700004862), mid-street |
+| 3 | 2,113 m | on Ketch Harbour Rd (600000346), mid-street | no street within 25 m |
+| 4 | 1,134 m | on Church St (100000989), mid-street | no street within 25 m |
+| 5 | 1,055 m | on Highway 224 (500000164), mid-street | no street within 25 m |
+| 6 | 937 m | on Old Guysborough Rd (700000282), mid-street | no street within 25 m |
+| 7 | 1,553 m | no street within 25 m | no street within 25 m |
+| 8 | 2,909 m | no street within 25 m | no street within 25 m |
+| 9 | 966 m | on Highway 2 (100001033), mid-street | no street within 25 m |
+
+"On a street, mid-street" means the end lies exactly on the street line (gap 0) but not at one of
+the street's ends. Under End Point connectivity that does **not** connect, so each such street needs
+a split at that point. That is 7 splits across 6 streets (University Ave twice, on two different
+street segments). This answers the connectivity question with real data: the splits are needed.
+
+My reading, not confirmed: OID 2 is the 22 m Station 2 connector between the two University Ave
+carriageways; 3 to 6 and 9 are long roads leaving a street (the driveways, or access roads, he
+mentioned); 7 and 8 meet no street at all, so as drawn they would be isolated from the network.
+That run checked ends only. A later version of the script also counts streets crossed away from a
+segment's ends and writes the split points to a CSV.
+
 Not answered by this email: whether the routes outside HRM need their weak bridges blocked (the
 point barrier covers "that bridge", singular), and which feature class holds what Robbie calls
 "the layer".
@@ -202,7 +231,7 @@ point barrier covers "that bridge", singular), and which feature class holds wha
 | Remove ETAs | Confirmed by Robbie 2026-09-29 and again 2026-10-01 ("numbers are good"): 22 rows, complete set, remove for HRFE. In the `HRFE` profile. |
 | Break at the bridge trucks cannot cross | **Dropped 2026-10-01.** Robbie will use a point barrier on it himself. Nothing to build. |
 | Add main routes outside HRM, broken at weak bridges | Not started. Robbie says he will add these segments to his layer (2026-10-01, interpretation). Blocking weak bridges on them is unanswered. |
-| Station 2 left turn on University Ave (**urgent**) | **Received 2026-10-01** in `monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb`. Not yet inspected; next step is `diagnostics/11_inspect_extra_roads.py`. |
+| Station 2 left turn on University Ave (**urgent**) | **Received 2026-10-01** in `monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb` and inspected (script 11): the 22 m segment (OID 2) has both ends on University Ave mid-street, so **University Ave needs two splits** before it connects. |
 | Driveways for dry hydrant mapping | Not started. Robbie says he will add them to the same layer as the Station 2 segment (2026-10-01, interpretation). |
 | New feature dataset for the HRFE network in QA | Not started. |
 | Point barriers feature class (Robbie's alternative) | **Not needed from Alex.** Robbie will add his own point barrier for the bridge. |
