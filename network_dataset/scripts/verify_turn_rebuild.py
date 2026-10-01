@@ -71,7 +71,7 @@ SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 
 # Which network is verified: DISTANCE by default, HRFE with HRM_NETWORK=HRFE
 # (the same value 05 and 03 ran with). See network_definitions.py.
-NETWORK    = network_definitions.get_definition()
+NETWORK = network_definitions.get_definition()
 NETWORK_FD = NETWORK.feature_dataset
 
 # Staging output of 05_rebuild_traffic_turns.py -- verify this BEFORE swapping.

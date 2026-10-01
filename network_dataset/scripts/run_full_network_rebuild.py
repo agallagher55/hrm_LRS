@@ -188,6 +188,7 @@ def main(argv=None):
     mod05 = load_module(SCRIPT_05_PATH, "rebuild_traffic_turns")
     mod03 = load_module(SCRIPT_03_PATH, "create_network_dataset")
     check_environments_agree(mod05, mod03)
+    logger.info(f"Network for this run: {mod05.NETWORK.key} ({mod05.NETWORK.description})")
 
     if args.use_existing_staging:
         logger.info(

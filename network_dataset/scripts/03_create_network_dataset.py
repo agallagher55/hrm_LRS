@@ -107,7 +107,7 @@ PROD_SDE_CONNECTION = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
 #
 # Which network this run builds (DISTANCE by default, HRFE with HRM_NETWORK=HRFE) decides
 # the feature dataset and every name below. See network_definitions.py.
-NETWORK         = network_definitions.get_definition()
+NETWORK = network_definitions.get_definition()
 FEATURE_DATASET = os.path.join(SDE_CONNECTION_UPDATE, NETWORK.feature_dataset)
 NEW_ND_NAME     = NETWORK.network_name
 

@@ -6,11 +6,15 @@ import time
 import arcpy
 
 import config
-from _shared import load_and_validate_core_scripts
+from _shared import load_and_validate_core_scripts, require_network, same_path
 
 
 # Set this to True only after reviewing the configured QA paths in config.py.
 CONFIRM_DELETE_QA_NETWORK = False
+
+# The network this run deletes. It must match HRM_NETWORK (unset means DISTANCE, the live network),
+# so set both on purpose: for HRFE, set this to "HRFE" and run with HRM_NETWORK=HRFE.
+NETWORK_TO_DELETE = "DISTANCE"
 
 # Step 01's backup is the only copy of the live turn class once it is deleted below.
 REQUIRE_RECENT_BACKUP = True
@@ -19,11 +23,19 @@ MAX_BACKUP_AGE_HOURS = 24
 
 def require_recent_backup():
     """Refuse to delete anything unless step 01 left a recent, intact turn backup."""
-    reports = sorted(config.OUTPUT_DIR.glob("baseline_*.json"))
+    reports = []
+
+    # Both networks write their baselines to the same folder, so only use this network's.
+    for path in sorted(config.OUTPUT_DIR.glob("baseline_*.json")):
+        report = json.loads(path.read_text(encoding="utf-8"))
+
+        if same_path(report.get("network", ""), config.NETWORK):
+            reports.append(path)
 
     if not reports:
         raise RuntimeError(
-            f"No baseline report in {config.OUTPUT_DIR}. Run 01_backup_and_baseline.py first."
+            f"No baseline report for {config.NETWORK} in {config.OUTPUT_DIR}. "
+            "Run 01_backup_and_baseline.py first, on this network."
         )
 
     latest = reports[-1]
@@ -63,6 +75,7 @@ def main():
         )
 
     load_and_validate_core_scripts()
+    require_network(NETWORK_TO_DELETE, "NETWORK_TO_DELETE")
 
     if REQUIRE_RECENT_BACKUP:
         require_recent_backup()

@@ -89,8 +89,32 @@ HRFE = NetworkDefinition(
 DEFINITIONS = {d.key: d for d in (DISTANCE, HRFE)}
 
 
+def _misspelled_variables():
+    """Names that look like HRM_NETWORK but are not exactly it, such as "HRM_NETWORK " from a
+    cmd line written 'set HRM_NETWORK = HRFE' (the spaces become part of the name)."""
+    return [
+        name for name in os.environ
+        if name != NETWORK_ENV_VAR and name.strip().upper() == NETWORK_ENV_VAR
+    ]
+
+
 def get_definition(key=None):
-    """Return the definition for key, or for the HRM_NETWORK variable, or DISTANCE."""
+    """
+    Return the definition for key, or for the HRM_NETWORK variable, or DISTANCE.
+
+    Raises ValueError if a variable is set under a near miss of the name, because ignoring it
+    would quietly run the DISTANCE network, which is the live one the destructive steps delete.
+    """
+    misspelled = _misspelled_variables()
+
+    if misspelled and not key:
+        raise ValueError(
+            "Found the environment variable {!r}, which is not {}. The name must be exactly "
+            "{} with no spaces around it (write: set {}=HRFE).".format(
+                misspelled[0], NETWORK_ENV_VAR, NETWORK_ENV_VAR, NETWORK_ENV_VAR
+            )
+        )
+
     key = (key or os.environ.get(NETWORK_ENV_VAR) or DEFAULT_NETWORK).strip().upper()
 
     try:
@@ -131,7 +155,11 @@ def render_template(template_text, definition):
         pattern = _name_pattern(base_name)
 
         if not pattern.search(text):
-            raise ValueError("The template has no {!r} to rename for {}.".format(base_name, definition.key))
+            raise ValueError(
+                "The template has no {!r} to rename for {}.".format(
+                    base_name, definition.key
+                )
+            )
 
         text = pattern.sub(new_name, text)
 
@@ -141,7 +169,11 @@ def render_template(template_text, definition):
     if new_fd != base_fd:
 
         if base_fd not in text:
-            raise ValueError("The template has no {!r} catalog path to rename for {}.".format(base_fd, definition.key))
+            raise ValueError(
+                "The template has no {!r} catalog path to rename for {}.".format(
+                    base_fd, definition.key
+                )
+            )
 
         text = text.replace(base_fd, new_fd)
 
@@ -181,4 +213,6 @@ if __name__ == "__main__":
 
             print("  {:<18} {}".format(field, getattr(definition, field)))
 
-    print("\nActive ({} set to {!r}): {}".format(NETWORK_ENV_VAR, os.environ.get(NETWORK_ENV_VAR), get_definition().key))
+    print("\nActive ({} set to {!r}): {}".format(
+        NETWORK_ENV_VAR, os.environ.get(NETWORK_ENV_VAR), get_definition().key
+    ))

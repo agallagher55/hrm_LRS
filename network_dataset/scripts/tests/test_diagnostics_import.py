@@ -27,7 +27,8 @@ class DiagnosticsImportTests(unittest.TestCase):
 
     def run_script(self, name):
         with tempfile.TemporaryDirectory() as folder:
-            (Path(folder) / "arcpy.py").write_text("def Exists(path):\n    return False\n", encoding="utf-8")
+            stand_in = Path(folder) / "arcpy.py"
+            stand_in.write_text("def Exists(path):\n    return False\n", encoding="utf-8")
             environment = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
             environment["PYTHONPATH"] = folder
 

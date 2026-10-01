@@ -216,8 +216,11 @@ There are two networks built from the same LRS streets: `DISTANCE` (`TRNLRS_stre
 default) and `HRFE` (`TRNLRS_street_network_HRFE` in its own feature dataset
 `SDEADM.TRNLRS_network_HRFE`). `network_dataset/scripts/network_definitions.py` holds every name that
 differs, and the `HRM_NETWORK` environment variable selects one for scripts 03, 05, the verifier and
-`qa_refresh`. Unset means `DISTANCE`, unchanged from before. The Prod edge sync (`04`) ignores the
-variable on purpose. Exclusions are per network (`network_exclusions.py` profiles `GENERAL` and
+`qa_refresh`. Unset means `DISTANCE`, and every path and name is unchanged from before, though DISTANCE's
+exclusions did gain the transit access roads. The Prod edge sync (`04`) ignores the variable on purpose.
+A mistyped variable name (for example `set HRM_NETWORK = HRFE`, whose spaces become part of the name)
+stops the run instead of quietly meaning DISTANCE, and the delete and swap steps (`qa_refresh` 02 and 06)
+also need `NETWORK_TO_DELETE` or `NETWORK_TO_BUILD` set in the script to match the run. Exclusions are per network (`network_exclusions.py` profiles `GENERAL` and
 `HRFE`). SDE needs feature class names to be unique across the geodatabase, hence the `_HRFE` suffix.
 The HRFE build is written but has not been run; see `network_dataset/docs/hrfe_network_runbook.md`.
 
