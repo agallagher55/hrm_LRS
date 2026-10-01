@@ -6,7 +6,9 @@ Run from network_dataset/scripts:
   > python -m unittest discover -s tests -v
 """
 
+import csv
 import logging
+import re
 import sys
 import types
 import unittest
@@ -40,10 +42,47 @@ class ListHandler(logging.Handler):
         return [r.getMessage() for r in self.records if r.levelno == level]
 
 
-def fake_arcpy(counts):
+DIAGNOSTIC_CSV = (
+    Path(__file__).resolve().parents[2] / "intermediate_results" / "candidate_exclusions_20260929.csv"
+)
+
+
+def like_to_regex(pattern):
+    """Translate a SQL Server LIKE pattern to a regex. Case-insensitive, like the default collation."""
+    parts = []
+    i = 0
+
+    while i < len(pattern):
+        char = pattern[i]
+
+        if char == "%":
+            parts.append(".*")
+
+        elif char == "_":
+            parts.append(".")
+
+        elif char == "[":
+            end = pattern.index("]", i)
+            parts.append(pattern[i:end + 1])
+            i = end
+
+        else:
+            parts.append(re.escape(char))
+
+        i += 1
+
+    return re.compile("^" + "".join(parts) + "$", re.IGNORECASE)
+
+
+def like(name, pattern):
+    return bool(like_to_regex(pattern).match(name))
+
+
+def fake_arcpy(counts, default=1):
     """
     Build a stand-in for arcpy. counts maps a where clause (None for the whole
-    source) to the row count a layer with that clause reports.
+    source) to the row count a layer with that clause reports. Any other clause
+    reports default rows.
     """
     layers = {}
 
@@ -55,7 +94,7 @@ def fake_arcpy(counts):
     def get_count(layer_or_fc):
         where_clause = layers.get(layer_or_fc)
 
-        return [counts[where_clause]]
+        return [counts.get(where_clause, default)]
 
     management = types.SimpleNamespace(
         MakeFeatureLayer=make_feature_layer,
@@ -68,32 +107,54 @@ def fake_arcpy(counts):
 
 class ClauseTests(unittest.TestCase):
 
-    def test_general_matches_the_original_wa_clauses(self):
-        self.assertEqual(ne.build_exclude_clause("GENERAL"), "STR_TYPE IN ('WA')")
-        self.assertEqual(
+    def test_general_wa_rule_is_unchanged(self):
+        _, exclude, keep = ne.get_rules("GENERAL")[0]
+
+        self.assertEqual(exclude, "STR_TYPE IN ('WA')")
+        self.assertEqual(keep, "(STR_TYPE IS NULL OR STR_TYPE NOT IN ('WA'))")
+
+    def test_general_also_drops_transit_access_roads(self):
+        exclude = ne.build_exclude_clause("GENERAL")
+
+        self.assertEqual(exclude, "STR_TYPE IN ('WA') OR FULL_NAME LIKE 'TA[0-9]%'")
+        self.assertIn(
+            "(FULL_NAME IS NULL OR FULL_NAME NOT LIKE 'TA[0-9]%')",
             ne.build_keep_clause("GENERAL"),
-            "(STR_TYPE IS NULL OR STR_TYPE NOT IN ('WA'))",
         )
+
+    def test_under_review_streets_are_kept_in_every_profile(self):
+        for name in ne.PROFILES:
+
+            self.assertNotIn("UNDER REVIEW", ne.build_exclude_clause(name))
 
     def test_default_profile_is_general(self):
         self.assertEqual(ne.DEFAULT_PROFILE, "GENERAL")
         self.assertEqual(ne.build_keep_clause(), ne.build_keep_clause("GENERAL"))
 
-    def test_hrfe_includes_general_and_emergency_access(self):
+    def test_hrfe_includes_general_and_its_own_rules(self):
         exclude = ne.build_exclude_clause("HRFE")
 
         self.assertIn("STR_TYPE IN ('WA')", exclude)
+        self.assertIn("FULL_NAME LIKE 'TA[0-9]%'", exclude)
         self.assertIn("FULL_NAME LIKE '%EMERGENCY ACCESS%'", exclude)
+        self.assertIn("FULL_NAME LIKE '% ETA [0-9]%'", exclude)
 
     def test_general_does_not_pick_up_hrfe_rules(self):
-        self.assertNotIn("EMERGENCY", ne.build_exclude_clause("GENERAL"))
+        exclude = ne.build_exclude_clause("GENERAL")
+
+        self.assertNotIn("EMERGENCY", exclude)
+        self.assertNotIn("ETA", exclude)
 
     def test_hrfe_keep_clause_is_null_safe_for_every_rule(self):
         keep = ne.build_keep_clause("HRFE")
 
         self.assertIn("(STR_TYPE IS NULL OR STR_TYPE NOT IN ('WA'))", keep)
         self.assertIn("(FULL_NAME IS NULL OR FULL_NAME NOT LIKE '%EMERGENCY ACCESS%')", keep)
-        self.assertEqual(keep.count(" AND "), 1)
+        self.assertEqual(keep.count(" AND "), len(ne.get_rules("HRFE")) - 1)
+
+        for _, _, rule_keep in ne.get_rules("HRFE"):
+
+            self.assertIn(" IS NULL OR ", rule_keep)
 
     def test_unknown_profile_raises(self):
         with self.assertRaises(ValueError):
@@ -147,6 +208,64 @@ class ClauseTests(unittest.TestCase):
         self.assertEqual(source["str_types"], ["WA"])
 
 
+class PatternTests(unittest.TestCase):
+    """The name patterns, checked against sample names and the saved Prod diagnostic."""
+
+    def test_like_helper(self):
+        self.assertTrue(like("TA52 RD", "TA[0-9]%"))
+        self.assertFalse(like("TAYLOR DR", "TA[0-9]%"))
+        self.assertTrue(like("a1", "_[0-9]"))
+        self.assertFalse(like("A.1", "_[0-9]"))
+
+    def test_transit_pattern_takes_ta_roads_and_not_ordinary_streets(self):
+        for name in ("TA1 RD", "TA52 RD", "TA43 RD"):
+
+            self.assertTrue(like(name, "TA[0-9]%"), name)
+
+        for name in ("TAYLOR DR", "TAMARACK DR", "TANLOR DR", "STATE ST", "META1 RD"):
+
+            self.assertFalse(like(name, "TA[0-9]%"), name)
+
+    def test_eta_pattern_takes_eta_segments_only(self):
+        for name in ("HIGHWAY 101 ETA 294", "HIGHWAY 118 ETA 5"):
+
+            self.assertTrue(like(name, "% ETA [0-9]%"), name)
+
+        for name in ("BETA 5 RD", "HIGHWAY 101", "PETALS LANE", "ETA ROAD"):
+
+            self.assertFalse(like(name, "% ETA [0-9]%"), name)
+
+    @unittest.skipUnless(DIAGNOSTIC_CSV.exists(), "diagnostic CSV not in the repository")
+    def test_patterns_reproduce_the_prod_counts_from_2026_09_29(self):
+        with open(DIAGNOSTIC_CSV, newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+
+        def names(candidate):
+            return {r["FDMID"]: r["FULL_NAME"] for r in rows if r["candidate"] == candidate}
+
+        # The wide TA search returned 209 rows; the digit pattern must keep 124 of them.
+        transit = [n for n in names("Transit: TA prefix").values() if like(n, "TA[0-9]%")]
+        self.assertEqual(len(transit), 124)
+        self.assertEqual(len(names("Transit: TA prefix")), 209)
+
+        etas = [n for n in names("ETA: name search").values() if like(n, "% ETA [0-9]%")]
+        self.assertEqual(len(etas), 22)
+
+        emergency = [n for n in names("Emergency access").values() if like(n, "%EMERGENCY ACCESS%")]
+        self.assertEqual(len(emergency), 4)
+
+    @unittest.skipUnless(DIAGNOSTIC_CSV.exists(), "diagnostic CSV not in the repository")
+    def test_the_four_saved_sets_do_not_overlap(self):
+        with open(DIAGNOSTIC_CSV, newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+
+        sets = ("WA baseline", "Emergency access", "Transit: TA + digit", "ETA: name search")
+        ids = [r["FDMID"] for r in rows if r["candidate"] in sets]
+
+        self.assertEqual(len(ids), 211)
+        self.assertEqual(len(set(ids)), 211)
+
+
 class FilteredLayerTests(unittest.TestCase):
 
     def setUp(self):
@@ -180,7 +299,6 @@ class FilteredLayerTests(unittest.TestCase):
         counts = {
             None: 100,
             ne.build_keep_clause("HRFE"): 94,
-            "STR_TYPE IN ('WA')": 6,
             "FULL_NAME LIKE '%EMERGENCY ACCESS%'": 0,
         }
         self.run_filter(counts)
@@ -193,7 +311,6 @@ class FilteredLayerTests(unittest.TestCase):
         counts = {
             None: 100,
             ne.build_keep_clause("GENERAL"): 0,
-            "STR_TYPE IN ('WA')": 100,
         }
 
         with self.assertRaises(RuntimeError):
@@ -206,7 +323,9 @@ class FilteredLayerTests(unittest.TestCase):
         self.assertIn("No edge exclusions configured", self.handler.messages(logging.INFO)[0])
 
     def test_count_excluded_warns_about_a_stale_copy(self):
-        with mock.patch.dict(sys.modules, {"arcpy": fake_arcpy({"STR_TYPE IN ('WA')": 3})}):
+        counts = {ne.build_exclude_clause("GENERAL"): 3}
+
+        with mock.patch.dict(sys.modules, {"arcpy": fake_arcpy(counts)}):
             n = ne.count_excluded("COPY", self.logger, "GENERAL")
 
         self.assertEqual(n, 3)

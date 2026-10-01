@@ -15,7 +15,8 @@ network (email thread "HRFE network dataset", 2026-09-01 to 2026-09-17):
   - Emergency access roads: FULL_NAME LIKE '%EMERGENCY ACCESS%'. He says there
     are 4 (expect 4 rows).
   - ETAs (emergency turnarounds): small connectors between divided highways. He
-    gave no query, so the candidates below are guesses to help find them.
+    gave no query, so the candidate below is a guess. It found 22 rows, which he
+    confirmed on 2026-09-29 as the full set.
 
 For every candidate this prints the row count, the STR_TYPE / ST_CLASS mix of the
 matches, and the first rows. Every matched row is written to OUTPUT_CSV so it can

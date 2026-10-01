@@ -641,22 +641,52 @@ scenarios still reproduce on Pro 3.5.8.
 - [x] WA exclusion coded in `network_exclusions.py` (scripts 03 and 04), untested against a live
       database
 - [ ] Island exclusion: Melanie supplies the FDMID list, then add it to `ISLAND_FDMIDS`
-- [x] Exclusion profiles in `network_exclusions.py`: `GENERAL` (WA, islands; what scripts 03 and 04
-      use) and `HRFE` (adds emergency access roads, `FULL_NAME LIKE '%EMERGENCY ACCESS%'`, which
-      Robbie says matches 4 rows). Per-rule counts are logged. Unit tests in `scripts/tests`.
-- [ ] HRFE exclusions from Robbie's 2026-09-01 and 2026-09-17 emails: **waiting on Robbie's reply**
-      to Alex's 2026-09-29 email (record: [`meetings/2026-09-29_HRFE_network_dataset_email_thread.md`](meetings/2026-09-29_HRFE_network_dataset_email_thread.md)).
+- [x] Exclusion profiles in `network_exclusions.py`: `GENERAL` (WA, transit access roads `TA[0-9]%`,
+      islands; what scripts 03 and 04 use) and `HRFE` (GENERAL plus emergency access roads and ETAs
+      `% ETA [0-9]%`). Per-rule counts are logged. Unit tests in `scripts/tests` (25), including
+      the patterns run against the saved Prod diagnostic. Not run against a live database.
+- **Decided 2026-09-29: UNDER REVIEW streets stay in every network.** A requirement to drop them
+  (names like "UNDER REVIEW 329", `STR_TYPE` `UN`, seen in a `Network_Error_Segments` table of 57
+  rows) was withdrawn the same day, and a test guards against them being excluded. Nothing about
+  them is coded.
+- [ ] **Transit access roads are removed from every network** (decided 2026-09-29, so they are in
+      `GENERAL` next to WA and HRFE inherits them). This changes the distance network too, at its
+      next rebuild; the QA network built on 2026-09-29 (37,674 edges) still contains them. **All 124
+      go, no exceptions** (decided 2026-09-29; this closes Robbie's ambiguous answer on whether to
+      keep any, so no follow-up to him is needed). Nothing is left to code; the change waits on the
+      next edge-copy rebuild.
+- [ ] HRFE exclusions from Robbie's 2026-09-01 and 2026-09-17 emails: **Robbie replied 2026-09-29**
+      (inline approve/reject images and one typed answer): ETAs (22, complete set) and emergency
+      access roads are to be removed from HRFE routing; transit `TA[0-9]%` has no other names. The
+      ETA and emergency access patterns are in `HRFE_EXTRA`. Record: [`meetings/2026-09-29_HRFE_network_dataset_email_thread.md`](meetings/2026-09-29_HRFE_network_dataset_email_thread.md).
       Diagnostic run against Prod on 2026-09-29 (18,644 rows; output in
       `intermediate_results/candidate_exclusions_20260929.csv`): **transit access roads**
       `FULL_NAME LIKE 'TA[0-9]%'` = 124 rows (TA1 to TA52, all `STR_TYPE` `RD`; the looser `TA%` adds
       85 ordinary streets; `STR_TYPE` `ATA` = 0); **ETAs** `FULL_NAME LIKE '% ETA [0-9]%'` = 22 rows
       ("HIGHWAY nnn ETA n", Expressway class, `STR_TYPE` null, a guessed search); emergency access = 4
-      and WA = 61, as expected. Once he confirms, add the transit and ETA patterns to `HRFE_EXTRA` and
-      a test. Also asked: whether removing ETAs and emergency access roads is really the intent for a
-      fire network.
-- [ ] HRFE additions from the same thread, not started: bridge break (location needed), routes
-      outside HRM, Station 2 left turn on University Ave (**urgent**), driveways, a new HRFE feature
-      dataset in QA, and how splits survive an LRS update.
+      and WA = 61, as expected. Expected edge copies (counts to check on the first build): general
+      18,459 of 18,644 (WA 61 + transit 124 out); HRFE 18,433 (those plus emergency access 4 and ETAs
+      22, 211 in all; the four sets share no FDMIDs).
+- [x] **HRFE build scaffolding written 2026-09-29, not run.** Decisions (Alex): a second network
+      dataset in its own feature dataset `SDEADM.TRNLRS_network_HRFE` (network
+      `TRNLRS_street_network_HRFE`), the **same turn restrictions** as the distance network (the
+      same legacy turns remapped onto its own edge copy), and Robbie edits the extra roads himself
+      in QA once Alex has created the feature class from what he drops in the monthly folder.
+      `scripts/network_definitions.py` holds both networks' names and renders the HRFE template
+      from the committed one; `HRM_NETWORK=HRFE` selects it in scripts 03, 05, the verifier and
+      `qa_refresh`. Unset behaves as before (checked: every path the scripts build is identical to
+      the baseline). Steps to run it: [`hrfe_network_runbook.md`](hrfe_network_runbook.md). Still to
+      do: create the feature dataset, run `test_template_create.py` for HRFE, then `qa_refresh`
+      steps 3 to 8 with grants; then the extra roads (open questions in the runbook).
+- [ ] **HRFE additions, updated 2026-10-01 after Robbie's reply.** The **bridge is dropped**: he will use a
+      point barrier on it himself. The **Station 2 segment has arrived** in
+      `monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb` and has not been inspected;
+      run `scripts/diagnostics/11_inspect_extra_roads.py` (written, geometry code untested) to see its schema
+      and whether its ends meet the streets. He will add the **driveways and routes outside HRM** to the same
+      layer (interpretation). He agreed to the **splits** approach (split points in their own layer,
+      re-applied after each sync). Still to do: create the extra-roads feature class in
+      `SDEADM.TRNLRS_network_HRFE`, add it to the template as a second edge source, grant Robbie edit access, and
+      settle who rebuilds after his edits. Open questions are in the runbook.
 - [ ] Decide whether the HRFE (speed) network is a second network dataset or an added cost
 - [ ] Decide the turn-OID-stability question before prod cutover (see
       [`network_dataset_script_review.md` §D](network_dataset_script_review.md#d-turn-references-do-not-survive-an-lrs-refresh-structural))

@@ -12,13 +12,15 @@ Profiles
 --------
 Each network has its own exclusion profile:
 
-  GENERAL  the distance network (TRNLRS_street_network). WA streets and islands.
+  GENERAL  the distance network (TRNLRS_street_network). WA streets, transit
+           access roads and islands.
   HRFE     the fire and emergency network. Everything in GENERAL, plus the extra
            exclusions Robbie Evans listed (email thread "HRFE network dataset",
-           2026-09-01 to 2026-09-17).
+           2026-09-01 to 2026-09-29): emergency access roads and ETAs.
 
-Scripts 03 and 04 use DEFAULT_PROFILE (GENERAL). The HRFE network is not built
-yet; when it is, its build passes profile="HRFE".
+Each network in network_definitions.py names its profile, and scripts 03 and 04 read
+it from there, so an HRFE build (HRM_NETWORK=HRFE) uses HRFE. DEFAULT_PROFILE (GENERAL)
+applies only when a caller passes no profile.
 
 To change what a profile leaves out, edit the lists below, then re-run script 03
 (after deleting the existing edge copy) or script 04 so the change reaches the
@@ -56,10 +58,20 @@ ISLAND_FDMIDS = []
 # WA = water access roads. Robbie Evans and Melanie Parker asked for these to be
 # removed (2026-09-23, confirmed 2026-09-29; Robbie confirmed STR_TYPE = 'WA' on
 # 2026-09-17).
+#
+# Transit access roads are removed from every network (decided 2026-09-29). They are
+# named "TA# RD". Run against Prod on 2026-09-29, 'TA[0-9]%' matches 124 rows (TA1 to
+# TA52, all STR_TYPE RD); the looser 'TA%' adds 85 ordinary streets. Robbie Evans
+# confirmed on 2026-09-29 that no transit road has another name. All 124 go, with no
+# exceptions (decided 2026-09-29).
+#
+# UNDER REVIEW streets (LRS placeholders named like "UNDER REVIEW 329", STR_TYPE 'UN')
+# are deliberately NOT excluded: a requirement to drop them on 2026-09-29 was withdrawn
+# the same day.
 GENERAL_PROFILE = {
     "str_types": ["WA"],
     "fdmids": list(ISLAND_FDMIDS),
-    "name_patterns": [],
+    "name_patterns": ["TA[0-9]%"],
 }
 
 # Extra HRFE exclusions, from Robbie Evans's 2026-09-01 and 2026-09-17 emails.
@@ -68,19 +80,22 @@ GENERAL_PROFILE = {
 #   exactly 4 (Highland Park, Buckingham Dr x2, Westwood Blvd, each "EMERGENCY
 #   ACCESS 01").
 #
-#   Transit access roads: he confirmed they look like "TA# RD". Run against Prod
-#   on 2026-09-29, 'TA[0-9]%' matches 124 rows (TA1 to TA52, all STR_TYPE RD); the
-#   looser 'TA%' adds 85 ordinary streets. Waiting on his reply before adding it.
+#   ETAs (emergency turnarounds): small connectors between divided highways, 22
+#   rows named "HIGHWAY nnn ETA n" ('% ETA [0-9]%'). Robbie confirmed on
+#   2026-09-29 this is the full set and that HRFE routes are calculated without
+#   them. Emergency access roads are evacuation only.
 #
-#   ETAs (emergency turnarounds): small connectors between divided highways. A name
-#   search found 22 rows named "HIGHWAY nnn ETA n" ('% ETA [0-9]%'). Waiting on
-#   Robbie to confirm that set, and that he wants them removed for HRFE at all.
+#   Transit access roads are in GENERAL_PROFILE above, so HRFE inherits them.
+#
+#   Expected effect on the HRFE edge copy: 211 rows from WA, transit, emergency
+#   access and ETAs (61 + 124 + 4 + 22, no shared FDMIDs), leaving 18,433 of 18,644.
+#   The general copy loses WA and transit only (185 rows), leaving 18,459.
 #
 #   Record: docs/meetings/2026-09-29_HRFE_network_dataset_email_thread.md
 HRFE_EXTRA = {
     "str_types": [],
     "fdmids": [],
-    "name_patterns": ["%EMERGENCY ACCESS%"],
+    "name_patterns": ["%EMERGENCY ACCESS%", "% ETA [0-9]%"],
 }
 
 DEFAULT_PROFILE = "GENERAL"

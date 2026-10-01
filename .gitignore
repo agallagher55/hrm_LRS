@@ -2,3 +2,4 @@ logs/
 __pycache__/
 *.pyc
 network_dataset/scripts/qa_refresh/output/*.gdb/
+network_dataset/data/generated/

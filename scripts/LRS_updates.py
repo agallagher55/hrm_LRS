@@ -578,7 +578,7 @@ def sync_network_edge_source(sde_connection: str):
     and rebuilds TRNLRS_street_network. The work is done by
     04_sync_and_rebuild_network.sync_and_rebuild(), which uses DeleteRows instead of
     TruncateTable (TruncateTable fails with ERROR 001395 on a network source) and
-    applies the edge exclusions (WA streets and listed islands).
+    applies the edge exclusions (WA streets, transit access roads and listed islands).
 
     Reloading the edge copy reassigns every OBJECTID, so every turn's edge
     references break. Run the turn remap (network_dataset/scripts/qa_refresh, steps

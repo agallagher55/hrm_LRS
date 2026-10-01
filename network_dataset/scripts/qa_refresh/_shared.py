@@ -39,6 +39,16 @@ def load_and_validate_core_scripts():
     turns = load_script(config.SCRIPT_05, "qa_refresh_rebuild_turns")
     verifier = load_script(config.VERIFY_SCRIPT, "qa_refresh_verify_turns")
 
+    keys = {
+        "config": config.NETWORK_DEF.key,
+        "03": build.NETWORK.key,
+        "05": turns.NETWORK.key,
+        "verifier": verifier.NETWORK.key,
+    }
+    if len(set(keys.values())) != 1:
+        raise RuntimeError(f"The scripts disagree about which network this run is on: {keys}")
+    print(f"Network: {config.NETWORK_DEF.key} ({config.NETWORK_DEF.description})")
+
     expected = config.QA_NETWORK_FD
     configured_paths = {
         "03 FEATURE_DATASET": build.FEATURE_DATASET,

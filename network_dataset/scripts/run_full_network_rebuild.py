@@ -242,7 +242,7 @@ def main(argv=None):
     # CreateNetworkDatasetFromTemplate + BuildNetwork pair this run.
     mod03.main()
 
-    junction_fc = mod05.SDE + rf"\{mod05.NETWORK_FD}\SDEADM.TRNLRS_street_junction"
+    junction_fc = mod05.SDE + rf"\{mod05.NETWORK_FD}\SDEADM.{mod05.NETWORK.junction_name}"
     report_source_counts(
         network_dataset=mod05.NEW_NETWORK,
         edge_fc=mod05.NEW_EDGE_FC,

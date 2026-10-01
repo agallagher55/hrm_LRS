@@ -1,6 +1,7 @@
 """Configuration shared by the ordered QA network-refresh entry points."""
 
 import os
+import sys
 from pathlib import Path
 
 
@@ -13,16 +14,26 @@ CORE_SCRIPTS_DIR = QA_REFRESH_DIR.parent
 NETWORK_DATASET_DIR = CORE_SCRIPTS_DIR.parent
 OUTPUT_DIR = Path(os.path.join(QA_REFRESH_DIR, "output"))
 
+if str(CORE_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(CORE_SCRIPTS_DIR))
+
+import network_definitions
+
+# Which network the whole workflow runs on: DISTANCE by default, HRFE with HRM_NETWORK=HRFE
+# set before the run. Scripts 03, 05 and the verifier read the same variable, so every step
+# agrees. See ../network_definitions.py.
+NETWORK_DEF = network_definitions.get_definition()
+
 QA_SDE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-QA_NETWORK_FD_NAME = r"SDEADM.TRNLRS_network"
+QA_NETWORK_FD_NAME = NETWORK_DEF.feature_dataset
 QA_NETWORK_FD = os.path.join(QA_SDE, QA_NETWORK_FD_NAME)
 
-NETWORK = os.path.join(QA_NETWORK_FD, "SDEADM.TRNLRS_street_network")
-EDGE = os.path.join(QA_NETWORK_FD, "SDEADM.TRNLRS_TRN_STREET")
-JUNCTION = os.path.join(QA_NETWORK_FD, "SDEADM.TRNLRS_street_junction")
-TURN = os.path.join(QA_NETWORK_FD, "SDEADM.TRNLRS_traffic_turn")
+NETWORK = os.path.join(QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.network_name)
+EDGE = os.path.join(QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.edge_name)
+JUNCTION = os.path.join(QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.junction_name)
+TURN = os.path.join(QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.turn_name)
 STAGING_TURN = os.path.join(
-    QA_NETWORK_FD, "SDEADM.TRNLRS_traffic_turn_staging"
+    QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.staging_turn_name
 )
 QA_STANDALONE_VIEW = os.path.join(QA_SDE, "SDEADM.TRNLRS_TRN_STREET_VW")
 

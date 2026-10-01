@@ -97,6 +97,7 @@ import sys
 
 import arcpy
 
+import network_definitions
 from log_utils import setup_logger
 
 logger = setup_logger("05_rebuild_traffic_turns")
@@ -110,7 +111,11 @@ logger = setup_logger("05_rebuild_traffic_turns")
 # network_dataset/scripts/03_create_network_dataset.py must point at the SAME environment --
 # run_full_network_rebuild.py asserts that before it does anything.
 SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-NETWORK_FD = r"SDEADM.TRNLRS_network"
+
+# Which network is being remapped: DISTANCE by default, HRFE with HRM_NETWORK=HRFE.
+# Both remap the same legacy turns, onto their own edge copy. See network_definitions.py.
+NETWORK    = network_definitions.get_definition()
+NETWORK_FD = NETWORK.feature_dataset
 
 # Dev: uncomment to point this script at Dev instead of QA (and change
 # SDE_CONNECTION_UPDATE in 03_create_network_dataset.py to match).
@@ -124,16 +129,16 @@ NETWORK_FD = r"SDEADM.TRNLRS_network"
 
 OLD_TURN_FC       = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_traffic_turn"
 OLD_EDGE_FC       = SDE + r"\SDEADM.TRN_streets_routes\SDEADM.TRN_street"
-NEW_EDGE_FC       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_TRN_STREET"
-NEW_TURN_FC       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn_staging"
-OLD_TURN_FC_FINAL = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn"
-NEW_NETWORK       = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_street_network"
+NEW_EDGE_FC       = SDE + rf"\{NETWORK_FD}\SDEADM.{NETWORK.edge_name}"
+NEW_TURN_FC       = SDE + rf"\{NETWORK_FD}\SDEADM.{NETWORK.staging_turn_name}"
+OLD_TURN_FC_FINAL = SDE + rf"\{NETWORK_FD}\SDEADM.{NETWORK.turn_name}"
+NEW_NETWORK       = SDE + rf"\{NETWORK_FD}\SDEADM.{NETWORK.network_name}"
 
 # Edge source name, used only in log messages below. The FCID itself is read
 # directly from the edge FC's own DSID (arcpy.Describe(NEW_EDGE_FC).DSID), not
 # looked up by name from a template or a live network's source list -- see the
 # comment at Section 5 for why those approaches were wrong.
-EDGE_SOURCE_NAME = "TRNLRS_TRN_STREET"
+EDGE_SOURCE_NAME = NETWORK.edge_name
 
 # Snap tolerance in map units (metres). Turn junctions must fall within this
 # distance of a new edge endpoint to be matched. Widen if skipped count is
@@ -766,12 +771,12 @@ def main():
         logger.info(f"  Deleting {OLD_TURN_FC_FINAL}...")
         arcpy.management.Delete(OLD_TURN_FC_FINAL)
 
-        logger.info(f"  Renaming {NEW_TURN_FC} -> TRNLRS_traffic_turn...")
-        arcpy.management.Rename(NEW_TURN_FC, "TRNLRS_traffic_turn")
+        logger.info(f"  Renaming {NEW_TURN_FC} -> {NETWORK.turn_name}...")
+        arcpy.management.Rename(NEW_TURN_FC, NETWORK.turn_name)
 
         logger.info(
             "Turn FC swap complete. The network dataset was deleted and must be recreated: "
-            "run network_dataset/scripts/03_create_network_dataset.py to recreate TRNLRS_street_network "
+            f"run network_dataset/scripts/03_create_network_dataset.py to recreate {NETWORK.network_name} "
             "from the template and rebuild it (it will skip re-copying the three source "
             "FCs since they already exist, and go straight to create + build)."
         )
@@ -784,7 +789,7 @@ def main():
             "or renamed while the network dataset exists -- delete it first): "
             f"1) arcpy.management.Delete(r'{NEW_NETWORK}') "
             f"2) arcpy.management.Delete(r'{OLD_TURN_FC_FINAL}') "
-            f"3) arcpy.management.Rename(r'{NEW_TURN_FC}', 'TRNLRS_traffic_turn') "
+            f"3) arcpy.management.Rename(r'{NEW_TURN_FC}', '{NETWORK.turn_name}') "
             "4) Run network_dataset/scripts/03_create_network_dataset.py to recreate and rebuild the network dataset."
         )
 

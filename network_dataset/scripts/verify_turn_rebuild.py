@@ -59,6 +59,7 @@ from collections import Counter
 
 import arcpy
 
+import network_definitions
 from log_utils import setup_logger
 
 logger = setup_logger("verify_turn_rebuild")
@@ -67,14 +68,18 @@ logger = setup_logger("verify_turn_rebuild")
 # Configuration
 # ---------------------------------------------------------------------------
 SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-NETWORK_FD = r"SDEADM.TRNLRS_network"
+
+# Which network is verified: DISTANCE by default, HRFE with HRM_NETWORK=HRFE
+# (the same value 05 and 03 ran with). See network_definitions.py.
+NETWORK    = network_definitions.get_definition()
+NETWORK_FD = NETWORK.feature_dataset
 
 # Staging output of 05_rebuild_traffic_turns.py -- verify this BEFORE swapping.
-TURN_FC = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn_staging"
+TURN_FC = SDE + rf"\{NETWORK_FD}\SDEADM.{NETWORK.staging_turn_name}"
 # After the swap, re-run against the live turn FC:
-# TURN_FC = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_traffic_turn"
+# TURN_FC = SDE + rf"\{NETWORK_FD}\SDEADM.{NETWORK.turn_name}"
 
-EDGE_FC = SDE + rf"\{NETWORK_FD}\SDEADM.TRNLRS_TRN_STREET"
+EDGE_FC = SDE + rf"\{NETWORK_FD}\SDEADM.{NETWORK.edge_name}"
 
 # Must match SNAP_TOLERANCE in 05_rebuild_traffic_turns.py.
 TOLERANCE = 0.5
