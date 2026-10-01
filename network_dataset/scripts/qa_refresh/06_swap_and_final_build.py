@@ -3,11 +3,15 @@
 import inspect
 
 import config
-from _shared import load_and_validate_core_scripts, load_script, require_exists
+from _shared import load_and_validate_core_scripts, load_script, require_exists, require_network
 
 
 # Set this to True only after completing the staging verification and review.
 CONFIRM_REVIEWED_STAGING = False
+
+# The network this run swaps and rebuilds. It must match HRM_NETWORK (unset means DISTANCE, the live
+# network), so set both on purpose: for HRFE, set this to "HRFE" and run with HRM_NETWORK=HRFE.
+NETWORK_TO_BUILD = "DISTANCE"
 
 
 def main():
@@ -18,6 +22,7 @@ def main():
         )
 
     load_and_validate_core_scripts()
+    require_network(NETWORK_TO_BUILD, "NETWORK_TO_BUILD")
     require_exists(config.STAGING_TURN, "Reviewed staging turn feature class")
     orchestrator = load_script(config.FULL_REBUILD_SCRIPT, "qa_refresh_full_rebuild")
 

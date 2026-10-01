@@ -11,21 +11,23 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import connectivity_check as cc
+import connectivity_check as cc  # noqa: E402
 
 
 class ClassifyEndpointTests(unittest.TestCase):
 
     def test_an_end_on_a_street_end_point_connects(self):
         self.assertEqual(cc.classify_endpoint(0.0, 0.0), cc.END_POINT)
-        self.assertEqual(cc.classify_endpoint(0.3, 0.4), cc.END_POINT)
+        self.assertEqual(cc.classify_endpoint(0.0005, 0.0008), cc.END_POINT)
 
     def test_an_end_on_the_middle_of_a_street_needs_a_split(self):
         self.assertEqual(cc.classify_endpoint(0.0, 37.5), cc.MID_SEGMENT)
-        self.assertEqual(cc.classify_endpoint(0.4, 0.6), cc.MID_SEGMENT)
+        self.assertEqual(cc.classify_endpoint(0.0004, 0.6), cc.MID_SEGMENT)
 
-    def test_an_end_just_off_a_street_is_a_gap(self):
-        self.assertEqual(cc.classify_endpoint(0.8, 0.0), cc.GAP)
+    def test_a_near_miss_is_a_gap_not_a_connection(self):
+        """End Point connectivity needs ends within the XY tolerance (about a millimetre)."""
+        self.assertEqual(cc.classify_endpoint(0.3, 0.0), cc.GAP)
+        self.assertEqual(cc.classify_endpoint(0.01, 0.0), cc.GAP)
         self.assertEqual(cc.classify_endpoint(12.0, 50.0), cc.GAP)
 
     def test_an_end_with_no_street_nearby_is_free(self):
@@ -34,18 +36,47 @@ class ClassifyEndpointTests(unittest.TestCase):
 
     def test_the_tolerances_are_inclusive_at_the_edge(self):
         self.assertEqual(cc.classify_endpoint(cc.SNAP_TOLERANCE, cc.SNAP_TOLERANCE), cc.END_POINT)
-        self.assertEqual(cc.classify_endpoint(cc.SNAP_TOLERANCE + 0.01, 0.0), cc.GAP)
+        self.assertEqual(cc.classify_endpoint(cc.SNAP_TOLERANCE * 2, 0.0), cc.GAP)
         self.assertEqual(cc.classify_endpoint(cc.SEARCH_DISTANCE, 0.0), cc.GAP)
         self.assertEqual(cc.classify_endpoint(cc.SEARCH_DISTANCE + 0.01, 0.0), cc.FREE_END)
 
     def test_custom_tolerances(self):
-        self.assertEqual(cc.classify_endpoint(1.5, 1.5, snap_tolerance=2.0), cc.END_POINT)
+        self.assertEqual(cc.classify_endpoint(0.003, 0.003, snap_tolerance=0.005), cc.END_POINT)
         self.assertEqual(cc.classify_endpoint(10.0, 0.0, search_distance=5.0), cc.FREE_END)
 
-    def test_snap_tolerance_matches_the_turn_remap(self):
-        source = (Path(__file__).resolve().parents[1] / "05_rebuild_traffic_turns.py").read_text(encoding="utf-8")
+    def test_the_default_tolerance_is_the_xy_tolerance_not_the_turn_snap(self):
+        self.assertLess(cc.SNAP_TOLERANCE, 0.01)
 
-        self.assertIn("SNAP_TOLERANCE = {}".format(cc.SNAP_TOLERANCE), source)
+
+class PickNearestTests(unittest.TestCase):
+
+    def test_no_candidates(self):
+        self.assertIsNone(cc.pick_nearest([]))
+
+    def test_prefers_the_street_it_meets_at_an_end_over_one_it_crosses(self):
+        """A through street and a side street meet at the same point: the end connects."""
+        through = (0.0, 40.0, "through street")
+        side = (0.0, 0.0, "side street")
+
+        for order in ([through, side], [side, through]):
+            self.assertEqual(cc.pick_nearest(order), side)
+
+    def test_with_nothing_touching_the_nearest_wins(self):
+        near = (3.0, 10.0, "near")
+        far = (9.0, 0.0, "far")
+
+        self.assertEqual(cc.pick_nearest([far, near]), near)
+
+    def test_touching_beats_a_closer_end_that_does_not_touch(self):
+        touching = (0.0, 25.0, "touching mid-street")
+        off = (0.4, 0.0, "off, at an end")
+
+        self.assertEqual(cc.pick_nearest([off, touching]), touching)
+
+    def test_a_mid_street_touch_alone_stays_mid_street(self):
+        best = cc.pick_nearest([(0.0, 30.0, "only street")])
+
+        self.assertEqual(cc.classify_endpoint(best[0], best[1]), cc.MID_SEGMENT)
 
 
 class SegmentVerdictTests(unittest.TestCase):

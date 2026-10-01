@@ -17,7 +17,7 @@ OUTPUT_DIR = Path(os.path.join(QA_REFRESH_DIR, "output"))
 if str(CORE_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_SCRIPTS_DIR))
 
-import network_definitions
+import network_definitions  # noqa: E402
 
 # Which network the whole workflow runs on: DISTANCE by default, HRFE with HRM_NETWORK=HRFE
 # set before the run. Scripts 03, 05 and the verifier read the same variable, so every step

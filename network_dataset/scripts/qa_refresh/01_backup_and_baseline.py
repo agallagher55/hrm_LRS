@@ -52,7 +52,7 @@ def main():
     require_exists(config.TURN, "Live QA turn feature class")
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     backup = os.path.join(
-        config.QA_NETWORK_FD, f"TRNLRS_traffic_turn_bak_{timestamp}"
+        config.QA_NETWORK_FD, f"{config.NETWORK_DEF.turn_name}_bak_{timestamp}"
     )
     print(f"Backing up {config.TURN}\n       to {backup}")
     arcpy.management.CopyFeatures(config.TURN, backup)
@@ -69,6 +69,7 @@ def main():
         "captured_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "qa_sde": config.QA_SDE,
         "network": config.NETWORK,
+        "network_key": config.NETWORK_DEF.key,
         "backup": backup,
         "offline_backup": offline,
         "counts": {

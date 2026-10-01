@@ -9,8 +9,11 @@ This is the pure logic, kept free of arcpy so it can be tested. The script that 
 real data is diagnostics/11_inspect_extra_roads.py.
 """
 
-# Metres. Matches SNAP_TOLERANCE in 05_rebuild_traffic_turns.py.
-SNAP_TOLERANCE = 0.5
+# Metres. End Point connectivity joins two ends only if they coincide to within the XY tolerance
+# of the feature dataset's spatial reference, which is far tighter than the 0.5 m that
+# 05_rebuild_traffic_turns.py uses to match a turn to an edge. This is the usual default; the
+# inspection script passes the real value from the streets' spatial reference.
+SNAP_TOLERANCE = 0.001
 
 # How far from an end to look for a street before calling it a free end.
 SEARCH_DISTANCE = 25.0
@@ -23,12 +26,33 @@ FREE_END = "free_end"
 DESCRIPTIONS = {
     END_POINT: "connects at a street end point",
     MID_SEGMENT: "touches a street mid-segment: the street needs a split here",
-    GAP: "near a street but not touching it: snap it, or split the street and snap",
+    GAP: "near a street but not on it (further than the XY tolerance): snap it, "
+         "or split the street and snap",
     FREE_END: "no street nearby: a free end, fine for a dead-end driveway",
 }
 
 # Classes that mean the end will not connect to anything as it is, though a street is close.
 PROBLEMS = (MID_SEGMENT, GAP)
+
+
+def pick_nearest(candidates, snap_tolerance=SNAP_TOLERANCE):
+    """
+    Choose the street an end should be judged against from
+    (distance, distance_to_street_end, label) candidates.
+
+    Several streets can meet at the same point. Among those the end touches, prefer the one it
+    meets at an end point, so a through street that happens to come first does not hide a side
+    street that ends there. If it touches none, the nearest one. Returns None for no candidates.
+    """
+    if not candidates:
+        return None
+
+    touching = [c for c in candidates if c[0] <= snap_tolerance]
+
+    if touching:
+        return min(touching, key=lambda c: (c[1], c[0]))
+
+    return min(candidates, key=lambda c: c[0])
 
 
 def classify_endpoint(distance_to_street, distance_to_street_end, snap_tolerance=SNAP_TOLERANCE,

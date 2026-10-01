@@ -1,6 +1,6 @@
 # Handoff: current status
 
-**Last updated 2026-10-01.** Read this first, then follow the links for detail. Update it whenever
+**Last updated 2026-10-01 (after PR #72 merged).** Read this first, then follow the links for detail. Update it whenever
 status changes (what is done, what is waiting, what to do next). The detailed history lives in
 `network_dataset/docs/network_build_status.md`; this file is the short version of where things are.
 
@@ -55,7 +55,7 @@ Done (written and tested, not run):
   ETAs 22; the four sets share no FDMIDs).
 - `network_definitions.py` holds each network's names and renders the HRFE template from the committed
   one. The `HRM_NETWORK` environment variable picks the network in scripts 03, 05, the verifier, the
-  orchestrator and `qa_refresh`. Unset means distance, unchanged from before. The Prod edge sync
+  orchestrator and `qa_refresh`. Unset means distance, with every path unchanged (its exclusions did gain transit). A mistyped variable name stops a run, and steps 02 and 06 also need `NETWORK_TO_DELETE` / `NETWORK_TO_BUILD` set in the script to match. The Prod edge sync
   (`04`, called by `LRS_updates.py`) ignores the variable on purpose.
 - `docs/hrfe_network_runbook.md` has the build steps.
 
@@ -91,6 +91,9 @@ Robbie's answers (record: `network_dataset/docs/meetings/2026-09-29_HRFE_network
 - Connectivity: the network uses End Point connectivity, so an added road that meets a street
   mid-segment will not connect without a split. Step 1 above shows whether Station 2 has this problem.
 - Whether weak bridges on the routes outside HRM are handled by his point barriers too.
+- **Nothing syncs the HRFE edge copy after an LRS update.** `04` (called by `LRS_updates.py`) reloads only
+  the distance edge copy, so HRFE goes stale until `qa_refresh` is rerun by hand. Decide how to sync both
+  before HRFE exists in Prod.
 - Whether the rendered HRFE template's leftover `<DSID>` is accepted for a second network in the same
   database. The scratch test cannot show it.
 - The HRFE network also needs travel time (speed). Deferred: `E_SpeedLimit` does not segment like the
@@ -98,12 +101,14 @@ Robbie's answers (record: `network_dataset/docs/meetings/2026-09-29_HRFE_network
 
 ## Working notes
 
-- **Tests:** `python -m unittest discover -s tests` from `network_dataset/scripts` (60 tests, no ArcGIS
+- **Tests:** `python -m unittest discover -s tests` from `network_dataset/scripts` (76 tests, no ArcGIS
   needed). They import the scripts against a stand-in for `arcpy`.
 - **Deploy to the T: drive** before a run, and compare sizes or hashes with the repo. Stale copies cost
   time on 2026-09-29. `network_definitions.py` and `connectivity_check.py` are new files the scripts import.
-- **Branch and PR:** work on `claude/bold-dirac-65wvnr`, draft PR #72 into `claude/setup-lrs-repo-0S4rJ`
-  (the repo's default branch). PRs #70 and #71 are merged.
+- **Branch and PR:** work on `claude/bold-dirac-65wvnr` and open a draft PR into
+  `claude/setup-lrs-repo-0S4rJ` (the repo's default branch). PRs #70, #71 and #72 are merged (#72 on
+  2026-10-01, the HRFE scaffolding and Robbie's replies), so start the branch afresh from the base before
+  new work.
 - **Emails arrive as `.msg` uploads.** Parse with `olefile`. Robbie once answered with reaction images
   (approve, reject) placed under each bullet; the RTF body shows which image sits where.
 - **Tone:** Robbie Evans is a friend of Alex's, so emails to him stay casual. Draft emails in Alex's voice,

@@ -46,13 +46,23 @@ SOURCES = {
     NETWORK.turn_name: os.path.join(DISTANCE_FD, "SDEADM." + DISTANCE.turn_name),
 }
 
-# Text that must appear in the template exported from the newly created network.
+# Text that must appear in the template exported from the newly created network. A miss fails the test.
 EXPECTED_IN_EXPORT = [
     "<NetworkDirections",
     "<StreetNameFieldName>STR_NAME</StreetNameFieldName>",
     "<SuffixTypeFieldName>STR_TYPE</SuffixTypeFieldName>",
     "<FullNameFieldName>FULL_NAME</FullNameFieldName>",
+]
+
+# The names the rendered template should carry. Reported but not a failure: an exported
+# template's <Name>/<CatalogPath> fields are not reliably the live object's names (CLAUDE.md),
+# so a miss here is a prompt to look, not proof of a bad rename. The real proof is that the
+# network was found and built under NETWORK_NAME below.
+NAMES_TO_REPORT = [
     f"<Name>{NETWORK.network_name}</Name>",
+    f"<Name>{NETWORK.edge_name}</Name>",
+    f"<Name>{NETWORK.junction_name}</Name>",
+    f"<Name>{NETWORK.turn_name}</Name>",
 ]
 
 
@@ -135,6 +145,9 @@ def main():
 
     for text in EXPECTED_IN_EXPORT:
         print(f"{'MISSING' if text in missing else 'found  '}: {text}")
+
+    for text in NAMES_TO_REPORT:
+        print(f"{'found  ' if text in exported_text else 'not seen'}: {text} (informational)")
 
     if not KEEP_SCRATCH:
         arcpy.management.Delete("nd_test_lyr")

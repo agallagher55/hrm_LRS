@@ -22,7 +22,7 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(SCRIPTS / "qa_refresh"))
 
-import network_definitions as nd
+import network_definitions as nd  # noqa: E402
 
 TEMPLATE_PATH = SCRIPTS.parent / "data" / "network_template.xml"
 QA_SDE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
@@ -74,7 +74,9 @@ def load_config(env):
         environ[nd.NETWORK_ENV_VAR] = env
 
     with mock.patch.dict(os.environ, environ, clear=True):
-        spec = importlib.util.spec_from_file_location("t_config", SCRIPTS / "qa_refresh" / "config.py")
+        spec = importlib.util.spec_from_file_location(
+            "t_config", SCRIPTS / "qa_refresh" / "config.py"
+        )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
@@ -107,7 +109,10 @@ class DefinitionTests(unittest.TestCase):
 
     def test_no_name_is_shared_between_networks(self):
         """SDE needs feature class names to be unique across the whole geodatabase."""
-        fields = ("feature_dataset", "network_name", "edge_name", "junction_name", "turn_name", "staging_turn_name")
+        fields = (
+            "feature_dataset", "network_name", "edge_name", "junction_name", "turn_name",
+            "staging_turn_name",
+        )
 
         for field in fields:
 
@@ -144,6 +149,76 @@ class DefinitionTests(unittest.TestCase):
 
         self.assertIn("HRFF", str(error.exception))
         self.assertIn("DISTANCE", str(error.exception))
+
+
+class MisspelledVariableTests(unittest.TestCase):
+    """A near miss of HRM_NETWORK must not quietly mean DISTANCE, the live network."""
+
+    def test_a_name_with_spaces_is_refused(self):
+        """cmd's 'set HRM_NETWORK = HRFE' makes a variable called 'HRM_NETWORK ' with a space."""
+        with mock.patch.dict(os.environ, {"HRM_NETWORK ": " HRFE"}, clear=True):
+            with self.assertRaises(ValueError) as error:
+                nd.get_definition()
+
+        self.assertIn("exactly HRM_NETWORK", str(error.exception))
+
+    def test_a_lowercase_name_is_refused(self):
+        with mock.patch.dict(os.environ, {"hrm_network": "HRFE"}, clear=True):
+            with self.assertRaises(ValueError):
+                nd.get_definition()
+
+    def test_the_right_name_still_works(self):
+        with mock.patch.dict(os.environ, {"HRM_NETWORK": "HRFE"}, clear=True):
+            self.assertIs(nd.get_definition(), nd.HRFE)
+
+    def test_unrelated_variables_are_ignored(self):
+        with mock.patch.dict(os.environ, {"HRM_NETWORK_OTHER": "x", "PATH": "/bin"}, clear=True):
+            self.assertIs(nd.get_definition(), nd.DISTANCE)
+
+    def test_an_explicit_key_does_not_trip_over_a_stray_variable(self):
+        with mock.patch.dict(os.environ, {"HRM_NETWORK ": "HRFE"}, clear=True):
+            self.assertIs(nd.get_definition("DISTANCE"), nd.DISTANCE)
+
+
+class DestructiveStepGuardTests(unittest.TestCase):
+    """Steps 02 and 06 must name the network they act on, and it must match the run."""
+
+    @classmethod
+    def setUpClass(cls):
+        with mock.patch.dict(sys.modules, {"arcpy": fake_arcpy()}):
+            spec = importlib.util.spec_from_file_location(
+                "t_shared", SCRIPTS / "qa_refresh" / "_shared.py"
+            )
+            cls.shared = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cls.shared)
+
+    def test_a_matching_network_passes(self):
+        with mock.patch.object(self.shared.config, "NETWORK_DEF", nd.HRFE):
+            self.shared.require_network("HRFE", "NETWORK_TO_DELETE")
+
+    def test_a_mismatch_is_refused_in_both_directions(self):
+        for actual, expected in ((nd.DISTANCE, "HRFE"), (nd.HRFE, "DISTANCE")):
+            with mock.patch.object(self.shared.config, "NETWORK_DEF", actual):
+                with self.assertRaises(RuntimeError) as error:
+                    self.shared.require_network(expected, "NETWORK_TO_DELETE")
+
+            self.assertIn("NETWORK_TO_DELETE", str(error.exception))
+            self.assertIn("Nothing was changed", str(error.exception))
+
+    def test_the_destructive_scripts_default_to_distance_and_call_the_guard(self):
+        for name, constant in (("02_delete_network_sources.py", "NETWORK_TO_DELETE"),
+                               ("06_swap_and_final_build.py", "NETWORK_TO_BUILD")):
+            source = (SCRIPTS / "qa_refresh" / name).read_text(encoding="utf-8")
+
+            self.assertIn('{} = "DISTANCE"'.format(constant), source, name)
+            self.assertIn('require_network({}, "{}")'.format(constant, constant), source, name)
+
+    def test_step_02_only_trusts_this_networks_baseline(self):
+        source = (SCRIPTS / "qa_refresh" / "02_delete_network_sources.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("same_path(report.get(\"network\", \"\"), config.NETWORK)", source)
 
 
 class TemplateTests(unittest.TestCase):
@@ -184,7 +259,10 @@ class TemplateTests(unittest.TestCase):
         """Undo the renames and the template must come back exactly as committed."""
         text = nd.render_template(self.base, nd.HRFE)
         text = text.replace("/FD=TRNLRS_network_HRFE/", "/FD=TRNLRS_network/")
-        text = re.sub(r"(TRNLRS_(?:TRN_STREET|street_junction|traffic_turn|street_network))_HRFE", r"\1", text)
+        text = re.sub(
+            r"(TRNLRS_(?:TRN_STREET|street_junction|traffic_turn|street_network))_HRFE",
+            r"\1", text,
+        )
 
         self.assertEqual(text, self.base)
 
@@ -198,7 +276,9 @@ class TemplateTests(unittest.TestCase):
 
     def test_rendered_path_for_distance_is_the_committed_file(self):
         with tempfile.TemporaryDirectory() as out:
-            self.assertEqual(nd.rendered_template_path(nd.DISTANCE, TEMPLATE_PATH, out), TEMPLATE_PATH)
+            path = nd.rendered_template_path(nd.DISTANCE, TEMPLATE_PATH, out)
+
+            self.assertEqual(path, TEMPLATE_PATH)
             self.assertEqual(list(Path(out).iterdir()), [])
 
     def test_rendered_path_for_hrfe_writes_a_copy(self):
@@ -212,7 +292,7 @@ class TemplateTests(unittest.TestCase):
 
 
 class ScriptWiringTests(unittest.TestCase):
-    """The scripts must resolve to the same paths as before for DISTANCE, and the new ones for HRFE."""
+    """DISTANCE must resolve to the same paths as before, and HRFE to the new ones."""
 
     @classmethod
     def setUpClass(cls):
@@ -264,18 +344,22 @@ class ScriptWiringTests(unittest.TestCase):
         self.assertEqual(h["config"].QA_NETWORK_FD_NAME, "SDEADM.TRNLRS_network_HRFE")
 
     def test_hrfe_uses_the_same_legacy_turn_sources(self):
-        """Same restrictions: both networks remap the same legacy turns and read the same junctions."""
+        """Same restrictions: both networks remap the same legacy turns and junctions."""
         self.assertEqual(self.hrfe["05"].OLD_TURN_FC, self.distance["05"].OLD_TURN_FC)
         self.assertEqual(self.hrfe["05"].OLD_EDGE_FC, self.distance["05"].OLD_EDGE_FC)
         self.assertEqual(self.hrfe["03"].SOURCE_TURN, self.distance["03"].SOURCE_TURN)
         self.assertEqual(self.hrfe["03"].SOURCE_JUNCTION, self.distance["03"].SOURCE_JUNCTION)
-        self.assertEqual(self.hrfe["03"].STANDALONE_EDGE_SOURCE, self.distance["03"].STANDALONE_EDGE_SOURCE)
+        self.assertEqual(
+            self.hrfe["03"].STANDALONE_EDGE_SOURCE, self.distance["03"].STANDALONE_EDGE_SOURCE
+        )
 
     def test_every_script_agrees_on_the_network(self):
         for scripts in (self.distance, self.hrfe):
 
-            keys = {scripts["03"].NETWORK.key, scripts["05"].NETWORK.key, scripts["verify"].NETWORK.key,
-                    scripts["config"].NETWORK_DEF.key}
+            keys = {
+                scripts["03"].NETWORK.key, scripts["05"].NETWORK.key,
+                scripts["verify"].NETWORK.key, scripts["config"].NETWORK_DEF.key,
+            }
 
             self.assertEqual(len(keys), 1)
 
@@ -284,7 +368,7 @@ class ScriptWiringTests(unittest.TestCase):
         self.assertEqual(self.hrfe["03"].NETWORK.exclusion_profile, "HRFE")
 
     def test_the_prod_sync_ignores_the_environment_variable(self):
-        """04 runs inside the Prod LRS_updates.py job; nothing in the environment may redirect it."""
+        """04 runs inside the Prod LRS_updates.py job; the environment must not redirect it."""
         source = (SCRIPTS / "04_sync_and_rebuild_network.py").read_text(encoding="utf-8")
 
         self.assertNotIn("get_definition", source)

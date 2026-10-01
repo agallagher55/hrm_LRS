@@ -114,7 +114,7 @@ SDE        = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
 
 # Which network is being remapped: DISTANCE by default, HRFE with HRM_NETWORK=HRFE.
 # Both remap the same legacy turns, onto their own edge copy. See network_definitions.py.
-NETWORK    = network_definitions.get_definition()
+NETWORK = network_definitions.get_definition()
 NETWORK_FD = NETWORK.feature_dataset
 
 # Dev: uncomment to point this script at Dev instead of QA (and change

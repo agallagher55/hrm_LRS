@@ -43,7 +43,20 @@ set HRM_NETWORK=HRFE
 ```
 
 Set it in the same prompt (or PyCharm run configuration) for every step, and check the
-`Network: HRFE ...` line each step prints. `python network_definitions.py` lists both
+`Network: HRFE ...` line each step prints. Write it exactly as above, with no spaces around the `=`:
+`set HRM_NETWORK = HRFE` makes a variable whose name ends in a space, and the scripts stop with an error
+rather than quietly working on the distance network.
+
+Unset means every path and name is the same as before the HRFE work. The distance network's
+*exclusions* did change, though: it now drops the transit access roads as well as WA, from its next
+rebuild. That includes the Prod edge sync, which uses the distance network (Prod has no network
+dataset yet, so nothing there is affected today).
+
+The two destructive steps need the network named in the script as well as in the environment:
+set `NETWORK_TO_DELETE` in `02_delete_network_sources.py` and `NETWORK_TO_BUILD` in
+`06_swap_and_final_build.py` to `"HRFE"` for an HRFE run (they default to `"DISTANCE"`). A mismatch
+stops the step before it changes anything. Step 02 also only trusts a step 01 baseline written for
+the same network, since both networks write to the same `output` folder. `python network_definitions.py` lists both
 definitions and which one is active. An unknown value stops the run.
 
 The Prod edge sync (`04_sync_and_rebuild_network.py`, called by `LRS_updates.py`) ignores the
@@ -78,7 +91,8 @@ Run from an ArcGIS Pro Python prompt in `network_dataset\scripts\qa_refresh`, wi
    "matched no rows" warning. A different count means a filter is wrong or the data has moved.
 6. `python 04_remap_turns.py`, then `python 05_verify_staging_turns.py`, then the spatial review
    checklist (`traffic_turn_staging_review_checklist.txt`).
-7. Set `CONFIRM_REVIEWED_STAGING = True` in `06_swap_and_final_build.py`, then run it. It
+7. Set `CONFIRM_REVIEWED_STAGING = True` and `NETWORK_TO_BUILD = "HRFE"` in
+   `06_swap_and_final_build.py`, then run it. It
    creates `TRNLRS_street_network_HRFE` from the rendered template and builds it once.
 8. `python 07_verify_live_turns.py`.
 9. **SQL grants.** The new network has its own registration IDs (`N_<id>` and `ND_<id>`), so the
@@ -89,7 +103,8 @@ Run from an ArcGIS Pro Python prompt in `network_dataset\scripts\qa_refresh`, wi
     then a one-way street and a prohibited turn, with the travel mode's restrictions ticked.
     Check by eye that the removed roads (water and transit access, emergency access, ETAs) are gone.
 
-After an LRS update the HRFE edge copy goes stale like the distance one. In QA, rerun steps 3 to
+After an LRS update the HRFE edge copy goes stale like the distance one, and nothing syncs it
+automatically: the Prod sync (`04`, called by `LRS_updates.py`) only reloads the distance edge copy. In QA, rerun steps 3 to
 8 (the copy skips a class that already exists, so delete the old sources first, as step 02 does
 for the distance network). There is no Prod HRFE network yet.
 
@@ -111,7 +126,8 @@ The plan:
 1. **Inspect his geodatabase** with `scripts/diagnostics/11_inspect_extra_roads.py`: feature
    classes, geometry, spatial reference, which of `STR_DIR`, `STR_NAME`, `STR_TYPE` and
    `FULL_NAME` it has, and how each end of each segment meets the LRS streets (at a street end,
-   mid-street so the street needs a split, a small gap, or free). It reads Prod's streets with the
+   mid-street so the street needs a split, a gap of more than the XY tolerance (about a millimetre),
+   or free). It also looks inside feature datasets. It reads Prod's streets with the
    HRFE exclusions applied. Not yet run, and its geometry code has only been compiled.
 2. Alex creates a feature class in `SDEADM.TRNLRS_network_HRFE` from what Robbie sends, with the
    same spatial reference as the feature dataset, then Robbie edits it himself in QA. Its rows

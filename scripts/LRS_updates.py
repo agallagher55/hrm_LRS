@@ -554,8 +554,8 @@ def _load_network_sync_script():
     if not os.path.exists(script):
         raise RuntimeError(
             f"Network sync script not found: {script}. Deploy "
-            "network_dataset/scripts (including network_exclusions.py and log_utils.py) "
-            "or set NETWORK_SYNC_SCRIPT."
+            "network_dataset/scripts (including network_definitions.py, network_exclusions.py "
+            "and log_utils.py) or set NETWORK_SYNC_SCRIPT."
         )
 
     script_dir = os.path.dirname(script)
@@ -565,7 +565,18 @@ def _load_network_sync_script():
 
     spec = importlib.util.spec_from_file_location("network_sync", script)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+
+    try:
+        spec.loader.exec_module(module)
+
+    except ImportError as error:
+        # A partly deployed scripts folder: 04 imports network_definitions, network_exclusions
+        # and log_utils from beside it.
+        raise RuntimeError(
+            f"Network sync script {script} could not import a helper ({error}). Deploy all of "
+            "network_dataset/scripts, including network_definitions.py, network_exclusions.py "
+            "and log_utils.py."
+        ) from error
 
     return module
 

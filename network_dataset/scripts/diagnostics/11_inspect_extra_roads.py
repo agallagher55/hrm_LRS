@@ -26,10 +26,13 @@ Usage
 
 If the spatial references differ, the segment ends are projected to the streets' on the fly;
 check the datum transformation if the two use different datums, because a shift of a metre or two
-is enough to turn a connecting end into a gap.
+is enough to turn a connecting end into a gap. An end counts as meeting a street only within the
+XY tolerance of the streets' spatial reference (about a millimetre), because that is how close two
+ends must be for End Point connectivity to join them.
 """
 
 import csv
+import os
 import sys
 
 try:
@@ -38,10 +41,19 @@ except ImportError:
     print("ERROR: arcpy is required. Run this from an ArcGIS Pro Python environment.")
     sys.exit(1)
 
-import connectivity_check
-import network_exclusions
+# This script lives in diagnostics/, so Python puts that folder on the path, not the scripts folder
+# that holds connectivity_check.py and network_exclusions.py. abspath (not resolve) keeps a mapped
+# T: drive from being expanded to its server path.
+SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# The T:\work\giss prefix is assumed from the other monthly folders; the rest is from Robbie's folder.
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
+
+import connectivity_check  # noqa: E402
+import network_exclusions  # noqa: E402
+
+# The T:\work\giss prefix is assumed from the other monthly folders; the rest is from
+# Robbie's folder.
 EXTRA_GDB = r"T:\work\giss\monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb"
 EXTRA_FCS = None
 
@@ -55,37 +67,43 @@ OUTPUT_CSV = "extra_roads_check.csv"
 
 
 def line_feature_classes(gdb):
-    """Return the names of the polyline feature classes in gdb, or in EXTRA_FCS."""
+    """Return the full paths of the polyline feature classes in gdb, or in EXTRA_FCS.
+
+    Looks in the geodatabase root and inside each feature dataset, because network sources are
+    often kept in a feature dataset.
+    """
     arcpy.env.workspace = gdb
-    names = arcpy.ListFeatureClasses(feature_type="Polyline") or []
+    paths = [os.path.join(gdb, n) for n in arcpy.ListFeatureClasses(feature_type="Polyline") or []]
+
+    for dataset in arcpy.ListDatasets("", "Feature") or []:
+        names = arcpy.ListFeatureClasses(feature_type="Polyline", feature_dataset=dataset) or []
+        paths.extend(os.path.join(gdb, dataset, n) for n in names)
 
     if EXTRA_FCS:
-        names = [n for n in names if n in EXTRA_FCS]
+        paths = [p for p in paths if os.path.basename(p) in EXTRA_FCS]
 
-    return names
+    return paths
 
 
-def describe(gdb, name):
-    """Print the schema facts the network needs and return the Describe object."""
-    desc = arcpy.Describe(gdb + "\\" + name)
-    count = int(arcpy.management.GetCount(gdb + "\\" + name)[0])
-    fields = {f.name.upper() for f in arcpy.ListFields(gdb + "\\" + name)}
+def describe(path):
+    """Print the schema facts the network needs."""
+    desc = arcpy.Describe(path)
+    count = int(arcpy.management.GetCount(path)[0])
+    fields = {f.name.upper() for f in arcpy.ListFields(path)}
 
-    print("{}: {:,} rows, {}, {}".format(name, count, desc.shapeType, desc.spatialReference.name))
+    print("{}: {:,} rows, {}, {}".format(path, count, desc.shapeType, desc.spatialReference.name))
 
     for field in NETWORK_FIELDS:
         print("  {:<10} {}".format(field, "present" if field in fields else "MISSING"))
 
-    return desc
 
-
-def nearest_street(point, streets_sr, keep_clause):
+def nearest_street(point, streets_sr, keep_clause, tolerance):
     """
-    Return (distance to the nearest street, distance from the nearest point to that street's
-    nearer end, street FDMID and name), or (None, None, None) if none is within the search.
+    Return (distance to the street, distance from the nearest point to that street's nearer end,
+    street FDMID and name), or (None, None, None) if no street is within the search.
     """
     search = point.buffer(connectivity_check.SEARCH_DISTANCE)
-    best = None
+    candidates = []
 
     with arcpy.da.SearchCursor(
         STREETS_FC, ["SHAPE@", "FDMID", "FULL_NAME"], keep_clause,
@@ -95,44 +113,46 @@ def nearest_street(point, streets_sr, keep_clause):
         for shape, fdmid, full_name in cursor:
             _, along, distance, _ = shape.queryPointAndDistance(point, False)
             to_end = min(along, shape.length - along)
+            candidates.append((distance, to_end, "{} {}".format(fdmid, full_name)))
 
-            if best is None or distance < best[0]:
-                best = (distance, to_end, "{} {}".format(fdmid, full_name))
+    best = connectivity_check.pick_nearest(candidates, tolerance)
 
     return best if best else (None, None, None)
 
 
-def check_segments(gdb, name, streets_sr, keep_clause):
+def check_segments(path, streets_sr, keep_clause, tolerance):
     """Return one row per segment: its OID, both end classes, the nearest streets and a verdict."""
     rows = []
-    fc = gdb + "\\" + name
 
-    with arcpy.da.SearchCursor(fc, ["OID@", "SHAPE@"], spatial_reference=streets_sr) as cursor:
+    with arcpy.da.SearchCursor(path, ["OID@", "SHAPE@"], spatial_reference=streets_sr) as cursor:
 
         for oid, shape in cursor:
             ends = []
 
-            for label, point in (("start", shape.firstPoint), ("end", shape.lastPoint)):
+            for point in (shape.firstPoint, shape.lastPoint):
                 point_geometry = arcpy.PointGeometry(point, streets_sr)
-                distance, to_end, street = nearest_street(point_geometry, streets_sr, keep_clause)
+                distance, to_end, street = nearest_street(
+                    point_geometry, streets_sr, keep_clause, tolerance
+                )
                 ends.append((
-                    label,
-                    connectivity_check.classify_endpoint(distance, to_end),
+                    connectivity_check.classify_endpoint(
+                        distance, to_end, snap_tolerance=tolerance
+                    ),
                     distance,
                     street,
                 ))
 
             rows.append({
-                "feature_class": name,
+                "feature_class": os.path.basename(path),
                 "oid": oid,
                 "length_m": round(shape.length, 2),
-                "start": ends[0][1],
-                "start_gap_m": None if ends[0][2] is None else round(ends[0][2], 2),
-                "start_street": ends[0][3],
-                "end": ends[1][1],
-                "end_gap_m": None if ends[1][2] is None else round(ends[1][2], 2),
-                "end_street": ends[1][3],
-                "verdict": connectivity_check.segment_verdict([ends[0][1], ends[1][1]]),
+                "start": ends[0][0],
+                "start_gap_m": None if ends[0][1] is None else round(ends[0][1], 3),
+                "start_street": ends[0][2],
+                "end": ends[1][0],
+                "end_gap_m": None if ends[1][1] is None else round(ends[1][1], 3),
+                "end_street": ends[1][2],
+                "verdict": connectivity_check.segment_verdict([ends[0][0], ends[1][0]]),
             })
 
     return rows
@@ -145,19 +165,21 @@ def main():
             sys.exit("ERROR: Cannot find {}: {}".format(label, path))
 
     streets_sr = arcpy.Describe(STREETS_FC).spatialReference
+    tolerance = streets_sr.XYTolerance or connectivity_check.SNAP_TOLERANCE
     keep_clause = network_exclusions.build_keep_clause("HRFE")
-    print("Streets: {} ({}), HRFE exclusions applied.\n".format(STREETS_FC, streets_sr.name))
+    print("Streets: {} ({}), HRFE exclusions applied.".format(STREETS_FC, streets_sr.name))
+    print("Ends count as meeting a street within the XY tolerance, {} m.\n".format(tolerance))
 
-    names = line_feature_classes(EXTRA_GDB)
+    paths = line_feature_classes(EXTRA_GDB)
 
-    if not names:
+    if not paths:
         sys.exit("No polyline feature classes found in {}".format(EXTRA_GDB))
 
     all_rows = []
 
-    for name in names:
-        describe(EXTRA_GDB, name)
-        rows = check_segments(EXTRA_GDB, name, streets_sr, keep_clause)
+    for path in paths:
+        describe(path)
+        rows = check_segments(path, streets_sr, keep_clause, tolerance)
         all_rows.extend(rows)
 
         for row in rows:
@@ -169,6 +191,9 @@ def main():
 
     for code, text in connectivity_check.DESCRIPTIONS.items():
         print("  {:<12} {}".format(code, text))
+
+    if not all_rows:
+        sys.exit("\nThe feature classes above have no rows, so there is nothing to check.")
 
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(all_rows[0].keys()))

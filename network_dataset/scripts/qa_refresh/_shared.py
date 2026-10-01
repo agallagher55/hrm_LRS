@@ -79,6 +79,25 @@ def load_and_validate_core_scripts():
     return build, turns, verifier
 
 
+def require_network(expected_key, setting_name):
+    """
+    Stop a destructive step unless this run is on the network the operator named in the script.
+
+    The environment variable decides which network a run works on, and an unset or mistyped one
+    quietly means DISTANCE, the live network. Naming the network in the script as well means a
+    delete or rebuild needs two deliberate settings that agree.
+    """
+    actual = config.NETWORK_DEF.key
+
+    if actual != expected_key:
+        raise RuntimeError(
+            f"This step is set for the {expected_key} network ({setting_name} in the script), but "
+            f"this run is on {actual}. Check HRM_NETWORK, and {setting_name}. Nothing was changed."
+        )
+
+    print(f"Confirmed network for this step: {actual} ({config.NETWORK_DEF.description})")
+
+
 def require_exists(path, label):
     if not arcpy.Exists(path):
         raise RuntimeError(f"{label} not found: {path}")

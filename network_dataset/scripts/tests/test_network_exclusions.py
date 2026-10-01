@@ -17,7 +17,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import network_exclusions as ne
+import network_exclusions as ne  # noqa: E402
 
 
 def profile(str_types=(), fdmids=(), name_patterns=()):
@@ -43,12 +43,13 @@ class ListHandler(logging.Handler):
 
 
 DIAGNOSTIC_CSV = (
-    Path(__file__).resolve().parents[2] / "intermediate_results" / "candidate_exclusions_20260929.csv"
+    Path(__file__).resolve().parents[2]
+    / "intermediate_results" / "candidate_exclusions_20260929.csv"
 )
 
 
 def like_to_regex(pattern):
-    """Translate a SQL Server LIKE pattern to a regex. Case-insensitive, like the default collation."""
+    """Translate a SQL Server LIKE pattern to a regex, case-insensitive like the collation."""
     parts = []
     i = 0
 
