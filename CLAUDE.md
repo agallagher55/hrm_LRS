@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Start here: read [`handoff.md`](handoff.md)** for the current status, what is waiting on whom, and the
+next steps. Keep it up to date: when status changes or you finish a piece of work, update it before
+ending the session. The detailed history is in `network_dataset/docs/network_build_status.md`.
+
 ## Python Files
 - Use pep8 styling
 
