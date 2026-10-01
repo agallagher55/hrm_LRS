@@ -121,17 +121,28 @@ What Robbie said on 2026-10-01 (record: `meetings/2026-09-29_HRFE_network_datase
 - **Splits:** he agreed that split points live in their own layer and are re-applied after each
   LRS update.
 
+Inspected on 2026-10-01 (details in the thread record): one class, `Segments`, 8 polylines, same
+spatial reference as the streets, all four network fields present. **Seven of its ends lie
+exactly on a street but not at a street end**, so under End Point connectivity none of them
+connects until the street is split there: both ends of the 22 m Station 2 connector (University Ave,
+two different street segments) and one end each of OIDs 3, 4, 5, 6 and 9 (Ketch Harbour Rd, Church St,
+Highway 224, Old Guysborough Rd, Highway 2). OIDs 7 and 8 meet no street within 25 m.
+
 The plan:
 
-1. **Inspect his geodatabase** with `scripts/diagnostics/11_inspect_extra_roads.py`: feature
-   classes, geometry, spatial reference, which of `STR_DIR`, `STR_NAME`, `STR_TYPE` and
-   `FULL_NAME` it has, and how each end of each segment meets the LRS streets (at a street end,
-   mid-street so the street needs a split, a gap of more than the XY tolerance (about a millimetre),
-   or free). It also looks inside feature datasets. It reads Prod's streets with the
-   HRFE exclusions applied. Not yet run, and its geometry code has only been compiled.
+1. **Split the streets where the extra roads meet them.** Not written yet. The design: derive the
+   split points from the extra roads on every rebuild (every end that lies mid-street, and every
+   place a road crosses a street away from its ends) rather than keep a hand-edited layer, so Robbie
+   never maintains split points and an LRS update cannot lose them. Run the split on the HRFE edge
+   copy as it is loaded, with `SplitLineAtPoint`, before the network is created. Script 11 already
+   finds these points and writes them to `extra_roads_split_points.csv`. Robbie agreed to the
+   splits approach on 2026-10-01. Things to check on the first real run: that the turn remap still
+   matches (it matches by edge end points, not FDMID, so duplicated FDMIDs should not matter, but
+   it is unproven), and that a split exactly at an intersection does not create a duplicate edge.
 2. Alex creates a feature class in `SDEADM.TRNLRS_network_HRFE` from what Robbie sends, with the
    same spatial reference as the feature dataset, then Robbie edits it himself in QA. Its rows
-   survive LRS updates because the edge sync only reloads the LRS edge copy.
+   survive LRS updates because the edge sync only reloads the LRS edge copy. If he moves a road, the
+   derived splits follow on the next rebuild.
 3. It becomes a second edge source in the template. The evaluators read only `STR_DIR`, and
    Directions needs `STR_NAME`, `STR_TYPE` and `FULL_NAME`, so the schema can be small.
 4. Robbie's edit access is granted per table, following "Write access for editor roles" in
@@ -139,10 +150,9 @@ The plan:
 
 Open before that can be built:
 
-1. **Connectivity.** The network uses End Point connectivity, so a road that meets a street in the
-   middle of a segment will not connect unless the street is split there. Step 1 shows whether the
-   Station 2 segment has this problem. If it does, the fix is a split point in its own layer,
-   re-applied after each edge sync, which Robbie has agreed to in principle.
+1. **Splits** (see the plan above). Confirmed needed. Alternatives rejected: setting the streets
+   to Any Vertex connectivity would connect every crossing pair of streets that shares a vertex,
+   including grade-separated ones, and End Point was chosen deliberately.
 2. **Who rebuilds.** An edit to a network source only reaches routes after a build. Decide whether
    Robbie or Alex builds, and how often.
 3. **Versioning.** Check whether the extra roads class has to be registered as versioned for

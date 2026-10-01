@@ -70,9 +70,11 @@ Robbie's answers (record: `network_dataset/docs/meetings/2026-09-29_HRFE_network
 
 ## Next steps, in order
 
-1. **Inspect Robbie's geodatabase:** run `network_dataset/scripts/diagnostics/11_inspect_extra_roads.py`
-   (check `EXTRA_GDB` first). It reports the schema and how each segment end meets the HRFE streets. Its
-   geometry code has only been compiled, so expect to adjust it.
+1. **Done 2026-10-01: Robbie's geodatabase inspected** (script 11). The Station 2 connector (22 m, OID 2)
+   has both ends on University Ave mid-street, so **University Ave needs two splits**. Seven street
+   splits are needed in all, across six streets, for the 8 segments; OIDs 7 and 8 meet no street.
+   Re-run script 11 (it now also counts streets crossed mid-length and writes
+   `extra_roads_split_points.csv`) and send Robbie the questions in "Open questions" below.
 2. **Create `SDEADM.TRNLRS_network_HRFE` in QA** in Pro, with the same spatial reference as
    `SDEADM.TRNLRS_network`.
 3. **Prove the rendered HRFE template** without touching QA: `HRM_NETWORK=HRFE` then
@@ -81,15 +83,18 @@ Robbie's answers (record: `network_dataset/docs/meetings/2026-09-29_HRFE_network
    02), then SQL grants for the new registration IDs and smoke tests. Check the step 03 log reads
    18,433 of 18,644 with per-rule counts WA 61, transit 124, emergency access 4, ETAs 22.
 5. **Add Robbie's extra roads** as a second edge source: create the feature class from his data, add it
-   to the template, grant him edit access. Not designed in detail yet.
+   to the template, grant him edit access. First write the split step (derive split points from the
+   extra roads, `SplitLineAtPoint` on the HRFE edge copy as it loads); designed in the runbook, not
+   written.
 6. **Rebuild the distance network** so the transit exclusion takes effect, then have Robbie retest.
 
 ## Open questions
 
 - Who rebuilds the HRFE network after Robbie edits the extra roads, and how often.
 - Whether the extra roads class must be registered as versioned for him to edit it.
-- Connectivity: the network uses End Point connectivity, so an added road that meets a street
-  mid-segment will not connect without a split. Step 1 above shows whether Station 2 has this problem.
+- **Ask Robbie:** what are OIDs 7 and 8 (1.5 km and 2.9 km, meeting no street within 25 m), and are OIDs 3 to 6
+  and 9 dead-end driveways or access roads? If 7 and 8 are routes outside HRM, they need the outside road
+  network to connect to anything.
 - Whether weak bridges on the routes outside HRM are handled by his point barriers too.
 - **Nothing syncs the HRFE edge copy after an LRS update.** `04` (called by `LRS_updates.py`) reloads only
   the distance edge copy, so HRFE goes stale until `qa_refresh` is rerun by hand. Decide how to sync both
@@ -101,7 +106,7 @@ Robbie's answers (record: `network_dataset/docs/meetings/2026-09-29_HRFE_network
 
 ## Working notes
 
-- **Tests:** `python -m unittest discover -s tests` from `network_dataset/scripts` (76 tests, no ArcGIS
+- **Tests:** `python -m unittest discover -s tests` from `network_dataset/scripts` (85 tests, no ArcGIS
   needed). They import the scripts against a stand-in for `arcpy`.
 - **Deploy to the T: drive** before a run, and compare sizes or hashes with the repo. Stale copies cost
   time on 2026-09-29. `network_definitions.py` and `connectivity_check.py` are new files the scripts import.
