@@ -1,6 +1,6 @@
 # Handoff: current status
 
-**Last updated 2026-10-01.** Read this first, then follow the links for detail. Update it whenever
+**Last updated 2026-10-01 (after PR #72 merged).** Read this first, then follow the links for detail. Update it whenever
 status changes (what is done, what is waiting, what to do next). The detailed history lives in
 `network_dataset/docs/network_build_status.md`; this file is the short version of where things are.
 
@@ -102,8 +102,10 @@ Robbie's answers (record: `network_dataset/docs/meetings/2026-09-29_HRFE_network
   needed). They import the scripts against a stand-in for `arcpy`.
 - **Deploy to the T: drive** before a run, and compare sizes or hashes with the repo. Stale copies cost
   time on 2026-09-29. `network_definitions.py` and `connectivity_check.py` are new files the scripts import.
-- **Branch and PR:** work on `claude/bold-dirac-65wvnr`, draft PR #72 into `claude/setup-lrs-repo-0S4rJ`
-  (the repo's default branch). PRs #70 and #71 are merged.
+- **Branch and PR:** work on `claude/bold-dirac-65wvnr` and open a draft PR into
+  `claude/setup-lrs-repo-0S4rJ` (the repo's default branch). PRs #70, #71 and #72 are merged (#72 on
+  2026-10-01, the HRFE scaffolding and Robbie's replies), so start the branch afresh from the base before
+  new work.
 - **Emails arrive as `.msg` uploads.** Parse with `olefile`. Robbie once answered with reaction images
   (approve, reject) placed under each bullet; the RTF body shows which image sits where.
 - **Tone:** Robbie Evans is a friend of Alex's, so emails to him stay casual. Draft emails in Alex's voice,
