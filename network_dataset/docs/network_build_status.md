@@ -678,12 +678,15 @@ scenarios still reproduce on Pro 3.5.8.
       the baseline). Steps to run it: [`hrfe_network_runbook.md`](hrfe_network_runbook.md). Still to
       do: create the feature dataset, run `test_template_create.py` for HRFE, then `qa_refresh`
       steps 3 to 8 with grants; then the extra roads (open questions in the runbook).
-- [ ] HRFE additions from the same thread, not started: bridge break, routes outside HRM, Station 2
-      left turn on University Ave (**urgent**), driveways, a new HRFE feature dataset in QA, and how
-      splits survive an LRS update. **Requested from Robbie on 2026-09-29 (3:30 PM), waiting:** the
-      bridge, the Station 2 connector (a line in a new feature class, dropped in Alex's monthly
-      folder), the driveway list, and the routes and weak bridges outside HRM. Splits: proposed
-      keeping them in their own layer and re-applying after each sync, untested.
+- [ ] **HRFE additions, updated 2026-10-01 after Robbie's reply.** The **bridge is dropped**: he will use a
+      point barrier on it himself. The **Station 2 segment has arrived** in
+      `monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb` and has not been inspected;
+      run `scripts/diagnostics/11_inspect_extra_roads.py` (written, geometry code untested) to see its schema
+      and whether its ends meet the streets. He will add the **driveways and routes outside HRM** to the same
+      layer (interpretation). He agreed to the **splits** approach (split points in their own layer,
+      re-applied after each sync). Still to do: create the extra-roads feature class in
+      `SDEADM.TRNLRS_network_HRFE`, add it to the template as a second edge source, grant Robbie edit access, and
+      settle who rebuilds after his edits. Open questions are in the runbook.
 - [ ] Decide whether the HRFE (speed) network is a second network dataset or an added cost
 - [ ] Decide the turn-OID-stability question before prod cutover (see
       [`network_dataset_script_review.md` §D](network_dataset_script_review.md#d-turn-references-do-not-survive-an-lrs-refresh-structural))

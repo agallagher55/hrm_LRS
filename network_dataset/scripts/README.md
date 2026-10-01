@@ -10,7 +10,8 @@
 | `run_full_network_rebuild.py` | Orchestrator: swap the reviewed turn class, recreate the network, build once. |
 | `network_definitions.py` | The two networks (`DISTANCE`, `HRFE`) and every name that differs between them. The `HRM_NETWORK` environment variable picks the one a run works on; unset means `DISTANCE`. Renders the HRFE template from the committed one. See `../docs/hrfe_network_runbook.md`. |
 | `network_exclusions.py`, `log_utils.py` | Shared helpers: which streets are left out of each network (profiles `GENERAL` and `HRFE`; run the file to print their clauses), and logging. |
-| `tests/` | Unit tests for `network_exclusions.py` and `network_definitions.py`, no ArcGIS needed. From this folder: `python -m unittest discover -s tests -v`. |
+| `tests/` | Unit tests for `network_exclusions.py`, `network_definitions.py` and `connectivity_check.py`, no ArcGIS needed. From this folder: `python -m unittest discover -s tests -v`. |
 | `qa_refresh/` | The ordered QA refresh workflow. Start with its `README.md`. |
-| `diagnostics/` | Read-only investigation scripts from the turn-rebuild work, plus `10_find_candidate_exclusions.py` for choosing exclusion filters. CSV outputs are written to the current directory. |
+| `connectivity_check.py` | The logic for whether an added road's end meets a street the way End Point connectivity needs, with tests. Used by `diagnostics/11_inspect_extra_roads.py`. |
+| `diagnostics/` | Read-only investigation scripts from the turn-rebuild work, plus `10_find_candidate_exclusions.py` for choosing exclusion filters and `11_inspect_extra_roads.py` for checking the extra roads Robbie supplies for HRFE. CSV outputs are written to the current directory. |
 | `archive/` | Finished one-offs kept for the record. Do not run. |

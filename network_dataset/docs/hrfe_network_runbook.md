@@ -93,27 +93,45 @@ After an LRS update the HRFE edge copy goes stale like the distance one. In QA, 
 8 (the copy skips a class that already exists, so delete the old sources first, as step 02 does
 for the distance network). There is no Prod HRFE network yet.
 
-## Not built yet: Robbie's extra roads
+## Robbie's extra roads (the Station 2 segment has arrived, nothing is loaded)
 
-Still waiting on what Robbie sends (the Station 2 connector, driveways, routes outside HRM, the
-bridge break; see `meetings/2026-09-29_HRFE_network_dataset_email_thread.md`). The plan:
+What Robbie said on 2026-10-01 (record: `meetings/2026-09-29_HRFE_network_dataset_email_thread.md`):
 
-- Alex creates a feature class in `SDEADM.TRNLRS_network_HRFE` from what Robbie drops in the
-  monthly folder, then Robbie edits it himself in QA. Its rows survive LRS updates because the
-  edge sync only reloads the LRS edge copy.
-- It becomes a second edge source in the template. The evaluators read only `STR_DIR`, and
-  Directions needs `STR_NAME`, `STR_TYPE` and `FULL_NAME`, so the schema can be small.
-- Robbie's edit access is granted per table, following "Write access for editor roles" in
-  `network_dataset_sql_permissions.md`.
+- **The bridge is dropped.** He will block it himself with a point barrier at solve time, so the
+  network needs no break there and Alex needs no barrier class.
+- **Station 2:** a tiny segment, now in `monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb`.
+  It has not been inspected yet.
+- **Driveways and the routes outside HRM:** he will add them to the same layer as the Station 2
+  segment (an interpretation of "these segments").
+- **Splits:** he agreed that split points live in their own layer and are re-applied after each
+  LRS update.
+
+The plan:
+
+1. **Inspect his geodatabase** with `scripts/diagnostics/11_inspect_extra_roads.py`: feature
+   classes, geometry, spatial reference, which of `STR_DIR`, `STR_NAME`, `STR_TYPE` and
+   `FULL_NAME` it has, and how each end of each segment meets the LRS streets (at a street end,
+   mid-street so the street needs a split, a small gap, or free). It reads Prod's streets with the
+   HRFE exclusions applied. Not yet run, and its geometry code has only been compiled.
+2. Alex creates a feature class in `SDEADM.TRNLRS_network_HRFE` from what Robbie sends, with the
+   same spatial reference as the feature dataset, then Robbie edits it himself in QA. Its rows
+   survive LRS updates because the edge sync only reloads the LRS edge copy.
+3. It becomes a second edge source in the template. The evaluators read only `STR_DIR`, and
+   Directions needs `STR_NAME`, `STR_TYPE` and `FULL_NAME`, so the schema can be small.
+4. Robbie's edit access is granted per table, following "Write access for editor roles" in
+   `network_dataset_sql_permissions.md`.
 
 Open before that can be built:
 
-1. **Connectivity.** The network uses End Point connectivity, so a connector that meets a street
-   in the middle of a segment will not connect unless the street is split there. The plan is to
-   keep split points in their own layer and re-apply them after each edge sync. Prototype it on
-   the Station 2 connector.
+1. **Connectivity.** The network uses End Point connectivity, so a road that meets a street in the
+   middle of a segment will not connect unless the street is split there. Step 1 shows whether the
+   Station 2 segment has this problem. If it does, the fix is a split point in its own layer,
+   re-applied after each edge sync, which Robbie has agreed to in principle.
 2. **Who rebuilds.** An edit to a network source only reaches routes after a build. Decide whether
    Robbie or Alex builds, and how often.
 3. **Versioning.** Check whether the extra roads class has to be registered as versioned for
    Robbie to edit it, and what that does to the build. The existing sources are never edited by hand.
-4. **Data source and bridges** for the routes outside HRM, and the bridge location, from Robbie.
+4. **Weak bridges on the routes outside HRM.** His point barrier covers "that bridge"; whether the
+   others on outside routes are handled the same way is unanswered.
+5. **Datum.** If his geodatabase and the streets use different datums, check the transformation
+   before trusting any connectivity result.

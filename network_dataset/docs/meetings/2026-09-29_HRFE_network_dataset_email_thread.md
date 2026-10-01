@@ -134,7 +134,7 @@ His typed answer to the direction question (capitals are his):
   transit in the general profile, the general network's copy would be 18,459 (WA and transit,
   185 rows out). These are counts to check on the first build, not results.
 
-## 2026-09-29, 3:30 PM, Alex Gallagher to Robbie Evans (summary and requests, awaiting reply)
+## 2026-09-29, 3:30 PM, Alex Gallagher to Robbie Evans (summary and requests)
 
 Sent after Robbie's answers and Alex's decisions on transit roads. It gave Robbie the current
 exclusion list (WA 61 and transit 124 out of both networks; emergency access 4 and ETAs 22 out of
@@ -159,25 +159,54 @@ connector first.
 Left out of the sent version compared with the draft: the offer to accept a road name or a point
 on a map for the bridge, and the note that travel time (speed) comes later.
 
-**No reply had been received when this was written.**
+## 2026-10-01, 7:53 AM Halifax time (10:53 UTC), Robbie Evans to Alex Gallagher
+
+> 1.	I confirmed the question about ETA/Tas in the last email. Good to go removing those, and
+> numbers are good.
+> 2.	Don't worry about that bridge actually. I'll just use a point barrier on it to block it.
+> 3.	It's just a tiny little segment. I can copy it over to your monthly folder if you want?
+> 4.	I can add these segments to the layer I create for #3 above.
+>
+> Sounds good about the splits.
+
+His numbering is one off from Alex's list: his "1." is the exclusion list, and his 2, 3 and 4 answer
+Alex's bridge, Station 2 and driveways/routes items. Reading each by its content:
+
+| Robbie's answer | Reading |
+|---|---|
+| 1. ETAs and transit ("ETA/Tas"): "Good to go removing those, and numbers are good." | Confirms the 22 ETAs and 124 transit roads, and the counts in Alex's table. Closes both. |
+| 2. The bridge: "Don't worry about that bridge actually. I'll just use a point barrier on it to block it." | **Dropped.** No break in the network and no barrier class needed from Alex. Robbie blocks the bridge himself at solve time. |
+| 3. Station 2: "just a tiny little segment", offered to copy it to Alex's monthly folder. | Robbie **created the folder** (below). |
+| 4. "I can add these segments to the layer I create for #3 above." | Read as the driveways and the routes outside HRM, which he adds to the same layer as the Station 2 segment. The email does not say which segments "these" are, so this is an interpretation. |
+| "Sounds good about the splits." | Agrees to keeping split points in their own layer and re-applying them after each LRS update. |
+
+**The monthly folder (screenshot, 2026-10-01 7:57 AM):** `monthly\202610oct\evansr\Network_Segments_For_Alex`,
+holding a file geodatabase `Network_Segments.gdb` and an empty text file. This is the Station 2
+turning lane. Its contents (feature class names, fields, geometry, spatial reference, and whether its
+ends meet the LRS streets) have not been inspected yet; the repository has no copy of it.
+`scripts/diagnostics/11_inspect_extra_roads.py` is written to do that.
+
+Not answered by this email: whether the routes outside HRM need their weak bridges blocked (the
+point barrier covers "that bridge", singular), and which feature class holds what Robbie calls
+"the layer".
 
 ---
 
-## Status of each request against the repository (2026-09-29)
+## Status of each request against the repository (updated 2026-10-01)
 
 | Request | Status |
 |---|---|
 | Remove water access roads | Done in `network_exclusions.py` (profile `GENERAL`, so both networks). Ran in QA on 2026-09-29: 61 rows excluded, Edges 37,674. |
-| Remove emergency access roads | Confirmed by Robbie 2026-09-29. In the `HRFE` profile (`%EMERGENCY ACCESS%`, 4 rows). No HRFE network exists yet to apply it to. |
+| Remove emergency access roads | Confirmed by Robbie 2026-09-29, numbers confirmed 2026-10-01. In the `HRFE` profile (`%EMERGENCY ACCESS%`, 4 rows). No HRFE network exists yet to apply it to. |
 | Remove transit access roads | Filter `TA[0-9]%` (124 rows) confirmed by Robbie 2026-09-29. All 124 removed, no exceptions (Alex's decision, which closes Robbie's ambiguous answer). In the `GENERAL` profile, so both networks drop them. |
-| Remove ETAs | Confirmed by Robbie 2026-09-29: 22 rows, complete set, remove for HRFE. In the `HRFE` profile. |
-| Break at the bridge trucks cannot cross | Not started. Asked Robbie for the bridge on 2026-09-29, waiting. |
-| Add main routes outside HRM, broken at weak bridges | Not started. Asked Robbie for the routes and weak bridges on 2026-09-29, waiting. Still needs a data source for the road geometry. |
-| Station 2 left turn on University Ave (**urgent**) | Not started. Asked Robbie on 2026-09-29 to draw the connector in a new feature class and put it in Alex's monthly folder, waiting. |
-| Driveways for dry hydrant mapping | Not started. Asked Robbie for the list on 2026-09-29, waiting. |
+| Remove ETAs | Confirmed by Robbie 2026-09-29 and again 2026-10-01 ("numbers are good"): 22 rows, complete set, remove for HRFE. In the `HRFE` profile. |
+| Break at the bridge trucks cannot cross | **Dropped 2026-10-01.** Robbie will use a point barrier on it himself. Nothing to build. |
+| Add main routes outside HRM, broken at weak bridges | Not started. Robbie says he will add these segments to his layer (2026-10-01, interpretation). Blocking weak bridges on them is unanswered. |
+| Station 2 left turn on University Ave (**urgent**) | **Received 2026-10-01** in `monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb`. Not yet inspected; next step is `diagnostics/11_inspect_extra_roads.py`. |
+| Driveways for dry hydrant mapping | Not started. Robbie says he will add them to the same layer as the Station 2 segment (2026-10-01, interpretation). |
 | New feature dataset for the HRFE network in QA | Not started. |
-| Point barriers feature class (Robbie's alternative) | Not decided. He dislikes it because service areas look bad. |
-| Splits that survive an LRS update (Robbie's open question) | Answered by proposal on 2026-09-29: keep split points in their own feature class and re-apply them after every edge sync. Untested. |
+| Point barriers feature class (Robbie's alternative) | **Not needed from Alex.** Robbie will add his own point barrier for the bridge. |
+| Splits that survive an LRS update (Robbie's open question) | Proposal of 2026-09-29 accepted by Robbie 2026-10-01 ("Sounds good"): keep split points in their own feature class and re-apply them after every edge sync. Untested. |
 
 Also open for the HRFE network, from other meetings: whether it is a second network dataset or
 an added cost attribute, and the travel-time attribute (see `network_build_status.md`).
