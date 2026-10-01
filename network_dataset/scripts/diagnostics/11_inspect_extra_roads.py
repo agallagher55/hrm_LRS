@@ -30,6 +30,7 @@ is enough to turn a connecting end into a gap.
 """
 
 import csv
+import os
 import sys
 
 try:
@@ -38,8 +39,16 @@ except ImportError:
     print("ERROR: arcpy is required. Run this from an ArcGIS Pro Python environment.")
     sys.exit(1)
 
-import connectivity_check
-import network_exclusions
+# This script lives in diagnostics/, so Python puts that folder on the path, not the scripts folder
+# that holds connectivity_check.py and network_exclusions.py. abspath (not resolve) keeps a mapped
+# T: drive from being expanded to its server path.
+SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
+
+import connectivity_check  # noqa: E402
+import network_exclusions  # noqa: E402
 
 # The T:\work\giss prefix is assumed from the other monthly folders; the rest is from Robbie's folder.
 EXTRA_GDB = r"T:\work\giss\monthly\202610oct\evansr\Network_Segments_For_Alex\Network_Segments.gdb"
