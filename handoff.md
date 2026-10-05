@@ -68,6 +68,18 @@ Robbie's answers (record: `network_dataset/docs/meetings/2026-09-29_HRFE_network
   inspected. He will add driveways and routes outside HRM to the same layer (an interpretation of his
   numbering, which is one off from Alex's list). He agreed to the splits approach.
 
+## Safe School Streets view (2026-10-05)
+
+`TRNLRS_TRN_Safe_School_Streets_VW` per the updated Appendix A: `FROM_STR`/`TO_STR` now come from
+`E_AddressRange` (no longer from `LRSN_Route`), and a new `OWN` field comes from `E_StreetOwnership`.
+Both event tables were added to the segmentation overlay in `scripts/LRS_updates.py`, and `OWN` was added to the
+query. Written only, not run (no `arcpy` here). Before the next run:
+- Add `OWN` (Text 4, domain `SNF_own`, alias Ownership) to the existing target feature class, because
+  `Append` with `NO_TEST` matches by field name and would leave it empty.
+- Expect more, shorter segments, since the overlay now also splits at address range and ownership breaks.
+- Checked in Pro: `E_District` has `DISTRICT` (Short), so the query's `e.DISTRICT` is right even though
+  Appendix A says `DIST_ID`. The target field's type should be Short to match.
+
 ## Next steps, in order
 
 1. **Inspect Robbie's geodatabase:** run `network_dataset/scripts/diagnostics/11_inspect_extra_roads.py`
