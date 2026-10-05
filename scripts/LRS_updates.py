@@ -122,6 +122,8 @@ class DynSegFeature:
             rf'{self.sde_workspace}\SDEADM.TRNLRS\SDEADM.E_SafeSchoolStreets',
             rf'{self.sde_workspace}\SDEADM.TRNLRS\SDEADM.E_District',
             rf'{self.sde_workspace}\SDEADM.TRNLRS\SDEADM.E_StreetClass',
+            rf'{self.sde_workspace}\SDEADM.TRNLRS\SDEADM.E_AddressRange',
+            rf'{self.sde_workspace}\SDEADM.TRNLRS\SDEADM.E_StreetOwnership',
         ]
 
     def _make_query_layer(self, query: str, layer_name: str = "out_layer"):
@@ -412,17 +414,17 @@ class DynSegFeature:
 
         The main street dynamic segmentation is intentionally left unchanged.
         This overlay uses E_SafeSchoolStreets (the criteria fields), plus
-        E_District and E_StreetClass to expose DIST_ID and ST_CLASS, along
-        the route network. FROM_STR/TO_STR are route-level attributes on
-        LRSN_Route itself, so they're pulled in via an extended
-        ``network_fields`` local to this overlay rather than added to the
-        shared ``self.network_fields`` used by the other dynamic
-        segmentation views.
+        E_District and E_StreetClass to expose DIST_ID and ST_CLASS,
+        E_AddressRange to expose FROM_STR and TO_STR, and E_StreetOwnership
+        to expose OWN, along the route network. FROM_STR/TO_STR and OWN are
+        event attributes, so they come through OverlayEvents the same way
+        they do for the main street segmentation, and the shared
+        ``self.network_fields`` is used as is.
         """
 
         segmented_feature = os.path.join(self.sde_workspace, segmented_feature_name)
         event_tables = self.safe_school_streets_event_tables
-        network_fields = f"{self.network_fields};FROM_STR;TO_STR"
+        network_fields = self.network_fields
 
         try:
 
@@ -458,12 +460,15 @@ class DynSegFeature:
         """Create the publishable safe school streets feature.
 
         ``out_feature`` should point to a feature class with the target fields
-        ROUTEID, FULL_NAME, FROM_STR, TO_STR, DISTRICT, ST_CLASS,
+        ROUTEID, FULL_NAME, FROM_STR, TO_STR, OWN, DISTRICT, ST_CLASS,
         PRESCREEN_CRIT, AAWT, TRANSIT_RTE, THROUGH_RD_ACCESS,
         ACTIVE_TRANS_INFRA_CONN, CRIT_STAT_COMMENT, ADDDATE, ADDBY, MODDATE,
-        and MODBY. FROM_STR/TO_STR come from LRSN_Route (via
-        network_fields), DISTRICT from E_District, and ST_CLASS from
-        E_StreetClass — all carried through directly by OverlayEvents. The
+        and MODBY. FROM_STR/TO_STR come from E_AddressRange, OWN from
+        E_StreetOwnership, DISTRICT from E_District, and ST_CLASS from
+        E_StreetClass, all carried through directly by OverlayEvents. The
+        target feature class needs the OWN field (Text 4, domain SNF_own)
+        added before the next run, because Append matches fields by name
+        and an existing target without OWN would leave it unpopulated. The
         audit fields are not carried through by OverlayEvents, so they're
         joined back from E_SafeSchoolStreets (the defining event for this
         view) on ROUTEID, mirroring how the speed limit neighbourhood view
@@ -491,6 +496,7 @@ class DynSegFeature:
             e.ROUTENAME AS FULL_NAME,
             e.FROM_STR,
             e.TO_STR,
+            e.OWN,
             e.DISTRICT,
             e.ST_CLASS,
             e.PRESCREEN_CRIT,
