@@ -77,8 +77,8 @@ query. Written only, not run (no `arcpy` here). Before the next run:
 - Add `OWN` (Text 4, domain `SNF_own`, alias Ownership) to the existing target feature class, because
   `Append` with `NO_TEST` matches by field name and would leave it empty.
 - Expect more, shorter segments, since the overlay now also splits at address range and ownership breaks.
-- Open: the sheet names the district field `DIST_ID`, but the query selects `e.DISTRICT`. Confirm which
-  one `E_District` really has.
+- Checked in Pro: `E_District` has `DISTRICT` (Short), so the query's `e.DISTRICT` is right even though
+  Appendix A says `DIST_ID`. The target field's type should be Short to match.
 
 ## Next steps, in order
 

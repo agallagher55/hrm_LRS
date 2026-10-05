@@ -414,7 +414,7 @@ class DynSegFeature:
 
         The main street dynamic segmentation is intentionally left unchanged.
         This overlay uses E_SafeSchoolStreets (the criteria fields), plus
-        E_District and E_StreetClass to expose DIST_ID and ST_CLASS,
+        E_District and E_StreetClass to expose DISTRICT and ST_CLASS,
         E_AddressRange to expose FROM_STR and TO_STR, and E_StreetOwnership
         to expose OWN, along the route network. FROM_STR/TO_STR and OWN are
         event attributes, so they come through OverlayEvents the same way
