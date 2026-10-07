@@ -640,7 +640,7 @@ def run_error_processing(error_message):
     send_mail(
         to=str(config.get('EMAIL', 'recipients')).split(','),
         subject='ERROR - LRS Updates Failed',
-        text=log_server + " / LRS_Updates.py\n" + error_message
+        text=log_server + " / LRS_Updates.py\n" + error_message + "\n\n" + pymsg + "\n" + msgs
     )
 
 
