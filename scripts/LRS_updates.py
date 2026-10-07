@@ -846,6 +846,37 @@ def generate_intersections(sde_branch):
         return True
 
 
+def run_generate_intersections(sde_branch):
+    """Run generate_intersections without letting a failure stop the LRS refresh.
+
+    The intersections feed is separate from dynamic segmentation and the network sync, so a
+    failure here (for example ERROR 000824, tool not licensed) is logged and emailed, and
+    the rest of the run continues.
+    """
+
+    try:
+        return generate_intersections(sde_branch)
+
+    except Exception as error:
+        logger.error(f"Generate intersections failed, continuing with the LRS update: {error}")
+        logger.error(arcpy.GetMessages(2))
+
+        try:
+            send_mail(
+                to=str(config.get('EMAIL', 'recipients')).split(','),
+                subject='WARNING - LRS Intersections Not Updated',
+                text=log_server + " / LRS_Updates.py\n"
+                     "Generate intersections failed. The rest of the LRS update continued.\n\n"
+                     f"Error Info:\n    {type(error)}: {error}\n\n"
+                     "GP ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            )
+
+        except Exception as mail_error:
+            logger.error(f"Unable to send intersections warning email: {mail_error}")
+
+        return False
+
+
 if __name__ == "__main__":
 
     start_time = time.asctime(time.localtime(time.time()))
@@ -866,7 +897,7 @@ if __name__ == "__main__":
         else:
             raise LicenseError("Unable to checkout Network Analyst License.")
 
-        # generate_intersections(sde_branch=r"E:\HRM\Scripts\SDE\SQL\prod_RW_sdeadm_branch.sde")
+        run_generate_intersections(sde_branch=r"E:\HRM\Scripts\SDE\SQL\prod_RW_sdeadm_branch.sde")
 
         sde_lrs_trn_streets_feature = os.path.join(SDEADM_RW, LRS_VIEW_NAME)
         sde_lrs_speed_limit_feature = os.path.join(SDEADM_RW, SPEED_LIMIT_NEIGHBOURHOOD_FEATURE_NAME)
