@@ -19,8 +19,8 @@ turn restrictions as the distance network; Robbie Evans edits the extra roads hi
 | Edge copy | `TRNLRS_TRN_STREET` | `TRNLRS_TRN_STREET_HRFE` |
 | Junctions | `TRNLRS_street_junction` | `TRNLRS_street_junction_HRFE` |
 | Turns (live / staging) | `TRNLRS_traffic_turn` / `..._staging` | `TRNLRS_traffic_turn_HRFE` / `..._staging_HRFE` |
-| Exclusion profile | `GENERAL`: WA, transit access, islands | `HRFE`: `GENERAL` plus emergency access roads and ETAs |
-| Expected edge copy | 18,459 of 18,644 (WA 61 and transit 124 out) | 18,433 (those plus emergency access 4 and ETAs 22, 211 in all) |
+| Exclusion profile | `GENERAL`: WA, islands (transit access roads stay in) | `HRFE`: `GENERAL` plus transit access roads, emergency access roads and ETAs |
+| Expected edge copy | 18,583 of 18,644 (WA 61 out) | 18,433 (those plus emergency access 4 and ETAs 22, 211 in all) |
 
 The suffix is there because SDE needs feature class names to be unique across the whole
 geodatabase. The template is not kept twice: `network_definitions.py` renders the HRFE one from
@@ -48,9 +48,10 @@ Set it in the same prompt (or PyCharm run configuration) for every step, and che
 rather than quietly working on the distance network.
 
 Unset means every path and name is the same as before the HRFE work. The distance network's
-*exclusions* did change, though: it now drops the transit access roads as well as WA, from its next
-rebuild. That includes the Prod edge sync, which uses the distance network (Prod has no network
-dataset yet, so nothing there is affected today).
+*exclusions* did change, though: it drops WA streets from its next rebuild (and islands once the list
+arrives). Transit access roads were briefly excluded from it, then left in again on 2026-10-08, and now
+stay out of HRFE only. That includes the Prod edge sync, which uses the distance network (Prod has no
+network dataset yet, so nothing there is affected today).
 
 The two destructive steps need the network named in the script as well as in the environment:
 set `NETWORK_TO_DELETE` in `02_delete_network_sources.py` and `NETWORK_TO_BUILD` in

@@ -219,7 +219,7 @@ default) and `HRFE` (`TRNLRS_street_network_HRFE` in its own feature dataset
 `SDEADM.TRNLRS_network_HRFE`). `network_dataset/scripts/network_definitions.py` holds every name that
 differs, and the `HRM_NETWORK` environment variable selects one for scripts 03, 05, the verifier and
 `qa_refresh`. Unset means `DISTANCE`, and every path and name is unchanged from before, though DISTANCE's
-exclusions did gain the transit access roads. The Prod edge sync (`04`) ignores the variable on purpose.
+exclusions are WA streets and islands only (transit access roads stay in, decided 2026-10-08; HRFE drops them). The Prod edge sync (`04`) ignores the variable on purpose.
 A mistyped variable name (for example `set HRM_NETWORK = HRFE`, whose spaces become part of the name)
 stops the run instead of quietly meaning DISTANCE, and the delete and swap steps (`qa_refresh` 02 and 06)
 also need `NETWORK_TO_DELETE` or `NETWORK_TO_BUILD` set in the script to match the run. Exclusions are per network (`network_exclusions.py` profiles `GENERAL` and

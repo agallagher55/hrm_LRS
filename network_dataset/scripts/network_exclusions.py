@@ -12,11 +12,12 @@ Profiles
 --------
 Each network has its own exclusion profile:
 
-  GENERAL  the distance network (TRNLRS_street_network). WA streets, transit
-           access roads and islands.
+  GENERAL  the distance network (TRNLRS_street_network). WA streets and islands.
+           Transit access roads stay in (decided 2026-10-08).
   HRFE     the fire and emergency network. Everything in GENERAL, plus the extra
            exclusions Robbie Evans listed (email thread "HRFE network dataset",
-           2026-09-01 to 2026-09-29): emergency access roads and ETAs.
+           2026-09-01 to 2026-09-29): emergency access roads and ETAs, and the
+           transit access roads, which stay out of HRFE.
 
 Each network in network_definitions.py names its profile, and scripts 03 and 04 read
 it from there, so an HRFE build (HRM_NETWORK=HRFE) uses HRFE. DEFAULT_PROFILE (GENERAL)
@@ -50,20 +51,35 @@ Notes:
     can be tested outside ArcGIS Pro.
 """
 
-# Island segments such as McNabs Island, which cannot route. They apply to every
-# network. Melanie Parker is supplying the list or filter (2026-09-24), so this
-# is empty until she does.
-ISLAND_FDMIDS = []
+# Island segments (McNabs Island and George's Island), which cannot route. They apply
+# to every network. Robbie Evans sent these 14 FDMIDs on 2026-10-08. Melanie Parker was
+# also going to supply a list or filter (2026-09-24), so add any islands hers covers
+# that these do not.
+ISLAND_FDMIDS = [
+    700000538,
+    700000539,
+    700000540,
+    700000541,
+    700000542,
+    700000543,
+    700000544,
+    700000545,
+    700000546,
+    700000548,
+    700000549,
+    700002434,
+    700002435,
+    700009601,
+]
 
 # WA = water access roads. Robbie Evans and Melanie Parker asked for these to be
 # removed (2026-09-23, confirmed 2026-09-29; Robbie confirmed STR_TYPE = 'WA' on
 # 2026-09-17).
 #
-# Transit access roads are removed from every network (decided 2026-09-29). They are
-# named "TA# RD". Run against Prod on 2026-09-29, 'TA[0-9]%' matches 124 rows (TA1 to
-# TA52, all STR_TYPE RD); the looser 'TA%' adds 85 ordinary streets. Robbie Evans
-# confirmed on 2026-09-29 that no transit road has another name. All 124 go, with no
-# exceptions (decided 2026-09-29).
+# Transit access roads are NOT excluded here. On 2026-09-29 they were removed from every
+# network, but in the 2026-10-08 meeting the group decided to leave them in the distance
+# network unless somebody complains, because some business units use them as roads. They
+# stay out of the HRFE network (Alex, 2026-10-08), so the pattern lives in HRFE_EXTRA below.
 #
 # UNDER REVIEW streets (LRS placeholders named like "UNDER REVIEW 329", STR_TYPE 'UN')
 # are deliberately NOT excluded: a requirement to drop them on 2026-09-29 was withdrawn
@@ -71,10 +87,15 @@ ISLAND_FDMIDS = []
 GENERAL_PROFILE = {
     "str_types": ["WA"],
     "fdmids": list(ISLAND_FDMIDS),
-    "name_patterns": ["TA[0-9]%"],
+    "name_patterns": [],
 }
 
 # Extra HRFE exclusions, from Robbie Evans's 2026-09-01 and 2026-09-17 emails.
+#
+#   Transit access roads: named "TA# RD". Run against Prod on 2026-09-29, 'TA[0-9]%'
+#   matches 124 rows (TA1 to TA52, all STR_TYPE RD); the looser 'TA%' adds 85 ordinary
+#   streets. Robbie confirmed on 2026-09-29 that no transit road has another name. All
+#   124 go from HRFE, with no exceptions. The distance network keeps them.
 #
 #   Emergency access roads: confirmed. He gave the query and says there are
 #   exactly 4 (Highland Park, Buckingham Dr x2, Westwood Blvd, each "EMERGENCY
@@ -85,17 +106,15 @@ GENERAL_PROFILE = {
 #   2026-09-29 this is the full set and that HRFE routes are calculated without
 #   them. Emergency access roads are evacuation only.
 #
-#   Transit access roads are in GENERAL_PROFILE above, so HRFE inherits them.
-#
 #   Expected effect on the HRFE edge copy: 211 rows from WA, transit, emergency
 #   access and ETAs (61 + 124 + 4 + 22, no shared FDMIDs), leaving 18,433 of 18,644.
-#   The general copy loses WA and transit only (185 rows), leaving 18,459.
+#   The general copy loses WA only (61 rows), leaving 18,583.
 #
 #   Record: docs/meetings/2026-09-29_HRFE_network_dataset_email_thread.md
 HRFE_EXTRA = {
     "str_types": [],
     "fdmids": [],
-    "name_patterns": ["%EMERGENCY ACCESS%", "% ETA [0-9]%"],
+    "name_patterns": ["TA[0-9]%", "%EMERGENCY ACCESS%", "% ETA [0-9]%"],
 }
 
 DEFAULT_PROFILE = "GENERAL"
