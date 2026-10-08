@@ -32,6 +32,8 @@ NETWORK = os.path.join(QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.network_name)
 EDGE = os.path.join(QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.edge_name)
 JUNCTION = os.path.join(QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.junction_name)
 TURN = os.path.join(QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.turn_name)
+# Built by 07_create_topology.py. It holds the edge source, so it has to go before the edge does.
+TOPOLOGY = os.path.join(QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.edge_name + "_topology")
 STAGING_TURN = os.path.join(
     QA_NETWORK_FD, "SDEADM." + NETWORK_DEF.staging_turn_name
 )
