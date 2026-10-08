@@ -208,6 +208,13 @@ words are garbled in it, so check anything that matters.
   `claude/setup-lrs-repo-0S4rJ` (the repo's default branch). PRs #70, #71 and #72 are merged (#72 on
   2026-10-01, the HRFE scaffolding and Robbie's replies), so start the branch afresh from the base before
   new work.
+- **BuildErrors files:** `Build Network` writes `BuildErrors_<guid>.txt` to the client's temp folder, in a numbered
+  subfolder, for example `C:\Users\ALEX~1.GAL\AppData\Local\Temp\3\`, not the top level of `%TEMP%`. Windows
+  cleans these up, so copy the file out the same day. The exact path is in the DEBUG log line `WARNING 030116: The
+  network was built, but with some errors. Error details are at ...`, in the script 03 log under
+  `network_dataset\logs\`. The 2026-09-29 file is saved in `intermediate_results` (1,138 lines: 5 `Cannot find at
+  junction` for turns 686, 746, 747, 829 and 830, and 1,133 `Standalone user-defined junction` warnings, nothing
+  else).
 - **Emails arrive as `.msg` uploads.** Parse with `olefile`. Robbie once answered with reaction images
   (approve, reject) placed under each bullet; the RTF body shows which image sits where.
 - **Tone:** Robbie Evans is a friend of Alex's, so emails to him stay casual. Draft emails in Alex's voice,
@@ -228,3 +235,4 @@ words are garbled in it, so check anything that matters.
 | Exclusion rules | `network_dataset/scripts/network_exclusions.py` |
 | Network names and template rendering | `network_dataset/scripts/network_definitions.py` |
 | Diagnostic output from Prod (2026-09-29) | `network_dataset/intermediate_results/candidate_exclusions_20260929.csv` |
+| Build errors from the 2026-09-29 QA build | `network_dataset/intermediate_results/BuildErrors_5cfc4bc3-6637-45c2-8a9a-7866b8bbfc00.txt` |
