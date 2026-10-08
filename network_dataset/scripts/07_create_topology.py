@@ -77,24 +77,31 @@ VALIDATE = True
 EXPORT_ERRORS = True
 ERROR_OUTPUT_DIR = Path(__file__).parent / "output"
 
-# Rules on the edge source alone: arcpy rule keyword, then Pro's name for it.
+# Rules on the edge source alone. AddRuleToTopology takes these exact display names (note the
+# hyphens in Self-Overlap and Self-Intersect); the keyword style such as MUST_NOT_OVERLAP_LINE
+# is rejected with ERROR 000800 (confirmed 2026-10-08).
 RULES = [
-    ("MUST_NOT_OVERLAP_LINE", "Must Not Overlap (Line)"),
-    ("MUST_NOT_INTERSECT_LINE", "Must Not Intersect (Line)"),
-    ("MUST_NOT_HAVE_DANGLES", "Must Not Have Dangles (Line)"),
-    ("MUST_NOT_SELF_OVERLAP_LINE", "Must Not Self Overlap (Line)"),
-    ("MUST_NOT_SELF_INTERSECT_LINE", "Must Not Self Intersect (Line)"),
-    ("MUST_BE_SINGLE_PART", "Must Be Single Part (Line)"),
+    "Must Not Overlap (Line)",
+    "Must Not Intersect (Line)",
+    "Must Not Have Dangles (Line)",
+    "Must Not Self-Overlap (Line)",
+    "Must Not Self-Intersect (Line)",
+    "Must Be Single Part (Line)",
 ]
 
 OPTIONAL_RULES = [
-    ("MUST_NOT_INTERSECT_OR_TOUCH_INTERIOR", "Must Not Intersect Or Touch Interior (Line)"),
+    "Must Not Intersect Or Touch Interior (Line)",
 ]
 INCLUDE_OPTIONAL_RULES = False
 
+# True removes the edge source from the topology first (which also removes its rules) and adds
+# it again with the rules above. Use it to recover from a run that added the edge source but
+# failed before the rules. Rules added by hand in Pro are lost too.
+RESET_EDGE_SOURCE = False
+
 
 def rules_to_add():
-    """The (keyword, label) pairs this run adds."""
+    """The rule names this run adds."""
     if INCLUDE_OPTIONAL_RULES:
         return RULES + OPTIONAL_RULES
 
@@ -149,18 +156,24 @@ def add_edge_source_and_rules():
     members = topology_members(TOPOLOGY)
 
     if NETWORK.edge_name.lower() in members:
-        logger.warning(
-            f"{NETWORK.edge_name} is already in the topology, so its rules are left as they are. "
-            "Check them in Pro (Topology Properties, Rules)."
-        )
-        return
+
+        if not RESET_EDGE_SOURCE:
+            logger.warning(
+                f"{NETWORK.edge_name} is already in the topology, so its rules are left as they "
+                "are. Check them in Pro (Topology Properties, Rules), or set RESET_EDGE_SOURCE "
+                "to True to remove it and add it again with the rules in this script."
+            )
+            return
+
+        logger.info(f"Removing {EDGE_FC} (and its rules) from the topology")
+        arcpy.management.RemoveFeatureClassFromTopology(TOPOLOGY, EDGE_FC)
 
     logger.info(f"Adding {EDGE_FC} to the topology (XY rank {XY_RANK})")
     arcpy.management.AddFeatureClassToTopology(TOPOLOGY, EDGE_FC, XY_RANK)
 
-    for keyword, label in rules_to_add():
-        logger.info(f"Adding rule: {label}")
-        arcpy.management.AddRuleToTopology(TOPOLOGY, keyword, EDGE_FC)
+    for rule in rules_to_add():
+        logger.info(f"Adding rule: {rule}")
+        arcpy.management.AddRuleToTopology(TOPOLOGY, rule, EDGE_FC)
 
 
 def validate():
