@@ -9,21 +9,23 @@ routes, restrictions and parking permits):
   Must Not Overlap (Line)
   Must Not Intersect (Line)
   Must Not Have Dangles (Line)
-  Must Not Self Overlap (Line)
-  Must Not Self Intersect (Line)
+  Must Not Self-Overlap (Line)
+  Must Not Self-Intersect (Line)
   Must Be Single Part (Line)
 
-Optional extra, off by default (see OPTIONAL_RULES): Must Not Intersect Or Touch Interior,
+Optional extra, off by default (see OPTIONAL_RULES and INCLUDE_OPTIONAL_RULES): Must Not Intersect Or Touch Interior,
 which flags a street end that touches the middle of another street. The network uses End
 Point connectivity, so such a touch does not connect without a split.
 
 What this script does, in order:
   1. Creates the topology if it does not exist (an empty one made in Pro is reused).
-  2. Adds the edge source and the rules, unless the edge source is already in the topology.
-     Rules added by hand in Pro are never read back or duplicated: if the edge source is
-     already a member, this script leaves the rules alone.
+  2. Adds the edge source and the rules. If the edge source is already in the topology, the
+     script leaves its rules alone, because rules added by hand in Pro are never read back
+     or duplicated. Set RESET_EDGE_SOURCE = True to remove the edge source and add it again
+     with the rules below, then set it back to False.
   3. Validates the topology (VALIDATE = True).
-  4. Exports the errors to a file geodatabase under output/, one class per geometry type.
+  4. Exports the errors to a file geodatabase under output/, one class per geometry type,
+     and logs the count per rule. A scratch run uses its own geodatabase.
 
 Marking errors as exceptions is not done here. Robbie's feature class of valid dangles and
 intersections is applied in the Error Inspector in Pro.
@@ -34,8 +36,8 @@ or qa_refresh), which makes the whole extent dirty, so the topology must be vali
 The topology has to be deleted before the edge source is deleted or swapped: a topology
 participant cannot be deleted while it is a member (qa_refresh step 02 does this).
 
-Testing without touching QA: set USE_SCRATCH = True below. The edge source is copied into a scratch file
-geodatabase under output/ and the whole sequence runs there. QA is only read, so it is safe
+Testing without touching QA: set USE_SCRATCH = True below. The edge source is copied into a
+scratch file geodatabase under output/ and the whole sequence runs there. QA is only read, so it is safe
 while the live network is in use, and it shows whether the rules and validation behave before
 the topology goes on the live edge class. It cannot show whether the live class needs to be
 registered as versioned, or whether a class can be in both a topology and the network dataset
