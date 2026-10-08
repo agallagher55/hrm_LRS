@@ -22,7 +22,10 @@ What this script does, in order:
   2. Adds the edge source and the rules, unless the edge source is already in the topology.
      Rules added by hand in Pro are never read back or duplicated: if the edge source is
      already a member, this script leaves the rules alone.
-  3. Validates the topology (VALIDATE = True).
+  3. Validates the topology (# True builds everything in a scratch file geodatabase copy instead of QA. QA is only read.
+USE_SCRATCH = False
+
+VALIDATE = True).
   4. Exports the errors to a file geodatabase under output/, one class per geometry type.
 
 Marking errors as exceptions is not done here. Robbie's feature class of valid dangles and
@@ -34,7 +37,7 @@ or qa_refresh), which makes the whole extent dirty, so the topology must be vali
 The topology has to be deleted before the edge source is deleted or swapped: a topology
 participant cannot be deleted while it is a member (qa_refresh step 02 does this).
 
-Testing without touching QA: run with --scratch. The edge source is copied into a scratch file
+Testing without touching QA: set USE_SCRATCH = True below. The edge source is copied into a scratch file
 geodatabase under output/ and the whole sequence runs there. QA is only read, so it is safe
 while the live network is in use, and it shows whether the rules and validation behave before
 the topology goes on the live edge class. It cannot show whether the live class needs to be
@@ -44,7 +47,6 @@ in the enterprise geodatabase; only the QA run shows that.
 Set HRM_NETWORK=HRFE to build the topology on the HRFE edge copy instead. See network_definitions.py.
 """
 
-import argparse
 import os
 from pathlib import Path
 
@@ -196,20 +198,13 @@ def export_errors():
             logger.info(f"  {basename}_{suffix}: {count:,} errors")
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description="Build the topology on the network edge source.")
-    parser.add_argument(
-        "--scratch", action="store_true",
-        help="Run on a copy in a scratch file geodatabase. QA is only read.",
-    )
-    args = parser.parse_args(argv)
-
+def main():
     for path, label in [(FEATURE_DATASET, "feature dataset"), (EDGE_FC, "edge source")]:
 
         if not arcpy.Exists(path):
             raise RuntimeError(f"Cannot find {label}: {path}")
 
-    if args.scratch:
+    if USE_SCRATCH:
         use_scratch_copy()
 
     logger.info(

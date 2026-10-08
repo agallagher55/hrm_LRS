@@ -8,6 +8,7 @@ ending the session. The detailed history is in `network_dataset/docs/network_bui
 
 ## Python Files
 - Use pep8 styling
+- Scripts take no command line arguments. Put every setting in global variables (constants) at the top of the script.
 
 ## Environment
 - ArcGIS Pro 3.3.5 for the original build. Network dataset work since 2026-09-01 is on **3.5.8**, and the
