@@ -91,11 +91,11 @@ Not Self Overlap, Must Not Self Intersect, Must Be Single Part), validates, and 
 - Whether a feature class can be in both a topology and the network dataset in this geodatabase, and
   whether the edge class must be registered as versioned: check on the first QA run.
 - `qa_refresh` step 02 now deletes the topology first. `DeleteRows` in script 04 on a topology member is untested.
-- Blank `SPEED` (Short) and `TRAVEL_TIME` (Double) fields on the edge class, as Robbie suggested:
-  written, not run. Script 03 adds them after the edge copy, so every refresh keeps them, and
-  `08_add_edge_fields.py` adds them to the existing QA edge class now. Adding a field to a class that is
-  both a network source and a topology member is untried: run it when nobody is using the network, then
-  check the network still shows Built and rerun `07_create_topology.py`. Nothing fills them yet.
+- Blank `SPEED` (Short) and `TRAVEL_TIME` (Double) fields on the edge class, as Robbie suggested: added to
+  the live QA edge class on 2026-10-08 with `08_add_edge_fields.py`, and verified (Alex): the network still
+  shows Built (2026-09-29 08:55:04, Edges 37,674, Junctions 16,187, Turns 1,184) and the topology validates
+  with the same errors as before. Script 03 adds them after the edge copy, so every refresh keeps them.
+  Nothing fills them yet, and no network attribute uses them.
 
 ## Next steps, in order
 
