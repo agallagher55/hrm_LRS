@@ -34,9 +34,17 @@ or qa_refresh), which makes the whole extent dirty, so the topology must be vali
 The topology has to be deleted before the edge source is deleted or swapped: a topology
 participant cannot be deleted while it is a member (qa_refresh step 02 does this).
 
+Testing without touching QA: run with --scratch. The edge source is copied into a scratch file
+geodatabase under output/ and the whole sequence runs there. QA is only read, so it is safe
+while the live network is in use, and it shows whether the rules and validation behave before
+the topology goes on the live edge class. It cannot show whether the live class needs to be
+registered as versioned, or whether a class can be in both a topology and the network dataset
+in the enterprise geodatabase; only the QA run shows that.
+
 Set HRM_NETWORK=HRFE to build the topology on the HRFE edge copy instead. See network_definitions.py.
 """
 
+import argparse
 import os
 from pathlib import Path
 
@@ -98,6 +106,29 @@ def topology_members(topology):
     return {str(name).split(".")[-1].lower() for name in names}
 
 
+def use_scratch_copy():
+    """Point the script at a copy of the edge source in a file geodatabase."""
+    global FEATURE_DATASET, EDGE_FC, TOPOLOGY
+
+    ERROR_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    gdb_name = f"topology_scratch_{NETWORK.key}.gdb"
+    gdb = str(ERROR_OUTPUT_DIR / gdb_name)
+
+    if arcpy.Exists(gdb):
+        arcpy.management.Delete(gdb)
+
+    arcpy.management.CreateFileGDB(str(ERROR_OUTPUT_DIR), gdb_name)
+    spatial_reference = arcpy.Describe(EDGE_FC).spatialReference
+    arcpy.management.CreateFeatureDataset(gdb, "scratch_network", spatial_reference)
+    scratch_fd = os.path.join(gdb, "scratch_network")
+    logger.info(f"Scratch run: copying {EDGE_FC} into {scratch_fd}")
+    arcpy.management.CopyFeatures(EDGE_FC, os.path.join(scratch_fd, NETWORK.edge_name))
+
+    FEATURE_DATASET = scratch_fd
+    EDGE_FC = os.path.join(scratch_fd, NETWORK.edge_name)
+    TOPOLOGY = os.path.join(scratch_fd, TOPOLOGY_NAME)
+
+
 def create_or_reuse_topology():
     if arcpy.Exists(TOPOLOGY):
         logger.info(f"Topology already exists, reusing it: {TOPOLOGY}")
@@ -156,15 +187,25 @@ def export_errors():
             logger.info(f"  {basename}_{suffix}: {count:,} errors")
 
 
-def main():
-    logger.info(
-        f"Network: {NETWORK.key} ({NETWORK.description}); topology {TOPOLOGY}"
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Build the topology on the network edge source.")
+    parser.add_argument(
+        "--scratch", action="store_true",
+        help="Run on a copy in a scratch file geodatabase. QA is only read.",
     )
+    args = parser.parse_args(argv)
 
     for path, label in [(FEATURE_DATASET, "feature dataset"), (EDGE_FC, "edge source")]:
 
         if not arcpy.Exists(path):
             raise RuntimeError(f"Cannot find {label}: {path}")
+
+    if args.scratch:
+        use_scratch_copy()
+
+    logger.info(
+        f"Network: {NETWORK.key} ({NETWORK.description}); topology {TOPOLOGY}"
+    )
 
     create_or_reuse_topology()
     add_edge_source_and_rules()
