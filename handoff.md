@@ -4,9 +4,10 @@
 status changes (what is done, what is waiting, what to do next). The detailed history lives in
 `network_dataset/docs/network_build_status.md`; this file is the short version of where things are.
 
-Nothing here has been run against ArcGIS Pro or SQL Server by Claude. Claude works in a Linux
-container with no `arcpy` and no database access, so the code is tested against stand-ins only.
-"Done" below means written and unit tested, or recorded by Alex, not proven on live data.
+Claude has not run anything against ArcGIS Pro or SQL Server. Claude works in a Linux container with no
+`arcpy` and no database access, so its code is tested against stand-ins only. Alex has run some of it in QA
+(the topology script and the edge fields, 2026-10-08). "Done" below means written and unit tested, or
+recorded by Alex, not proven on live data unless it says Alex ran it.
 
 ## The two networks
 
@@ -46,7 +47,7 @@ Open:
 - **Melanie's LRS fixes are done (her email, 2026-10-08):** she reviewed the network error file and made every
   edit that could be made, applied event behaviours, and the changes are reconciled and posted. She did them in
   **Prod**, not QA, so QA only gets them after Prod's `TRNLRS_TRN_STREET_VW` is refreshed from the LRS and QA's
-  network is rebuilt (next steps, item 6). She is offline after 2:30 and said Ryan can look at anything found.
+  network is rebuilt (next steps, item 1). She is offline after 2:30 and said Ryan can look at anything found.
 - The 57 new untraceable LRS issues (Melanie and Ryan Lowe). Melanie's email does not say whether her fixes
   covered these 57, so ask. The Prod 11.5 upgrade is confirmed finished
   (Alex, 2026-09-29), so the version-mismatch theory can now be tested from a matching client and database.
@@ -180,23 +181,32 @@ words are garbled in it, so check anything that matters.
 
 ## Next steps, in order
 
-1. **Inspect Robbie's geodatabase:** run `network_dataset/scripts/diagnostics/11_inspect_extra_roads.py`
-   (check `EXTRA_GDB` first). It reports the schema and how each segment end meets the HRFE streets. Its
-   geometry code has only been compiled, so expect to adjust it.
-2. **Create `SDEADM.TRNLRS_network_HRFE` in QA** in Pro, with the same spatial reference as
-   `SDEADM.TRNLRS_network`.
-3. **Prove the rendered HRFE template** without touching QA: `HRM_NETWORK=HRFE` then
-   `qa_refresh/test_template_create.py`.
-4. **Build the HRFE network:** `qa_refresh` steps 00 and 03 to 07 with `HRM_NETWORK=HRFE` (skip 01 and
-   02), then SQL grants for the new registration IDs and smoke tests. Check the step 03 log reads
-   18,433 of 18,644 with per-rule counts WA 61, transit 124, emergency access 4, ETAs 22.
-5. **Add Robbie's extra roads** as a second edge source: create the feature class from his data, add it
-   to the template, grant him edit access. Not designed in detail yet.
-6. **Rebuild the distance network.** Melanie's fixes are posted in Prod's LRS (2026-10-08). First confirm
+1. **Rebuild the distance network.** Melanie's fixes are posted in Prod's LRS (2026-10-08). First confirm
    `TRNLRS_TRN_STREET_VW` in Prod has been refreshed from them (`LRS_updates.py`), then run `qa_refresh` so
    Robbie can retest against them. Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
-   afterward and reapply its exceptions.
-   Check the step 03 log: WA 61 plus the island FDMID rows come off 18,644, so expect 18,583 minus those rows.
+   afterward and reapply its exceptions. Check the step 03 log: WA 61 plus the island FDMID rows come off
+   18,644, so expect 18,583 minus those rows. Transit roads now stay in this network. Then tell Robbie QA is ready.
+2. **Follow up with people.**
+   - Ryan: confirm Esri may share the file geodatabase copy of the LRS (uploaded 2026-09-04) with Esri Inc,
+     and answer Esri once Melanie has double checked her fixes against Esri's questions.
+   - Melanie: do her fixes cover the 57 untraceable LRS issues, and has she double checked Esri's questions.
+   - Robbie: his retest result, plus the four questions still open (exceptions class, the optional topology
+     rule, his speed method and whether his extra roads must be versioned).
+3. **Inspect Robbie's geodatabase:** run `network_dataset/scripts/diagnostics/11_inspect_extra_roads.py`
+   (check `EXTRA_GDB` first). It reports the schema and how each segment end meets the HRFE streets. Its
+   geometry code has only been compiled, so expect to adjust it.
+4. **Create `SDEADM.TRNLRS_network_HRFE` in QA** in Pro, with the same spatial reference as
+   `SDEADM.TRNLRS_network`.
+5. **Prove the rendered HRFE template** without touching QA: `HRM_NETWORK=HRFE` then
+   `qa_refresh/test_template_create.py` (never run yet, so expect small fixes). Set `KEEP_SCRATCH = True`
+   if you also want a fresh BuildErrors file.
+6. **Build the HRFE network:** `qa_refresh` steps 00 and 03 to 07 with `HRM_NETWORK=HRFE` (skip 01 and
+   02), then SQL grants for the new registration IDs and smoke tests. Check the step 03 log reads
+   18,433 of 18,644 less the island rows, with per-rule counts WA 61, transit 124, emergency access 4, ETAs 22.
+7. **Add Robbie's extra roads** as a second edge source: create the feature class from his data, add it
+   to the template, grant him edit access. Not designed in detail yet.
+8. **Later:** fill `SPEED` and `TRAVEL_TIME` (needs Robbie's method and a source for speeds), and decide how to
+   sync the HRFE edge copy after an LRS update.
 
 ## Open questions
 
