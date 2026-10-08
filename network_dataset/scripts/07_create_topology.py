@@ -22,10 +22,7 @@ What this script does, in order:
   2. Adds the edge source and the rules, unless the edge source is already in the topology.
      Rules added by hand in Pro are never read back or duplicated: if the edge source is
      already a member, this script leaves the rules alone.
-  3. Validates the topology (# True builds everything in a scratch file geodatabase copy instead of QA. QA is only read.
-USE_SCRATCH = False
-
-VALIDATE = True).
+  3. Validates the topology (VALIDATE = True).
   4. Exports the errors to a file geodatabase under output/, one class per geometry type.
 
 Marking errors as exceptions is not done here. Robbie's feature class of valid dangles and
@@ -72,6 +69,9 @@ TOPOLOGY = os.path.join(FEATURE_DATASET, "SDEADM." + TOPOLOGY_NAME)
 # the feature dataset. Pass None to take the feature dataset's own value.
 CLUSTER_TOLERANCE = 0.001
 XY_RANK = 1
+
+# True builds everything in a scratch file geodatabase copy instead of QA. QA is only read.
+USE_SCRATCH = False
 
 VALIDATE = True
 EXPORT_ERRORS = True

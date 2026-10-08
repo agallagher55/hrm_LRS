@@ -46,6 +46,16 @@ class TopologyScriptTests(unittest.TestCase):
             [keyword for keyword, _ in module.rules_to_add()],
         )
 
+    def test_every_setting_main_reads_is_defined(self):
+        """main() reads these as globals; one missing from the module would fail only at run time."""
+        module = load_script("07_create_topology.py", None)
+
+        for name in ("USE_SCRATCH", "VALIDATE", "EXPORT_ERRORS", "INCLUDE_OPTIONAL_RULES"):
+
+            self.assertIsInstance(getattr(module, name), bool, name)
+
+        self.assertFalse(module.USE_SCRATCH)
+
 
 if __name__ == "__main__":
     unittest.main()
