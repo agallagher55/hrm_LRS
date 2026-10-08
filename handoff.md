@@ -1,6 +1,6 @@
 # Handoff: current status
 
-**Last updated 2026-10-01 (after PR #72 merged).** Read this first, then follow the links for detail. Update it whenever
+**Last updated 2026-10-08 (after the Road Network meeting).** Read this first, then follow the links for detail. Update it whenever
 status changes (what is done, what is waiting, what to do next). The detailed history lives in
 `network_dataset/docs/network_build_status.md`; this file is the short version of where things are.
 
@@ -16,7 +16,7 @@ container with no `arcpy` and no database access, so the code is tested against 
 | Network dataset | `TRNLRS_street_network` | `TRNLRS_street_network_HRFE` |
 | Feature dataset (QA) | `SDEADM.TRNLRS_network` | `SDEADM.TRNLRS_network_HRFE` (**not created yet**) |
 | State | Built in QA on 2026-09-29 | Scripts written, never run |
-| Excluded from it | WA streets, transit access roads (`TA[0-9]%`), islands (list pending) | The same, plus emergency access roads and ETAs |
+| Excluded from it | WA streets and islands (list pending). Transit access roads (`TA[0-9]%`): **decided 2026-10-08 to leave them in**, but the code still excludes them | The same, plus emergency access roads and ETAs. Whether transit stays out here is unconfirmed |
 
 `UNDER REVIEW` streets are deliberately **kept** in both. A requirement to drop them was added and
 withdrawn on 2026-09-29, and a test guards against them being excluded.
@@ -32,13 +32,17 @@ Open:
 - Smoke tests, a check that the LRS gap corrections really are in Prod's `TRNLRS_TRN_STREET_VW`, and
   Directions on the live network. The committed template includes Directions but a create from it has
   not been proven (`qa_refresh/test_template_create.py` has never been run).
-- **The QA network still contains the transit access roads**, because it was built before that filter.
-  The next rebuild drops them.
+- **Transit access roads (decision 2026-10-08):** leave them in the network unless somebody complains.
+  The QA network still contains them, because it was built before the filter, but `network_exclusions.py`
+  still excludes `TA[0-9]%` (124 rows) from both networks, so the next rebuild would drop them. Change the
+  exclusion profiles first, or the rebuild undoes the decision. Not done yet.
 - Island FDMID list from Melanie Parker (`ISLAND_FDMIDS` in `network_exclusions.py` is empty).
 - The 57 new untraceable LRS issues (Melanie and Ryan Lowe). The Prod 11.5 upgrade is confirmed finished
   (Alex, 2026-09-29), so the version-mismatch theory can now be tested from a matching client and database.
 - Esri case #04248942: Ryan is replying about sharing the file geodatabase. The network-creation
-  overview for Ryan had not been sent as of 2026-09-29.
+  overview for Ryan had not been sent as of 2026-09-29. In the 2026-10-08 meeting Jillian asked about
+  recent Esri emails. Melanie said she told the person waiting to hold off, because her LRS fixes may also
+  answer Esri's questions, and she will double check first. (The transcript garbles names here.)
 - Turn OID stability: every edge-source refresh breaks every turn reference and needs a remap. Decide
   the approach before Prod (`network_dataset_script_review.md` section D).
 
@@ -100,20 +104,22 @@ Done and verified on live QA (Alex, 2026-10-08):
   Script 03 adds them after the edge copy, so every refresh keeps them. Nothing fills them yet and no
   network attribute uses them.
 
-Waiting on Robbie (questions emailed by Alex 2026-10-08, not yet answered; the email asked these six):
+Waiting on Robbie (questions emailed by Alex 2026-10-08; the meeting that day answered only items 2 and 5, in part):
 1. **His valid dangles and intersections class** (the exceptions): where it lives, one class or two, geometry
    type, whether it carries an FDMID or street ID or is only points and whether it still lines up with the
    new LRS-based edges (it was probably built against the old street network). Exceptions are marked in the
-   Error Inspector in Pro.
-2. **The 253 multipart edges:** does he split them, or do they not matter to his routing? Not known whether
-   the network cares. Nothing has been edited.
+   Error Inspector in Pro. Not discussed in the meeting.
+2. **The 253 multipart edges:** discussed 2026-10-08, see the meeting section below. Melanie says they are
+   valid LRS construction. Robbie has not tested whether they affect a route solve and will do so.
 3. **The optional rule Must Not Intersect Or Touch Interior** (`INCLUDE_OPTIONAL_RULES`, off): his old setup
    had it. It catches a street end touching the middle of another street, which matters for connecting his
-   extra roads under End Point connectivity.
+   extra roads under End Point connectivity. Not discussed.
 4. **His speed times distance method:** the path on the T: drive (not recorded), his units (ours are km/h and
-   minutes, chosen by Claude) and how he treats streets with no posted speed.
-5. His retest of the distance network after the 2026-09-29 rebuild (no result recorded).
-6. Whether his extra roads class must be registered as versioned for him to edit it.
+   minutes, chosen by Claude) and how he treats streets with no posted speed. Robbie asked in the meeting
+   about next steps with speed and Alex said filling the fields is one of them, with no detail.
+5. His retest of the distance network. He plans to retest on 2026-10-08 in the afternoon, once Melanie's
+   dangle fixes are in (see below).
+6. Whether his extra roads class must be registered as versioned for him to edit it. Not discussed.
 
 Other open items:
 - Exceptions are lost when `qa_refresh` step 02 deletes the topology, so reapply them after each refresh
@@ -121,6 +127,37 @@ Other open items:
 - `qa_refresh` step 02 now deletes the topology first. `DeleteRows` in script 04 on a topology member is untested.
 - SQL grants for the topology tables: unknown whether Robbie's login needs them.
 - Nothing fills `SPEED` and `TRAVEL_TIME` yet; `E_SpeedLimit` does not segment like the other event tables.
+
+## Meeting 2026-10-08 (Robbie, Melanie, Jillian, Alex)
+
+From the transcript `2026-10-08_Road_Network_Analysis_txt.txt` (uploaded, not committed). Speaker names and some
+words are garbled in it, so check anything that matters.
+- **Multipart edges.** Robbie ran the topology on his own offline copy of the LRS (on the T: drive, newest
+  data, because he did not know whether QA was updated) and found many multipart features. Many are cul-de-sac
+  bulbs, where two segments meet at an end point. Melanie: that is how the LRS is built (the end point of an
+  address event, merged into one feature), so they are valid and technically two segments. Robbie: exploding one
+  gives two parts, and dragging them together and resnapping merges them again. He does not expect them to break
+  the network and said he cares only that the network works. Open: whether they need fixing in the LRS for
+  other uses, and whether they affect routing. Alex suggested a route solve test. Robbie's first test run flagged
+  only dangles, not these.
+- **Dangles.** Melanie found what causes them and is about halfway through the fixes, hoping to finish the
+  afternoon of 2026-10-08. Some will remain and are valid: roads that start in another county and continue into
+  HRM, and island roads such as McNabs. Robbie said that is expected.
+- **Retest.** Robbie wants Melanie's dangle fixes in first, then will test the network on 2026-10-08 in the
+  afternoon. Open: the fixes land in the LRS and Prod, so QA's edge copy needs a refresh (`qa_refresh`) before
+  QA reflects them. Robbie asked whether the new QA is built, and the transcript's reply is unclear.
+- **Alex's update.** Speed and travel time fields are added to the edge class in QA and not filled yet.
+  WA streets are out. Transit access roads were to come out on the next update.
+- **Transit access roads, decision.** Robbie: the exclusion might just be a fire thing, and the main network
+  should probably keep them rather than remove and re-add. Melanie: some business units use them as roads
+  (through routes and parking lots, for example in Sackville and Downsview, and the ones at the transit
+  facility and garage), and whether to exclude is a business unit decision. Alex: leave them in unless somebody
+  complains, and he can add explicit exceptions. Whether this covers HRFE was not said.
+- **Islands.** Robbie: McNabs and George's can go. Alex wants the island FDMID list (still empty in the code).
+  Robbie noted that once non-HRM roads are added, some floating segments will connect.
+- **Esri.** See the Esri bullet under Distance network.
+- **Next meeting** in two weeks, set by Jillian (no calendar time next week). Melanie will email when her
+  fixes are done.
 
 ## Next steps, in order
 
@@ -136,7 +173,9 @@ Other open items:
    18,433 of 18,644 with per-rule counts WA 61, transit 124, emergency access 4, ETAs 22.
 5. **Add Robbie's extra roads** as a second edge source: create the feature class from his data, add it
    to the template, grant him edit access. Not designed in detail yet.
-6. **Rebuild the distance network** so the transit exclusion takes effect, then have Robbie retest.
+6. **Rebuild the distance network** after Melanie's LRS fixes reach Prod, so Robbie can retest against them.
+   Before that, decide whether to drop the transit exclusion from the profiles (2026-10-08: leave transit in),
+   or the rebuild removes the 124 roads again.
 
 ## Open questions
 
