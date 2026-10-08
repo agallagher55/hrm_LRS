@@ -40,9 +40,15 @@ Open:
 - Islands: Robbie sent the 14 McNabs and George's FDMIDs on 2026-10-08 and they are now in `ISLAND_FDMIDS` in
   `network_exclusions.py` (written and tested, not run), so both networks exclude them from the next build.
   The edge copy will lose the rows with those FDMIDs, so the expected 18,583 and 18,433 fall by that many.
-  Check the per-rule count in the step 03 log. Melanie Parker was also going to supply an island list, so
-  ask whether hers covers any other islands.
-- The 57 new untraceable LRS issues (Melanie and Ryan Lowe). The Prod 11.5 upgrade is confirmed finished
+  Check the per-rule count in the step 03 log. Melanie Parker replied on 2026-10-08 that about 99% of
+  the islands are already removed by the WA street type filter and the rest are covered by Robbie's FDMIDs
+  (McNabs and George's have named roads inland), so no other island list is coming.
+- **Melanie's LRS fixes are done (her email, 2026-10-08):** she reviewed the network error file and made every
+  edit that could be made, applied event behaviours, and the changes are reconciled and posted. She did them in
+  **Prod**, not QA, so QA only gets them after Prod's `TRNLRS_TRN_STREET_VW` is refreshed from the LRS and QA's
+  network is rebuilt (next steps, item 6). She is offline after 2:30 and said Ryan can look at anything found.
+- The 57 new untraceable LRS issues (Melanie and Ryan Lowe). Melanie's email does not say whether her fixes
+  covered these 57, so ask. The Prod 11.5 upgrade is confirmed finished
   (Alex, 2026-09-29), so the version-mismatch theory can now be tested from a matching client and database.
 - Esri case #04248942: Esri asked (2026-09-01 and 09-09) for the high-level workflow for creating the network and any
   error messages with screenshots. **Alex answered Ryan by email on 2026-10-08** with the five-step workflow, the
@@ -186,7 +192,10 @@ words are garbled in it, so check anything that matters.
    18,433 of 18,644 with per-rule counts WA 61, transit 124, emergency access 4, ETAs 22.
 5. **Add Robbie's extra roads** as a second edge source: create the feature class from his data, add it
    to the template, grant him edit access. Not designed in detail yet.
-6. **Rebuild the distance network** after Melanie's LRS fixes reach Prod, so Robbie can retest against them.
+6. **Rebuild the distance network.** Melanie's fixes are posted in Prod's LRS (2026-10-08). First confirm
+   `TRNLRS_TRN_STREET_VW` in Prod has been refreshed from them (`LRS_updates.py`), then run `qa_refresh` so
+   Robbie can retest against them. Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
+   afterward and reapply its exceptions.
    Check the step 03 log reads 18,583 of 18,644 (WA 61 only).
 
 ## Open questions
