@@ -9,21 +9,23 @@ routes, restrictions and parking permits):
   Must Not Overlap (Line)
   Must Not Intersect (Line)
   Must Not Have Dangles (Line)
-  Must Not Self Overlap (Line)
-  Must Not Self Intersect (Line)
+  Must Not Self-Overlap (Line)
+  Must Not Self-Intersect (Line)
   Must Be Single Part (Line)
 
-Optional extra, off by default (see OPTIONAL_RULES): Must Not Intersect Or Touch Interior,
+Optional extra, off by default (see OPTIONAL_RULES and INCLUDE_OPTIONAL_RULES): Must Not Intersect Or Touch Interior,
 which flags a street end that touches the middle of another street. The network uses End
 Point connectivity, so such a touch does not connect without a split.
 
 What this script does, in order:
   1. Creates the topology if it does not exist (an empty one made in Pro is reused).
-  2. Adds the edge source and the rules, unless the edge source is already in the topology.
-     Rules added by hand in Pro are never read back or duplicated: if the edge source is
-     already a member, this script leaves the rules alone.
+  2. Adds the edge source and the rules. If the edge source is already in the topology, the
+     script leaves its rules alone, because rules added by hand in Pro are never read back
+     or duplicated. Set RESET_EDGE_SOURCE = True to remove the edge source and add it again
+     with the rules below, then set it back to False.
   3. Validates the topology (VALIDATE = True).
-  4. Exports the errors to a file geodatabase under output/, one class per geometry type.
+  4. Exports the errors to a file geodatabase under output/, one class per geometry type,
+     and logs the count per rule. A scratch run uses its own geodatabase.
 
 Marking errors as exceptions is not done here. Robbie's feature class of valid dangles and
 intersections is applied in the Error Inspector in Pro.
@@ -34,8 +36,8 @@ or qa_refresh), which makes the whole extent dirty, so the topology must be vali
 The topology has to be deleted before the edge source is deleted or swapped: a topology
 participant cannot be deleted while it is a member (qa_refresh step 02 does this).
 
-Testing without touching QA: set USE_SCRATCH = True below. The edge source is copied into a scratch file
-geodatabase under output/ and the whole sequence runs there. QA is only read, so it is safe
+Testing without touching QA: set USE_SCRATCH = True below. The edge source is copied into a
+scratch file geodatabase under output/ and the whole sequence runs there. QA is only read, so it is safe
 while the live network is in use, and it shows whether the rules and validation behave before
 the topology goes on the live edge class. It cannot show whether the live class needs to be
 registered as versioned, or whether a class can be in both a topology and the network dataset
@@ -119,6 +121,23 @@ def topology_members(topology):
     return {str(name).split(".")[-1].lower() for name in names}
 
 
+def member_name(topology, fc_name):
+    """The topology's own spelling of a member feature class, or None if it is not a member.
+
+    Some topology tools check the feature class against the topology's list of members and
+    reject a full path (ERROR 000800 from RemoveFeatureClassFromTopology on SDE, 2026-10-08),
+    so they need the name exactly as Describe reports it, such as SDEADM.TRNLRS_TRN_STREET.
+    """
+    names = arcpy.Describe(topology).featureClassNames or []
+
+    for name in names:
+
+        if str(name).split(".")[-1].lower() == fc_name.lower():
+            return str(name)
+
+    return None
+
+
 def use_scratch_copy():
     """Point the script at a copy of the edge source in a file geodatabase."""
     global FEATURE_DATASET, EDGE_FC, TOPOLOGY
@@ -156,10 +175,24 @@ def create_or_reuse_topology():
         arcpy.management.CreateTopology(FEATURE_DATASET, TOPOLOGY_NAME, CLUSTER_TOLERANCE)
 
 
-def add_edge_source_and_rules():
-    members = topology_members(TOPOLOGY)
+def add_rule(rule, member):
+    """Add one rule, trying the edge source path first and the member name if that is rejected."""
+    try:
+        arcpy.management.AddRuleToTopology(TOPOLOGY, rule, EDGE_FC)
 
-    if NETWORK.edge_name.lower() in members:
+    except arcpy.ExecuteError:
+
+        if not member:
+            raise
+
+        logger.warning(f"The path was rejected for the rule, trying the member name {member}")
+        arcpy.management.AddRuleToTopology(TOPOLOGY, rule, member)
+
+
+def add_edge_source_and_rules():
+    member = member_name(TOPOLOGY, NETWORK.edge_name)
+
+    if member:
 
         if not RESET_EDGE_SOURCE:
             logger.warning(
@@ -169,15 +202,16 @@ def add_edge_source_and_rules():
             )
             return
 
-        logger.info(f"Removing {EDGE_FC} (and its rules) from the topology")
-        arcpy.management.RemoveFeatureClassFromTopology(TOPOLOGY, EDGE_FC)
+        logger.info(f"Removing {member} (and its rules) from the topology")
+        arcpy.management.RemoveFeatureClassFromTopology(TOPOLOGY, member)
 
     logger.info(f"Adding {EDGE_FC} to the topology (XY rank {XY_RANK})")
     arcpy.management.AddFeatureClassToTopology(TOPOLOGY, EDGE_FC, XY_RANK)
+    member = member_name(TOPOLOGY, NETWORK.edge_name)
 
     for rule in rules_to_add():
         logger.info(f"Adding rule: {rule}")
-        arcpy.management.AddRuleToTopology(TOPOLOGY, rule, EDGE_FC)
+        add_rule(rule, member)
 
 
 def validate():

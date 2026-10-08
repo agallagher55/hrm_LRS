@@ -7,6 +7,7 @@ Run from network_dataset/scripts:
 """
 
 import sys
+import types
 import unittest
 from pathlib import Path
 
@@ -90,6 +91,56 @@ class TopologyScriptTests(unittest.TestCase):
 
         self.assertEqual(live, "topology_errors_DISTANCE.gdb")
         self.assertNotEqual(live, scratch)
+
+    def test_member_name_returns_the_topologys_own_spelling(self):
+        module = load_script("07_create_topology.py", None)
+        module.arcpy.Describe = lambda path: types.SimpleNamespace(
+            featureClassNames=["SDEADM.TRNLRS_TRN_STREET"]
+        )
+
+        self.assertEqual(
+            module.member_name("topology", "TRNLRS_TRN_STREET"), "SDEADM.TRNLRS_TRN_STREET"
+        )
+        self.assertIsNone(module.member_name("topology", "TRNLRS_TRN_STREET_HRFE"))
+
+    def test_reset_removes_by_member_name_not_by_path(self):
+        module = load_script("07_create_topology.py", None)
+        module.RESET_EDGE_SOURCE = True
+        calls = []
+        module.arcpy.Describe = lambda path: types.SimpleNamespace(
+            featureClassNames=["SDEADM.TRNLRS_TRN_STREET"]
+        )
+        module.arcpy.management = types.SimpleNamespace(
+            RemoveFeatureClassFromTopology=lambda *a: calls.append(("remove", a[1])),
+            AddFeatureClassToTopology=lambda *a: calls.append(("add", a[1])),
+            AddRuleToTopology=lambda *a: calls.append(("rule", a[2])),
+        )
+
+        module.add_edge_source_and_rules()
+
+        self.assertEqual(calls[0], ("remove", "SDEADM.TRNLRS_TRN_STREET"))
+        self.assertEqual(calls[1], ("add", module.EDGE_FC))
+        self.assertEqual(len([c for c in calls if c[0] == "rule"]), 6)
+
+    def test_a_rejected_path_falls_back_to_the_member_name(self):
+        module = load_script("07_create_topology.py", None)
+        seen = []
+
+        class Rejected(Exception):
+            pass
+
+        def add_rule(topology, rule, fc):
+            seen.append(fc)
+
+            if fc == module.EDGE_FC:
+                raise Rejected()
+
+        module.arcpy.ExecuteError = Rejected
+        module.arcpy.management = types.SimpleNamespace(AddRuleToTopology=add_rule)
+
+        module.add_rule("Must Be Single Part (Line)", "SDEADM.TRNLRS_TRN_STREET")
+
+        self.assertEqual(seen, [module.EDGE_FC, "SDEADM.TRNLRS_TRN_STREET"])
 
     def test_every_setting_main_reads_is_defined(self):
         """main() reads these as globals; one missing from the module would fail only at run time."""
