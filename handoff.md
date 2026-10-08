@@ -196,7 +196,7 @@ words are garbled in it, so check anything that matters.
    `TRNLRS_TRN_STREET_VW` in Prod has been refreshed from them (`LRS_updates.py`), then run `qa_refresh` so
    Robbie can retest against them. Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
    afterward and reapply its exceptions.
-   Check the step 03 log reads 18,583 of 18,644 (WA 61 only).
+   Check the step 03 log: WA 61 plus the island FDMID rows come off 18,644, so expect 18,583 minus those rows.
 
 ## Open questions
 
