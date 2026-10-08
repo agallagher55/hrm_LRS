@@ -23,6 +23,7 @@ cd /d T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\qa_refresh
 | 05 | `python 05_verify_staging_turns.py` | Run the independent staging-turn verifier. Also complete the spatial review checklist before continuing. |
 | 06 | `python 06_swap_and_final_build.py` | Swap the exact reviewed staging class, then create the network from the template and build it once. Set `CONFIRM_REVIEWED_STAGING = True` in the script only after completing the review. Stops before changing anything if the deployed `run_full_network_rebuild.py` is a stale copy. |
 | 07 | `python 07_verify_live_turns.py` | Re-run the independent verifier against the live turn class after the swap. |
+| after 07 | `python ..\07_create_topology.py` | Recreate the topology on the edge source, validate it and export the errors. Step 02 deletes the topology (it blocks deleting the edge source), so this is needed after every refresh. Written 2026-10-08, not yet run. |
 
 After step 07, follow Phase 6 and Phase 7 in
 `../../docs/qa_network_refresh_runbook.html`: reapply SQL grants using

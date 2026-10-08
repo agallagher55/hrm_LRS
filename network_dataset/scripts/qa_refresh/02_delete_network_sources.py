@@ -80,7 +80,10 @@ def main():
     if REQUIRE_RECENT_BACKUP:
         require_recent_backup()
 
+    # A topology member cannot be deleted, so the topology goes first. Rebuild it afterward
+    # with 07_create_topology.py.
     for label, path in [
+        ("topology", config.TOPOLOGY),
         ("network dataset", config.NETWORK),
         ("edge source", config.EDGE),
         ("junction source", config.JUNCTION),

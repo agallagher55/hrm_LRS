@@ -80,6 +80,19 @@ query. Written only, not run (no `arcpy` here). Before the next run:
 - Checked in Pro: `E_District` has `DISTRICT` (Short), so the query's `e.DISTRICT` is right even though
   Appendix A says `DIST_ID`. The target field's type should be Short to match.
 
+## Topology (2026-10-08)
+
+Robbie asked for a topology on the network feature dataset. Alex started an empty one in QA,
+`SDEADM.TRNLRS_TRN_STREET_topology`. `network_dataset/scripts/07_create_topology.py` (written, not run)
+adds `TRNLRS_TRN_STREET` and six rules (Must Not Overlap, Must Not Intersect, Must Not Have Dangles, Must
+Not Self Overlap, Must Not Self Intersect, Must Be Single Part), validates, and exports errors. Open:
+- Robbie's feature class of valid dangles and intersections is applied as exceptions in the Error
+  Inspector; its path and schema are not known yet.
+- Whether a feature class can be in both a topology and the network dataset in this geodatabase, and
+  whether the edge class must be registered as versioned: check on the first QA run.
+- `qa_refresh` step 02 now deletes the topology first. `DeleteRows` in script 04 on a topology member is untested.
+- Robbie also suggested blank speed and travel time fields on the edge class: not done.
+
 ## Next steps, in order
 
 1. **Inspect Robbie's geodatabase:** run `network_dataset/scripts/diagnostics/11_inspect_extra_roads.py`
