@@ -100,9 +100,9 @@ Done and verified on live QA (Alex, 2026-10-08):
   Script 03 adds them after the edge copy, so every refresh keeps them. Nothing fills them yet and no
   network attribute uses them.
 
-Waiting on Robbie (questions drafted 2026-10-08, not yet answered):
+Waiting on Robbie (questions emailed by Alex 2026-10-08, not yet answered; the email asked these six):
 1. **His valid dangles and intersections class** (the exceptions): where it lives, one class or two, geometry
-   type, whether it carries an FDMID or street ID or is only points, and whether it still lines up with the
+   type, whether it carries an FDMID or street ID or is only points and whether it still lines up with the
    new LRS-based edges (it was probably built against the old street network). Exceptions are marked in the
    Error Inspector in Pro.
 2. **The 253 multipart edges:** does he split them, or do they not matter to his routing? Not known whether
@@ -111,7 +111,7 @@ Waiting on Robbie (questions drafted 2026-10-08, not yet answered):
    had it. It catches a street end touching the middle of another street, which matters for connecting his
    extra roads under End Point connectivity.
 4. **His speed times distance method:** the path on the T: drive (not recorded), his units (ours are km/h and
-   minutes, chosen by Claude), and how he treats streets with no posted speed.
+   minutes, chosen by Claude) and how he treats streets with no posted speed.
 5. His retest of the distance network after the 2026-09-29 rebuild (no result recorded).
 6. Whether his extra roads class must be registered as versioned for him to edit it.
 
@@ -168,7 +168,7 @@ Other open items:
 - **Tone:** Robbie Evans is a friend of Alex's, so emails to him stay casual. Draft emails in Alex's voice,
   as text in chat. Do not create Gmail drafts: the connected account is Alex's personal address, and
   these go from his work account.
-- **Style:** pep8, a blank line after a `for` line, and no em dashes.
+- **Style:** pep8, a blank line after a `for` line, no em dashes and no Oxford commas.
 
 ## Where things are
 
