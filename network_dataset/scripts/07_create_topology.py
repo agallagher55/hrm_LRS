@@ -121,6 +121,23 @@ def topology_members(topology):
     return {str(name).split(".")[-1].lower() for name in names}
 
 
+def member_name(topology, fc_name):
+    """The topology's own spelling of a member feature class, or None if it is not a member.
+
+    Some topology tools check the feature class against the topology's list of members and
+    reject a full path (ERROR 000800 from RemoveFeatureClassFromTopology on SDE, 2026-10-08),
+    so they need the name exactly as Describe reports it, such as SDEADM.TRNLRS_TRN_STREET.
+    """
+    names = arcpy.Describe(topology).featureClassNames or []
+
+    for name in names:
+
+        if str(name).split(".")[-1].lower() == fc_name.lower():
+            return str(name)
+
+    return None
+
+
 def use_scratch_copy():
     """Point the script at a copy of the edge source in a file geodatabase."""
     global FEATURE_DATASET, EDGE_FC, TOPOLOGY
@@ -158,10 +175,24 @@ def create_or_reuse_topology():
         arcpy.management.CreateTopology(FEATURE_DATASET, TOPOLOGY_NAME, CLUSTER_TOLERANCE)
 
 
-def add_edge_source_and_rules():
-    members = topology_members(TOPOLOGY)
+def add_rule(rule, member):
+    """Add one rule, trying the edge source path first and the member name if that is rejected."""
+    try:
+        arcpy.management.AddRuleToTopology(TOPOLOGY, rule, EDGE_FC)
 
-    if NETWORK.edge_name.lower() in members:
+    except arcpy.ExecuteError:
+
+        if not member:
+            raise
+
+        logger.warning(f"The path was rejected for the rule, trying the member name {member}")
+        arcpy.management.AddRuleToTopology(TOPOLOGY, rule, member)
+
+
+def add_edge_source_and_rules():
+    member = member_name(TOPOLOGY, NETWORK.edge_name)
+
+    if member:
 
         if not RESET_EDGE_SOURCE:
             logger.warning(
@@ -171,15 +202,16 @@ def add_edge_source_and_rules():
             )
             return
 
-        logger.info(f"Removing {EDGE_FC} (and its rules) from the topology")
-        arcpy.management.RemoveFeatureClassFromTopology(TOPOLOGY, EDGE_FC)
+        logger.info(f"Removing {member} (and its rules) from the topology")
+        arcpy.management.RemoveFeatureClassFromTopology(TOPOLOGY, member)
 
     logger.info(f"Adding {EDGE_FC} to the topology (XY rank {XY_RANK})")
     arcpy.management.AddFeatureClassToTopology(TOPOLOGY, EDGE_FC, XY_RANK)
+    member = member_name(TOPOLOGY, NETWORK.edge_name)
 
     for rule in rules_to_add():
         logger.info(f"Adding rule: {rule}")
-        arcpy.management.AddRuleToTopology(TOPOLOGY, rule, EDGE_FC)
+        add_rule(rule, member)
 
 
 def validate():
