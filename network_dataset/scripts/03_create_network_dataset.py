@@ -70,6 +70,7 @@ from pathlib import Path
 
 import arcpy
 
+import edge_fields
 import network_definitions
 import network_exclusions
 from log_utils import setup_logger
@@ -237,6 +238,7 @@ def main(copy_only=False):
         error_hint="Run LRS_updates.py to populate TRNLRS_TRN_STREET_VW before proceeding.",
         apply_exclusions=True,
     )
+    edge_fields.add_travel_fields(os.path.join(FEATURE_DATASET, EDGE_SOURCE_NAME), logger)
     copy_fc_to_fd(SOURCE_JUNCTION, FEATURE_DATASET, NETWORK.junction_name)
     copy_fc_to_fd(SOURCE_TURN, FEATURE_DATASET, NETWORK.turn_name)
 
