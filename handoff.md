@@ -44,11 +44,17 @@ Open:
   ask whether hers covers any other islands.
 - The 57 new untraceable LRS issues (Melanie and Ryan Lowe). The Prod 11.5 upgrade is confirmed finished
   (Alex, 2026-09-29), so the version-mismatch theory can now be tested from a matching client and database.
-- Esri case #04248942: Ryan is replying about sharing the file geodatabase. The network-creation
-  overview for Ryan had not been sent as of 2026-09-29. In the 2026-10-08 meeting Jillian asked
-  Ryan whether he had answered recent Esri emails. Melanie said Ryan wanted to know, and she told him to hold
-  off because her LRS fixes may also answer Esri's questions. She will double check first, so Ryan's reply is
-  waiting on Melanie. (The transcript lists Ryan as the "Unknown user", and garbles his name once.)
+- Esri case #04248942: Esri asked (2026-09-01 and 09-09) for the high-level workflow for creating the network and any
+  error messages with screenshots. **Alex answered Ryan by email on 2026-10-08** with the five-step workflow, the
+  environment, the errors (5 `Cannot find at junction` turns 686, 746, 747, 829 and 830 of 1,189, and 1,133
+  `Standalone user-defined junction` warnings) and the dangling segments found in testing. He attached the
+  2026-09-29 BuildErrors file (saved in `intermediate_results`) and a screenshot of the `WARNING 030116` line. The
+  sent email asks whether Melanie thinks her LRS fixes may answer Esri's questions, and does not ask Ryan to hold
+  his reply or to confirm sharing the file geodatabase. Still open:
+  - Ryan to answer Esri. In the 2026-10-08 meeting Melanie said she told him to hold off until she double checks
+    whether her fixes answer Esri (the transcript lists Ryan as the "Unknown user" and garbles his name).
+  - Ryan to reply that Esri Canada may share the file geodatabase copy of the LRS he uploaded on 2026-09-04
+    with Esri Inc. Jillian and Melanie agreed verbally on 2026-09-24. Nobody needs to send a new file.
 - Turn OID stability: every edge-source refresh breaks every turn reference and needs a remap. Decide
   the approach before Prod (`network_dataset_script_review.md` section D).
 
