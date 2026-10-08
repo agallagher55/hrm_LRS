@@ -8,6 +8,7 @@ ending the session. The detailed history is in `network_dataset/docs/network_bui
 
 ## Python Files
 - Use pep8 styling
+- Write prose, comments and docs without em dashes and without Oxford commas.
 - Scripts take no command line arguments. Put every setting in global variables (constants) at the top of the script.
 
 ## Environment

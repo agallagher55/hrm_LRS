@@ -82,20 +82,45 @@ query. Written only, not run (no `arcpy` here). Before the next run:
 
 ## Topology (2026-10-08)
 
-Robbie asked for a topology on the network feature dataset. Alex started an empty one in QA,
-`SDEADM.TRNLRS_TRN_STREET_topology`. `network_dataset/scripts/07_create_topology.py` (written, not run)
-adds `TRNLRS_TRN_STREET` and six rules (Must Not Overlap, Must Not Intersect, Must Not Have Dangles, Must
-Not Self Overlap, Must Not Self Intersect, Must Be Single Part), validates, and exports errors. Open:
-- Robbie's feature class of valid dangles and intersections is applied as exceptions in the Error
-  Inspector; its path and schema are not known yet.
-- Whether a feature class can be in both a topology and the network dataset in this geodatabase, and
-  whether the edge class must be registered as versioned: check on the first QA run.
+Robbie asked for a topology on the network feature dataset. `network_dataset/scripts/07_create_topology.py`
+builds `SDEADM.TRNLRS_TRN_STREET_topology` in QA: the edge source plus six rules (Must Not Overlap, Must
+Not Intersect, Must Not Have Dangles, Must Not Self-Overlap, Must Not Self-Intersect, Must Be Single Part),
+validated, with errors exported and counted per rule. Settings are globals (`USE_SCRATCH` runs it on a
+scratch copy, `RESET_EDGE_SOURCE` removes and re-adds the edge source; leave the latter `False` normally).
+
+Done and verified on live QA (Alex, 2026-10-08):
+- The edge class sits in both the topology and the network dataset with no versioning error. The network
+  still shows Built (2026-09-29 08:55:04, Edges 37,674, Junctions 16,187, Turns 1,184) and a route solve
+  passes, so the topology does not disturb the network.
+- Errors (a scratch copy gave the same numbers):
+  - Points 4,345: Must Not Have Dangles 4,101, Must Not Intersect 242, Must Not Self-Intersect 2.
+  - Lines 255: **Must Be Single Part 253 (multipart edges)**, Must Not Overlap 1, Must Not Intersect 1.
+- Blank `SPEED` (Short) and `TRAVEL_TIME` (Double) fields were added to the live edge class with
+  `08_add_edge_fields.py`, as Robbie suggested, and the network and topology were unchanged afterward.
+  Script 03 adds them after the edge copy, so every refresh keeps them. Nothing fills them yet and no
+  network attribute uses them.
+
+Waiting on Robbie (questions emailed by Alex 2026-10-08, not yet answered; the email asked these six):
+1. **His valid dangles and intersections class** (the exceptions): where it lives, one class or two, geometry
+   type, whether it carries an FDMID or street ID or is only points and whether it still lines up with the
+   new LRS-based edges (it was probably built against the old street network). Exceptions are marked in the
+   Error Inspector in Pro.
+2. **The 253 multipart edges:** does he split them, or do they not matter to his routing? Not known whether
+   the network cares. Nothing has been edited.
+3. **The optional rule Must Not Intersect Or Touch Interior** (`INCLUDE_OPTIONAL_RULES`, off): his old setup
+   had it. It catches a street end touching the middle of another street, which matters for connecting his
+   extra roads under End Point connectivity.
+4. **His speed times distance method:** the path on the T: drive (not recorded), his units (ours are km/h and
+   minutes, chosen by Claude) and how he treats streets with no posted speed.
+5. His retest of the distance network after the 2026-09-29 rebuild (no result recorded).
+6. Whether his extra roads class must be registered as versioned for him to edit it.
+
+Other open items:
+- Exceptions are lost when `qa_refresh` step 02 deletes the topology, so reapply them after each refresh
+  (rerun `07_create_topology.py` after step 06). OBJECTIDs change on every reload, so they cannot be carried over.
 - `qa_refresh` step 02 now deletes the topology first. `DeleteRows` in script 04 on a topology member is untested.
-- Blank `SPEED` (Short) and `TRAVEL_TIME` (Double) fields on the edge class, as Robbie suggested: added to
-  the live QA edge class on 2026-10-08 with `08_add_edge_fields.py`, and verified (Alex): the network still
-  shows Built (2026-09-29 08:55:04, Edges 37,674, Junctions 16,187, Turns 1,184) and the topology validates
-  with the same errors as before. Script 03 adds them after the edge copy, so every refresh keeps them.
-  Nothing fills them yet, and no network attribute uses them.
+- SQL grants for the topology tables: unknown whether Robbie's login needs them.
+- Nothing fills `SPEED` and `TRAVEL_TIME` yet; `E_SpeedLimit` does not segment like the other event tables.
 
 ## Next steps, in order
 
@@ -143,7 +168,7 @@ Not Self Overlap, Must Not Self Intersect, Must Be Single Part), validates, and 
 - **Tone:** Robbie Evans is a friend of Alex's, so emails to him stay casual. Draft emails in Alex's voice,
   as text in chat. Do not create Gmail drafts: the connected account is Alex's personal address, and
   these go from his work account.
-- **Style:** pep8, a blank line after a `for` line, and no em dashes.
+- **Style:** pep8, a blank line after a `for` line, no em dashes and no Oxford commas.
 
 ## Where things are
 
