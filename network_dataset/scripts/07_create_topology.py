@@ -223,9 +223,17 @@ def log_counts_by_rule(path):
         logger.info(f"    {value}: {count:,}")
 
 
+def errors_gdb_name():
+    """File geodatabase the errors go to. A scratch run gets its own, so it never overwrites
+    the errors exported from the live topology, or the other way round."""
+    prefix = "topology_errors_scratch_" if USE_SCRATCH else "topology_errors_"
+
+    return f"{prefix}{NETWORK.key}.gdb"
+
+
 def export_errors():
     ERROR_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    gdb_name = f"topology_errors_{NETWORK.key}.gdb"
+    gdb_name = errors_gdb_name()
     gdb = str(ERROR_OUTPUT_DIR / gdb_name)
 
     if not arcpy.Exists(gdb):

@@ -80,6 +80,17 @@ class TopologyScriptTests(unittest.TestCase):
             [("Dangles", 3), ("Overlap", 2), ("Single", 1)],
         )
 
+    def test_scratch_and_live_errors_go_to_different_geodatabases(self):
+        module = load_script("07_create_topology.py", None)
+
+        module.USE_SCRATCH = False
+        live = module.errors_gdb_name()
+        module.USE_SCRATCH = True
+        scratch = module.errors_gdb_name()
+
+        self.assertEqual(live, "topology_errors_DISTANCE.gdb")
+        self.assertNotEqual(live, scratch)
+
     def test_every_setting_main_reads_is_defined(self):
         """main() reads these as globals; one missing from the module would fail only at run time."""
         module = load_script("07_create_topology.py", None)
