@@ -176,10 +176,19 @@ def export_errors():
         arcpy.management.CreateFileGDB(str(ERROR_OUTPUT_DIR), gdb_name)
 
     basename = f"{NETWORK.edge_name}_errors"
+    suffixes = ("point", "line", "poly")
+
+    # The export fails if its output classes exist, which they do on every run after the first.
+    for suffix in suffixes:
+        path = os.path.join(gdb, f"{basename}_{suffix}")
+
+        if arcpy.Exists(path):
+            arcpy.management.Delete(path)
+
     logger.info(f"Exporting topology errors to {gdb} as {basename}_point / _line / _poly")
     arcpy.management.ExportTopologyErrors(TOPOLOGY, gdb, basename)
 
-    for suffix in ("point", "line", "poly"):
+    for suffix in suffixes:
         path = os.path.join(gdb, f"{basename}_{suffix}")
 
         if arcpy.Exists(path):
