@@ -62,6 +62,24 @@ class TopologyScriptTests(unittest.TestCase):
 
         self.assertIn("Must Not Intersect Or Touch Interior (Line)", module.rules_to_add())
 
+    def test_rule_field_prefers_the_description_whatever_the_case(self):
+        module = load_script("07_create_topology.py", None)
+
+        self.assertEqual(
+            module.rule_field(["OBJECTID", "SHAPE", "RuleType", "RULEDESCRIPTION"]),
+            "RULEDESCRIPTION",
+        )
+        self.assertEqual(module.rule_field(["OBJECTID", "RuleType"]), "RuleType")
+        self.assertIsNone(module.rule_field(["OBJECTID", "SHAPE"]))
+
+    def test_counts_are_largest_first(self):
+        module = load_script("07_create_topology.py", None)
+
+        self.assertEqual(
+            module.count_values(["Dangles", "Overlap", "Dangles", "Dangles", "Overlap", "Single"]),
+            [("Dangles", 3), ("Overlap", 2), ("Single", 1)],
+        )
+
     def test_every_setting_main_reads_is_defined(self):
         """main() reads these as globals; one missing from the module would fail only at run time."""
         module = load_script("07_create_topology.py", None)
