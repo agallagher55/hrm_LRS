@@ -118,7 +118,8 @@ class ClauseTests(unittest.TestCase):
         """Decided 2026-10-08: the distance network leaves transit access roads in."""
         exclude = ne.build_exclude_clause("GENERAL")
 
-        self.assertEqual(exclude, "STR_TYPE IN ('WA')")
+        self.assertTrue(exclude.startswith("STR_TYPE IN ('WA')"))
+        self.assertNotIn("TA[0-9]%", exclude)
         self.assertNotIn("TA[0-9]%", ne.build_keep_clause("GENERAL"))
 
     def test_hrfe_still_drops_transit_access_roads(self):
@@ -128,6 +129,19 @@ class ClauseTests(unittest.TestCase):
             "(FULL_NAME IS NULL OR FULL_NAME NOT LIKE 'TA[0-9]%')",
             ne.build_keep_clause("HRFE"),
         )
+
+    def test_island_fdmids_are_excluded_from_every_network(self):
+        """Robbie sent the 14 McNabs and George's FDMIDs on 2026-10-08."""
+        self.assertEqual(len(ne.ISLAND_FDMIDS), 14)
+        self.assertEqual(len(set(ne.ISLAND_FDMIDS)), 14)
+
+        for name in ne.PROFILES:
+
+            exclude = ne.build_exclude_clause(name)
+
+            for fdmid in ne.ISLAND_FDMIDS:
+
+                self.assertIn(str(fdmid), exclude, (name, fdmid))
 
     def test_under_review_streets_are_kept_in_every_profile(self):
         for name in ne.PROFILES:

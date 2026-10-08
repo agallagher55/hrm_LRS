@@ -36,8 +36,12 @@ Open:
   complains. The QA network already contains them, because it was built before the filter. The exclusion
   profiles now match: `GENERAL` drops WA only, and the `TA[0-9]%` pattern (124 rows) moved to `HRFE`
   (written and tested, in the open PR, not run). Expected distance edge copy at the next build: 18,583 of
-  Prod's 18,644.
-- Island FDMID list from Melanie Parker (`ISLAND_FDMIDS` in `network_exclusions.py` is empty).
+  Prod's 18,644 before the island rows come off.
+- Islands: Robbie sent the 14 McNabs and George's FDMIDs on 2026-10-08 and they are now in `ISLAND_FDMIDS` in
+  `network_exclusions.py` (written and tested, not run), so both networks exclude them from the next build.
+  The edge copy will lose the rows with those FDMIDs, so the expected 18,583 and 18,433 fall by that many.
+  Check the per-rule count in the step 03 log. Melanie Parker was also going to supply an island list, so
+  ask whether hers covers any other islands.
 - The 57 new untraceable LRS issues (Melanie and Ryan Lowe). The Prod 11.5 upgrade is confirmed finished
   (Alex, 2026-09-29), so the version-mismatch theory can now be tested from a matching client and database.
 - Esri case #04248942: Ryan is replying about sharing the file geodatabase. The network-creation
@@ -156,7 +160,7 @@ words are garbled in it, so check anything that matters.
   facility and garage), and whether to exclude is a business unit decision. Alex: leave them in unless somebody
   complains, and he can add explicit exceptions. Alex later confirmed HRFE still needs transit out, since
   HRFE is for fire. The code was changed to match (see the Distance network bullet).
-- **Islands.** Robbie: McNabs and George's can go. Alex wants the island FDMID list (still empty in the code).
+- **Islands.** Robbie: McNabs and George's can go. He sent the FDMIDs the same day (see Distance network).
   Robbie noted that once non-HRM roads are added, some floating segments will connect.
 - **Esri.** See the Esri bullet under Distance network.
 - **Next meeting** in two weeks, set by Jillian (no calendar time next week). Melanie will email when her

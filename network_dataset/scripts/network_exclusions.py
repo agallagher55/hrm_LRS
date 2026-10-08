@@ -51,10 +51,26 @@ Notes:
     can be tested outside ArcGIS Pro.
 """
 
-# Island segments such as McNabs Island, which cannot route. They apply to every
-# network. Melanie Parker is supplying the list or filter (2026-09-24), so this
-# is empty until she does.
-ISLAND_FDMIDS = []
+# Island segments (McNabs Island and George's Island), which cannot route. They apply
+# to every network. Robbie Evans sent these 14 FDMIDs on 2026-10-08. Melanie Parker was
+# also going to supply a list or filter (2026-09-24), so add any islands hers covers
+# that these do not.
+ISLAND_FDMIDS = [
+    700000538,
+    700000539,
+    700000540,
+    700000541,
+    700000542,
+    700000543,
+    700000544,
+    700000545,
+    700000546,
+    700000548,
+    700000549,
+    700002434,
+    700002435,
+    700009601,
+]
 
 # WA = water access roads. Robbie Evans and Melanie Parker asked for these to be
 # removed (2026-09-23, confirmed 2026-09-29; Robbie confirmed STR_TYPE = 'WA' on
