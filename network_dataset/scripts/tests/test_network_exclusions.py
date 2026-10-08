@@ -114,13 +114,19 @@ class ClauseTests(unittest.TestCase):
         self.assertEqual(exclude, "STR_TYPE IN ('WA')")
         self.assertEqual(keep, "(STR_TYPE IS NULL OR STR_TYPE NOT IN ('WA'))")
 
-    def test_general_also_drops_transit_access_roads(self):
+    def test_general_keeps_transit_access_roads(self):
+        """Decided 2026-10-08: the distance network leaves transit access roads in."""
         exclude = ne.build_exclude_clause("GENERAL")
 
-        self.assertEqual(exclude, "STR_TYPE IN ('WA') OR FULL_NAME LIKE 'TA[0-9]%'")
+        self.assertEqual(exclude, "STR_TYPE IN ('WA')")
+        self.assertNotIn("TA[0-9]%", ne.build_keep_clause("GENERAL"))
+
+    def test_hrfe_still_drops_transit_access_roads(self):
+        """HRFE is for fire and keeps transit access roads out (Alex, 2026-10-08)."""
+        self.assertIn("FULL_NAME LIKE 'TA[0-9]%'", ne.build_exclude_clause("HRFE"))
         self.assertIn(
             "(FULL_NAME IS NULL OR FULL_NAME NOT LIKE 'TA[0-9]%')",
-            ne.build_keep_clause("GENERAL"),
+            ne.build_keep_clause("HRFE"),
         )
 
     def test_under_review_streets_are_kept_in_every_profile(self):

@@ -39,8 +39,9 @@ Note on TRNLRS_TRN_STREET_VW / TRNLRS_TRN_STREET:
 
 Note on edge exclusions:
   The edge copy (TRNLRS_TRN_STREET) is loaded through network_exclusions.py,
-  which drops the streets in its GENERAL profile: WA (water access) streets,
-  transit access roads and any listed island FDMIDs. The authoritative
+  which drops the streets in the network's profile: WA (water access) streets and
+  any listed island FDMIDs, plus transit access roads, emergency access roads and ETAs
+  for HRFE. The authoritative
   TRNLRS_TRN_STREET_VW is not filtered, so the row count of the copy is expected
   to be lower than the source's. See network_exclusions.py.
 

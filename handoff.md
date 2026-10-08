@@ -16,7 +16,7 @@ container with no `arcpy` and no database access, so the code is tested against 
 | Network dataset | `TRNLRS_street_network` | `TRNLRS_street_network_HRFE` |
 | Feature dataset (QA) | `SDEADM.TRNLRS_network` | `SDEADM.TRNLRS_network_HRFE` (**not created yet**) |
 | State | Built in QA on 2026-09-29 | Scripts written, never run |
-| Excluded from it | WA streets and islands (list pending). Transit access roads (`TA[0-9]%`): **decided 2026-10-08 to leave them in**, but the code still excludes them | The same, plus emergency access roads and ETAs. Whether transit stays out here is unconfirmed |
+| Excluded from it | WA streets and islands (list pending). Transit access roads (`TA[0-9]%`) **stay in** (decided 2026-10-08) | The same, plus transit access roads (**stay out**, Alex 2026-10-08, HRFE is for fire), emergency access roads and ETAs |
 
 `UNDER REVIEW` streets are deliberately **kept** in both. A requirement to drop them was added and
 withdrawn on 2026-09-29, and a test guards against them being excluded.
@@ -32,17 +32,19 @@ Open:
 - Smoke tests, a check that the LRS gap corrections really are in Prod's `TRNLRS_TRN_STREET_VW`, and
   Directions on the live network. The committed template includes Directions but a create from it has
   not been proven (`qa_refresh/test_template_create.py` has never been run).
-- **Transit access roads (decision 2026-10-08):** leave them in the network unless somebody complains.
-  The QA network still contains them, because it was built before the filter, but `network_exclusions.py`
-  still excludes `TA[0-9]%` (124 rows) from both networks, so the next rebuild would drop them. Change the
-  exclusion profiles first, or the rebuild undoes the decision. Not done yet.
+- **Transit access roads (decision 2026-10-08):** the distance network leaves them in unless somebody
+  complains. The QA network already contains them, because it was built before the filter. The exclusion
+  profiles now match: `GENERAL` drops WA only, and the `TA[0-9]%` pattern (124 rows) moved to `HRFE`
+  (written and tested, in the open PR, not run). Expected distance edge copy at the next build: 18,583 of
+  Prod's 18,644.
 - Island FDMID list from Melanie Parker (`ISLAND_FDMIDS` in `network_exclusions.py` is empty).
 - The 57 new untraceable LRS issues (Melanie and Ryan Lowe). The Prod 11.5 upgrade is confirmed finished
   (Alex, 2026-09-29), so the version-mismatch theory can now be tested from a matching client and database.
 - Esri case #04248942: Ryan is replying about sharing the file geodatabase. The network-creation
-  overview for Ryan had not been sent as of 2026-09-29. In the 2026-10-08 meeting Jillian asked about
-  recent Esri emails. Melanie said she told the person waiting to hold off, because her LRS fixes may also
-  answer Esri's questions, and she will double check first. (The transcript garbles names here.)
+  overview for Ryan had not been sent as of 2026-09-29. In the 2026-10-08 meeting Jillian asked
+  Ryan whether he had answered recent Esri emails. Melanie said Ryan wanted to know, and she told him to hold
+  off because her LRS fixes may also answer Esri's questions. She will double check first, so Ryan's reply is
+  waiting on Melanie. (The transcript lists Ryan as the "Unknown user", and garbles his name once.)
 - Turn OID stability: every edge-source refresh breaks every turn reference and needs a remap. Decide
   the approach before Prod (`network_dataset_script_review.md` section D).
 
@@ -55,11 +57,11 @@ Decisions (Alex, 2026-09-29):
 
 Done (written and tested, not run):
 - Exclusion profiles `GENERAL` and `HRFE` in `network_exclusions.py`. Expected edge copies, to check on
-  the first build: distance 18,459 of Prod's 18,644, HRFE 18,433 (WA 61, transit 124, emergency access 4,
-  ETAs 22; the four sets share no FDMIDs).
+  the first build: distance 18,583 of Prod's 18,644 (WA 61), HRFE 18,433 (WA 61, transit 124, emergency
+  access 4, ETAs 22; the four sets share no FDMIDs).
 - `network_definitions.py` holds each network's names and renders the HRFE template from the committed
   one. The `HRM_NETWORK` environment variable picks the network in scripts 03, 05, the verifier, the
-  orchestrator and `qa_refresh`. Unset means distance, with every path unchanged (its exclusions did gain transit). A mistyped variable name stops a run, and steps 02 and 06 also need `NETWORK_TO_DELETE` / `NETWORK_TO_BUILD` set in the script to match. The Prod edge sync
+  orchestrator and `qa_refresh`. Unset means distance, with every path unchanged (its exclusions now drop WA only; transit stays in for distance and out for HRFE). A mistyped variable name stops a run, and steps 02 and 06 also need `NETWORK_TO_DELETE` / `NETWORK_TO_BUILD` set in the script to match. The Prod edge sync
   (`04`, called by `LRS_updates.py`) ignores the variable on purpose.
 - `docs/hrfe_network_runbook.md` has the build steps.
 
@@ -128,7 +130,7 @@ Other open items:
 - SQL grants for the topology tables: unknown whether Robbie's login needs them.
 - Nothing fills `SPEED` and `TRAVEL_TIME` yet; `E_SpeedLimit` does not segment like the other event tables.
 
-## Meeting 2026-10-08 (Robbie, Melanie, Jillian, Alex)
+## Meeting 2026-10-08 (Robbie, Melanie, Ryan, Jillian, Alex)
 
 From the transcript `2026-10-08_Road_Network_Analysis_txt.txt` (uploaded, not committed). Speaker names and some
 words are garbled in it, so check anything that matters.
@@ -147,12 +149,13 @@ words are garbled in it, so check anything that matters.
   afternoon. Open: the fixes land in the LRS and Prod, so QA's edge copy needs a refresh (`qa_refresh`) before
   QA reflects them. Robbie asked whether the new QA is built, and the transcript's reply is unclear.
 - **Alex's update.** Speed and travel time fields are added to the edge class in QA and not filled yet.
-  WA streets are out. Transit access roads were to come out on the next update.
+  WA streets are out.
 - **Transit access roads, decision.** Robbie: the exclusion might just be a fire thing, and the main network
   should probably keep them rather than remove and re-add. Melanie: some business units use them as roads
   (through routes and parking lots, for example in Sackville and Downsview, and the ones at the transit
   facility and garage), and whether to exclude is a business unit decision. Alex: leave them in unless somebody
-  complains, and he can add explicit exceptions. Whether this covers HRFE was not said.
+  complains, and he can add explicit exceptions. Alex later confirmed HRFE still needs transit out, since
+  HRFE is for fire. The code was changed to match (see the Distance network bullet).
 - **Islands.** Robbie: McNabs and George's can go. Alex wants the island FDMID list (still empty in the code).
   Robbie noted that once non-HRM roads are added, some floating segments will connect.
 - **Esri.** See the Esri bullet under Distance network.
@@ -174,8 +177,7 @@ words are garbled in it, so check anything that matters.
 5. **Add Robbie's extra roads** as a second edge source: create the feature class from his data, add it
    to the template, grant him edit access. Not designed in detail yet.
 6. **Rebuild the distance network** after Melanie's LRS fixes reach Prod, so Robbie can retest against them.
-   Before that, decide whether to drop the transit exclusion from the profiles (2026-10-08: leave transit in),
-   or the rebuild removes the 124 roads again.
+   Check the step 03 log reads 18,583 of 18,644 (WA 61 only).
 
 ## Open questions
 
