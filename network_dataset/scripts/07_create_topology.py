@@ -45,6 +45,7 @@ Set HRM_NETWORK=HRFE to build the topology on the HRFE edge copy instead. See ne
 """
 
 import os
+from collections import Counter
 from pathlib import Path
 
 import arcpy
@@ -93,6 +94,9 @@ OPTIONAL_RULES = [
     "Must Not Intersect Or Touch Interior (Line)",
 ]
 INCLUDE_OPTIONAL_RULES = False
+
+# Fields of an exported error class that name the rule, in order of preference (lower case).
+RULE_FIELD_NAMES = ("ruledescription", "ruletype")
 
 # True removes the edge source from the topology first (which also removes its rules) and adds
 # it again with the rules above. Use it to recover from a run that added the edge source but
@@ -182,9 +186,54 @@ def validate():
     logger.info("Validation complete")
 
 
+def rule_field(field_names):
+    """Pick the field of an exported error class that names the rule, or None.
+
+    The names are not confirmed against a live export, so match without regard to case and
+    prefer the readable description over the numeric rule type.
+    """
+    lowered = {name.lower(): name for name in field_names}
+
+    for wanted in RULE_FIELD_NAMES:
+
+        if wanted in lowered:
+            return lowered[wanted]
+
+    return None
+
+
+def count_values(values):
+    """Count how often each value occurs, largest first, as (value, count) pairs."""
+    return Counter(values).most_common()
+
+
+def log_counts_by_rule(path):
+    """Log how many errors in an exported class belong to each rule."""
+    field = rule_field([f.name for f in arcpy.ListFields(path)])
+
+    if field is None:
+        names = ", ".join(f.name for f in arcpy.ListFields(path))
+        logger.warning(f"    No rule field found to count by. Fields are: {names}")
+        return
+
+    with arcpy.da.SearchCursor(path, [field]) as cursor:
+        values = [row[0] for row in cursor]
+
+    for value, count in count_values(values):
+        logger.info(f"    {value}: {count:,}")
+
+
+def errors_gdb_name():
+    """File geodatabase the errors go to. A scratch run gets its own, so it never overwrites
+    the errors exported from the live topology, or the other way round."""
+    prefix = "topology_errors_scratch_" if USE_SCRATCH else "topology_errors_"
+
+    return f"{prefix}{NETWORK.key}.gdb"
+
+
 def export_errors():
     ERROR_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    gdb_name = f"topology_errors_{NETWORK.key}.gdb"
+    gdb_name = errors_gdb_name()
     gdb = str(ERROR_OUTPUT_DIR / gdb_name)
 
     if not arcpy.Exists(gdb):
@@ -209,6 +258,9 @@ def export_errors():
         if arcpy.Exists(path):
             count = int(arcpy.management.GetCount(path)[0])
             logger.info(f"  {basename}_{suffix}: {count:,} errors")
+
+            if count:
+                log_counts_by_rule(path)
 
 
 def main():
