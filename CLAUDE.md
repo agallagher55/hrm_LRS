@@ -156,6 +156,14 @@ Confirmed 2026-09-01 against QA: a known-prohibited turn (`QUINPOOL RD -> ROBIE 
 solved straight through until `TrafficTurn`/`OneWay` were checked in the travel mode, after
 which the same stops correctly produced a detour.
 
+### `TrafficTurn` must be restricted on the turn source only, never on the default turn evaluator
+The `TrafficTurn` restriction is Constant True on the `TRNLRS_traffic_turn` source and Constant False on every
+default (Junction, Edge and Turn). A template re-exported on 2026-09-18 had the Turn default True and no source
+evaluator, which restricts every turn: with `TrafficTurn` ticked no route can turn a corner, and every blocked
+route ends in `ERROR 030212` instead of a detour. Found on 2026-10-09 by the smoke test's control check and fixed in
+the committed template, guarded by `tests/test_network_template.py`. After exporting a template from a live network,
+check these assignments before committing it. `qa_refresh/smoke_test_network.py` proves it on a live network.
+
 ### Editing a Field Script evaluator's Code Block requires Force Full Build — otherwise the change silently does nothing
 **This is the confirmed root cause behind a full day (2026-09-01/02) of `OneWay` appearing broken.**
 `Build Network` on an *existing* network dataset stores precomputed per-edge attribute values in
