@@ -1,6 +1,6 @@
 {
   "files": {
-    "data/network_template.xml": "8453b0c774bbc3464f44dc2cc16c23f6b2a3f3d1a0c73f3c893a61e3084b5edd",
+    "data/network_template.xml": "19c8655da5bc5aede5db187a3b629af4e8046f8393bfd170e9e2c7549dda7942",
     "scripts/01_extract_network_config.py": "c275f368aec6a7e92f3cc95190199c0355f96c7f0a2fbe5703a29ae48c65e321",
     "scripts/02_compare_schemas.py": "0791349dd03f142acc39d7bb51f7f124dc14e7f2a0cadfcdbf5ee690f576edd7",
     "scripts/03_create_network_dataset.py": "9519ace2b36c451e11b8ddafad1a16724a6a363a1ae987291739d68f4d16bc4f",
