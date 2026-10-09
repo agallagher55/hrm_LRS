@@ -40,7 +40,7 @@ Done:
   - **Topology: points 4,081 (dangles 3,838, Must Not Intersect 241, Self-Intersect 2), lines 0, polygons 0.**
     The 255 line errors from the morning (253 multipart, 1 overlap, 1 intersect) are gone, and dangles fell by 251
     (3,838 against 4,089). The 4 segments from Robbie cannot explain that, so **ask Melanie and Ryan what changed in
-    the LRS** (a bulk fix to the multipart edges would, and so would a change in `LRS_updates.py`) and check the
+    the LRS** (a bulk fix to the multipart edges would; Alex builds the view, so the question is about LRS edits only) and check the
     topology errors in Pro before telling Robbie the multipart problem is solved.
   - Grants applied to 7 tables (`N_3` and `ND_41039`), audit after: `N_3` 6 of 6 and `ND_41039` 2 of 2.
   - **Smoke tests passed 52 of 52** (26 turns, 8 controls, 18 one way edges), through the owner's connection, so
