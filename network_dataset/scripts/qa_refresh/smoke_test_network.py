@@ -239,12 +239,20 @@ def judge_oneway(code, half, allowed, blocked, blocked_unrestricted):
 
 
 class RouteSolver:
-    """Solves a two stop route with or without the restrictions and returns its length."""
+    """Solves a two stop route with or without the restrictions and returns its length.
+
+    It makes one route layer for each mode, the first time it is needed, and reuses it for every
+    solve. Making and deleting a layer for each solve left layers behind: Delete does not remove a
+    layer by name in a standalone run, and the next MakeRouteLayer then failed with ERROR 030036.
+    """
+
+    LAYER_NAMES = {True: "smoke_route_restricted", False: "smoke_route_unrestricted"}
 
     def __init__(self, network, spatial_reference):
         self.network = network
         self.spatial_reference = spatial_reference
         self.stops = None
+        self.layers = {}
 
     def make_stops(self, points):
         if self.stops is None:
@@ -258,38 +266,62 @@ class RouteSolver:
             for point in points:
                 cursor.insertRow([point])
 
+    def layer_for(self, restricted):
+        """The route layer for this mode, made on first use. A leftover of the same name is removed."""
+        if restricted not in self.layers:
+            name = self.LAYER_NAMES[restricted]
+            options = {"find_best_order": "USE_INPUT_ORDER", "hierarchy": "NO_HIERARCHY"}
+
+            if restricted:
+                options["restriction_attribute_name"] = RESTRICTIONS
+
+            if arcpy.Exists(name):
+                arcpy.management.Delete(name)
+
+            self.layers[restricted] = arcpy.na.MakeRouteLayer(self.network, name, IMPEDANCE, **options).getOutput(0)
+
+        return self.layers[restricted]
+
     def length(self, points, restricted):
         """Route length in metres between the points in order, or None when there is no route."""
         self.make_stops(points)
-        layer_name = "smoke_route"
-        options = {"find_best_order": "USE_INPUT_ORDER", "hierarchy": "NO_HIERARCHY"}
-
-        if restricted:
-            options["restriction_attribute_name"] = RESTRICTIONS
-
-        layer = arcpy.na.MakeRouteLayer(self.network, layer_name, IMPEDANCE, **options).getOutput(0)
+        layer = self.layer_for(restricted)
+        names = arcpy.na.GetNAClassNames(layer)
+        arcpy.na.AddLocations(
+            layer, names["Stops"], self.stops, "", SEARCH_TOLERANCE,
+            append="CLEAR", snap_to_position_along_network="SNAP", exclude_restricted_elements="INCLUDE",
+        )
 
         try:
-            names = arcpy.na.GetNAClassNames(layer)
-            arcpy.na.AddLocations(
-                layer, names["Stops"], self.stops, "", SEARCH_TOLERANCE,
-                append="CLEAR", snap_to_position_along_network="SNAP", exclude_restricted_elements="INCLUDE",
-            )
+            arcpy.na.Solve(layer, "SKIP", "TERMINATE")
+        except arcpy.ExecuteError:
+            messages = arcpy.GetMessages()
 
+            if "030212" in messages or "no solution" in messages.lower():
+                return None
+
+            raise
+
+        routes = layer.listLayers(names["Routes"])[0]
+        lengths = [row[0] for row in arcpy.da.SearchCursor(routes, ["Total_" + IMPEDANCE])]
+
+        return lengths[0] if lengths else None
+
+    def close(self):
+        """Remove the layers. Failing to is harmless, since they go when the process ends."""
+        for name in self.LAYER_NAMES.values():
             try:
-                arcpy.na.Solve(layer, "SKIP", "TERMINATE")
+                if arcpy.Exists(name):
+                    arcpy.management.Delete(name)
             except arcpy.ExecuteError:
-                if "030212" in arcpy.GetMessages() or "no solution" in arcpy.GetMessages().lower():
-                    return None
+                pass
 
-                raise
 
-            routes = layer.listLayers(names["Routes"])[0]
-            lengths = [row[0] for row in arcpy.da.SearchCursor(routes, ["Total_" + IMPEDANCE])]
+def one_line(error):
+    """An exception as one line, so a multi line arcpy message does not swamp the output."""
+    lines = [line.strip() for line in str(error).splitlines() if line.strip()]
 
-            return lengths[0] if lengths else None
-        finally:
-            arcpy.management.Delete(layer_name)
+    return f"{type(error).__name__}: " + " | ".join(lines)
 
 
 def run_turn_checks(solver, chosen, edges, not_found):
@@ -304,7 +336,7 @@ def run_turn_checks(solver, chosen, edges, not_found):
             restricted = solver.length(points, True) if same(unrestricted, direct) else None
             verdict, detail = judge_turn(direct, unrestricted, restricted)
         except Exception as error:  # noqa: BLE001 one odd case must not stop the others
-            verdict, detail = "ERROR", f"{type(error).__name__}: {error}"
+            verdict, detail = "ERROR", one_line(error)
 
         results.append(Result("turn", label, verdict, detail))
 
@@ -335,7 +367,7 @@ def run_oneway_checks(solver, by_code):
                 unrestricted = solver.length(blocked_points, False) if blocked_points else None
                 verdict, detail = judge_oneway(code, half, allowed, blocked, unrestricted)
             except Exception as error:  # noqa: BLE001
-                verdict, detail = "ERROR", f"{type(error).__name__}: {error}"
+                verdict, detail = "ERROR", one_line(error)
 
             results.append(Result("oneway", label, verdict, detail))
 
@@ -386,7 +418,11 @@ def main():
     solver = RouteSolver(paths["network"], spatial_reference)
     print(f"{len(edges):,} edges; testing {len(chosen)} turns and "
           f"{sum(len(items) for items in by_code.values())} one way edges.")
-    results = run_turn_checks(solver, chosen, edges, not_found) + run_oneway_checks(solver, by_code)
+
+    try:
+        results = run_turn_checks(solver, chosen, edges, not_found) + run_oneway_checks(solver, by_code)
+    finally:
+        solver.close()
 
     for result in results:
         print(f"  {result.verdict:<5} {result.check:<7} {result.case}: {result.detail}")

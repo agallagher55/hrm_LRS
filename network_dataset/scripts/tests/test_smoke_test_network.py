@@ -50,6 +50,9 @@ class FakeSolver:
         self.none_when_blocked = none_when_blocked
         self.calls = []
 
+    def close(self):
+        self.closed = True
+
     def length(self, points, restricted):
         self.calls.append((points, restricted))
         a, b = points
@@ -305,6 +308,154 @@ class ExplainTests(unittest.TestCase):
                 module.main()
 
         self.assertIn("sees no feature datasets", str(error.exception))
+
+
+class FakeNetworkAnalyst:
+    """A stand-in for arcpy that behaves like the real one about layer names and route layers."""
+
+    def __init__(self, route_length=50.0, no_route=False):
+        self.layers = {}
+        self.made = []
+        self.solves = 0
+        self.route_length = route_length
+        self.no_route = no_route
+        self.deleted = []
+        self.messages = ""
+
+    def namespace(self):
+        outer = self
+
+        class ExecuteError(Exception):
+            pass
+
+        class Layer:
+            def __init__(self, name, options):
+                self.name = name
+                self.options = options
+
+            def listLayers(self, name):
+                return [types.SimpleNamespace(name=name)]
+
+        def make_route_layer(network, name, impedance, **options):
+            if name in outer.layers:
+                raise ExecuteError("ERROR 030036: A layer with this name exists.")
+
+            layer = Layer(name, options)
+            outer.layers[name] = layer
+            outer.made.append((name, options))
+
+            return types.SimpleNamespace(getOutput=lambda index: layer)
+
+        def solve(layer, *args):
+            outer.solves += 1
+
+            if outer.no_route:
+                outer.messages = "ERROR 030212: Solve did not find a solution."
+                raise ExecuteError(outer.messages)
+
+        def delete(name):
+            outer.deleted.append(name)
+            outer.layers.pop(name, None)
+
+        class Cursor:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return types.SimpleNamespace(insertRow=lambda row: None)
+
+            def __exit__(self, *args):
+                return False
+
+        return types.SimpleNamespace(
+            ExecuteError=ExecuteError,
+            GetMessages=lambda: outer.messages,
+            Exists=lambda name: name in outer.layers,
+            management=types.SimpleNamespace(
+                CreateFeatureclass=lambda *a, **k: types.SimpleNamespace(getOutput=lambda index: "memory\\smoke_stops"),
+                DeleteRows=lambda fc: None,
+                Delete=delete,
+            ),
+            na=types.SimpleNamespace(
+                MakeRouteLayer=make_route_layer,
+                GetNAClassNames=lambda layer: {"Stops": "Stops", "Routes": "Routes"},
+                AddLocations=lambda *a, **k: None,
+                Solve=solve,
+            ),
+            da=types.SimpleNamespace(
+                InsertCursor=Cursor,
+                SearchCursor=lambda layer, fields: iter([[outer.route_length]]),
+            ),
+        )
+
+
+class RouteSolverTests(unittest.TestCase):
+
+    def make(self, **kwargs):
+        module = load_script("qa_refresh/smoke_test_network.py", None)
+        fake = FakeNetworkAnalyst(**kwargs)
+        module.arcpy = fake.namespace()
+
+        return module, fake, module.RouteSolver("network", "sr")
+
+    def test_many_solves_make_one_layer_per_mode(self):
+        module, fake, solver = self.make()
+
+        for _ in range(5):
+            self.assertEqual(solver.length(["a", "b"], True), 50.0)
+            self.assertEqual(solver.length(["a", "b"], False), 50.0)
+
+        self.assertEqual(sorted(name for name, _ in fake.made), ["smoke_route_restricted", "smoke_route_unrestricted"])
+        self.assertEqual(fake.solves, 10)
+
+    def test_only_the_restricted_layer_has_the_restrictions(self):
+        module, fake, solver = self.make()
+
+        solver.length(["a", "b"], True)
+        solver.length(["a", "b"], False)
+
+        options = dict(fake.made)
+        self.assertEqual(options["smoke_route_restricted"]["restriction_attribute_name"], module.RESTRICTIONS)
+        self.assertNotIn("restriction_attribute_name", options["smoke_route_unrestricted"])
+
+    def test_a_leftover_layer_of_the_same_name_is_removed_first(self):
+        module, fake, solver = self.make()
+        fake.layers["smoke_route_restricted"] = object()
+
+        self.assertEqual(solver.length(["a", "b"], True), 50.0)
+        self.assertIn("smoke_route_restricted", fake.deleted)
+
+    def test_no_solution_is_no_route_and_other_errors_are_raised(self):
+        module, fake, solver = self.make(no_route=True)
+
+        self.assertIsNone(solver.length(["a", "b"], True))
+
+        fake.messages = "ERROR 000000: something else"
+        fake.no_route = False
+
+        def other_error(layer, *args):
+            fake.messages = "ERROR 000000: something else"
+            raise module.arcpy.ExecuteError("boom")
+
+        module.arcpy.na.Solve = other_error
+
+        with self.assertRaises(module.arcpy.ExecuteError):
+            solver.length(["a", "b"], True)
+
+    def test_close_removes_the_layers(self):
+        module, fake, solver = self.make()
+        solver.length(["a", "b"], True)
+
+        solver.close()
+
+        self.assertIn("smoke_route_restricted", fake.deleted)
+
+    def test_one_line_joins_a_multi_line_message(self):
+        module = load_script("qa_refresh/smoke_test_network.py", None)
+
+        text = module.one_line(RuntimeError("Failed to execute.\nERROR 030036: A layer with this name exists.\n"))
+
+        self.assertEqual(text, "RuntimeError: Failed to execute. | ERROR 030036: A layer with this name exists.")
 
 
 class MainTests(unittest.TestCase):
