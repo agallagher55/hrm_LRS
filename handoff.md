@@ -202,6 +202,18 @@ view needs no refresh first. Prod's view is refreshed daily, so Melanie's 2026-1
 spot-check a few FDMIDs she changed. Leave `HRM_NETWORK` unset. Run every step from an ArcGIS Pro Python prompt
 in `qa_refresh`, and stop on any failure.
 
+**New 2026-10-09, not yet run on live QA:** `qa_refresh\run_qa_refresh.py` runs this whole checklist in order
+(preflight, backup, audit, delete, copy, remap, verify, build, verify, BuildErrors, grants, audit, topology). It
+asks you to type a phrase at three gates (before the delete, before the swap and build after your spatial review,
+before the grants) instead of editing `CONFIRM_*` flags, writes a transcript and a run report to
+`qa_refresh\output`, and stops at the first failure with the phase to resume at. `collect_build_errors.py`
+copies the BuildErrors file out of the temp folder and compares it with the last one. Step 00 and the runner now
+check every deployed script and the template against `data\deploy_manifest.json` (hashes, so line endings do not
+matter). **Copy `data\deploy_manifest.json` and the whole `scripts` and `qa_refresh` folders to T: first**, and
+delete `_test_template_create.py` and any `03_initial_build.py` from `qa_refresh` there. After editing any script
+or the template, run `make_deploy_manifest.py` and commit the manifest (a test fails if it is stale). The manual
+steps below still work and say what each phase does.
+
 **Before the run**
 - [ ] **Redeploy the T: drive files.** A check of the screenshots against the repo on 2026-10-09 found:
   - `data\network_template.xml` on T: is dated 9/29/2026 8:17 AM and 20 KB. The repo's is 21 KB, committed

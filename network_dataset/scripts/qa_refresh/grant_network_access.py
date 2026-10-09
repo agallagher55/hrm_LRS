@@ -189,6 +189,7 @@ def write_record(path, rows):
 
 
 def main():
+    """Print or run the grants. Returns the number of tables that were missing the grant."""
     executor = arcpy.ArcSDESQLExecute(config.QA_SDE)
     plan = plan_grants(executor)
     print(f"Network: {config.NETWORK_DEF.key}; connection: {config.QA_SDE}")
@@ -198,7 +199,7 @@ def main():
     if not plan["missing"]:
         print("Nothing to grant.")
 
-        return
+        return 0
 
     statements = [(name, f"GRANT SELECT ON {SCHEMA}.[{safe_name(name)}] TO PUBLIC") for name in plan["missing"]]
     record = []
@@ -214,7 +215,7 @@ def main():
     if not APPLY:
         print("\nDry run only. Set APPLY = True to run these statements.")
 
-        return
+        return len(plan["missing"])
 
     after = {name.upper(): has_select for name, has_select in public_select_status(executor, plan["tables"]).items()}
     still_missing = [name for name in plan["tables"] if not after.get(name.upper(), False)]
@@ -233,6 +234,8 @@ def main():
         raise RuntimeError(f"These tables still have no PUBLIC SELECT after the grants: {still_missing}")
 
     print("Verified: every table now has PUBLIC SELECT. Run audit_grants.py with LABEL = \"after\" to confirm.")
+
+    return len(plan["missing"])
 
 
 if __name__ == "__main__":

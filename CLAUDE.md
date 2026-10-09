@@ -10,6 +10,9 @@ ending the session. The detailed history is in `network_dataset/docs/network_bui
 - Use pep8 styling
 - Write prose, comments and docs without em dashes and without Oxford commas.
 - Scripts take no command line arguments. Put every setting in global variables (constants) at the top of the script.
+- After changing any script in `network_dataset/scripts` or `network_dataset/scripts/qa_refresh`, or the network template, run
+  `network_dataset/scripts/make_deploy_manifest.py` and commit `network_dataset/data/deploy_manifest.json`. The T: drive check
+  compares against it, and a test fails when it is out of date.
 
 ## Environment
 - ArcGIS Pro 3.3.5 for the original build. Network dataset work since 2026-09-01 is on **3.5.8**, and the
