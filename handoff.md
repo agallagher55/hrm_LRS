@@ -199,7 +199,18 @@ in `qa_refresh`, and stop on any failure.
     from the repo rather than file by file, then compare sizes in bytes (`dir` in a command prompt), not Explorer's KB.
   - `qa_refresh` was not in the screenshots, so check it too.
 - [ ] Close Pro map layers, attribute tables and Properties dialogs that hold the QA network.
-- [ ] Optional: `python test_template_create.py` (never run, reads QA only).
+- [x] `test_template_create.py` was run on 2026-10-09 (Pro 3.5.8, same machine since July). It reads QA only and
+  **cannot prove the template**: `CreateNetworkDatasetFromTemplate` failed with `ERROR 030168` (the `Length`
+  evaluator, `Shape.STLength()`, "field that cannot be found") in its scratch file geodatabase, with the new
+  committed template and also with the 9/18 `network_template_3_5_8_Sep2026.xml`. The `Length` block is
+  identical in both and in the template that created fine in SDE on 2026-09-29, so the likely cause is the file
+  geodatabase (that expression may only resolve against SQL Server), not the template. Unconfirmed.
+  What it did show: the template has Directions and no VBScript, and the sources copied (18,583 edges,
+  15,424 junctions, 1,189 turns).
+- [ ] If step 06's create fails the same way in SDE, the sources and swapped turns are already in place. Fix the
+  template, then run `03_create_network_dataset.py` directly (it creates and builds), then step 07. Do not
+  rerun step 06: its staging class was renamed by the swap. Fallback template: the 9/18 Sep2026 file, then
+  set Directions by hand.
 
 **The steps, with what to check at each**
 
