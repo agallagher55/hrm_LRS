@@ -44,7 +44,7 @@ import config
 
 # Connection file of a login that is not SDEADM, for example one with Windows authentication.
 # None uses the SDEADM connection.
-RO_SDE = None
+RO_SDE = r"C:\Users\gallaga\AppData\Roaming\Esri\ArcGISPro\Favorites\SQLServer-ms-gis-sql-q21-GISRW01.sde"
 
 NETWORK_KEY = config.NETWORK_DEF.key
 IMPEDANCE = "Length"
