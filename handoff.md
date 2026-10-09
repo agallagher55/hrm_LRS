@@ -1,6 +1,6 @@
 # Handoff: current status
 
-**Last updated 2026-10-09 (QA refresh checklist added; before that, the 2026-10-08 Road Network meeting).** Read this first, then follow the links for detail. Update it whenever
+**Last updated 2026-10-09 (evening: Teams chat with Robbie, Melanie and Ryan added; before that, the QA refresh checklist and the 2026-10-08 Road Network meeting).** Read this first, then follow the links for detail. Update it whenever
 status changes (what is done, what is waiting, what to do next). The detailed history lives in
 `network_dataset/docs/network_build_status.md`; this file is the short version of where things are.
 
@@ -226,10 +226,48 @@ words are garbled in it, so check anything that matters.
 - **Next meeting** in two weeks, set by Jillian (no calendar time next week). Melanie will email when her
   fixes are done.
 
+## Teams chat 2026-10-09 (civies and streets: Robbie, Melanie, Ryan, Alex)
+
+From the Teams export `TeamsExport_civies_and_streets_2026-10-09`. Times below are local (the export is in UTC,
+three hours ahead).
+- **Alex announced the refreshed QA network at 10:46** ("QA network updated with prod data, topology included").
+  Ryan had asked for the window to avoid 1 to 2 pm because Erin was going to do a **route extension in QA** that
+  afternoon.
+- **Robbie tested and found 4 segments to fix** (13:18): 1 from network testing and 3 from the topology. So the
+  topology is already catching real LRS problems. He put a shapefile at the root of his monthly folder (not
+  inspected by Claude). Ryan looked at them the same day instead of waiting for Tuesday.
+- **All 4 are fixed (14:38):** Ryan fixed 2 and Melanie fixed 2, reconciled and posted. All 4 are in Prod (Melanie's
+  directly, and Alex confirmed Ryan's were in Prod too).
+  Ryan also said one intersection needs to be redrawn or realigned so two intersections become one (two images, not
+  seen). **These fixes landed after the 10:14 rebuild, so the QA network does not have them.**
+- Melanie wants to know **why these 4 were not found in the previous batch**. Likely answer to offer: the topology was
+  only added 2026-10-08, and the dangle fixes moved the count only from 4,101 to 4,089. Robbie says he will not fix
+  them himself ("only doing this because Jill told me"); Melanie's rule is that whoever finds them fixes them, said
+  half in jest.
+- Robbie validated a topology on the fire feature dataset and found no errors beyond the layer extent.
+- **Robbie's plan (14:59, as he signed off):** retest the network next week and then start thinking about how to
+  get speeds into the network. This is the speed and `TRAVEL_TIME` work in Next steps, item 8.
+- Monday 2026-10-12 is a holiday (Thanksgiving), so nothing moves before Tuesday.
+
+Implications and open questions:
+- **QA is already stale** against Prod by those 4 fixes (plus anything else posted since). Robbie retests next week,
+  so decide whether to rerun the refresh (`run_qa_refresh.py`) on Tuesday once Prod's view has refreshed, then tell
+  him. Remember the rerun deletes the topology again, so Robbie's exceptions must be reapplied after.
+- **Erin's QA route extension:** if it was done in QA only, the next refresh from Prod's view will not carry it
+  (the edge copy reads Prod, not QA). Ask Ryan whether it was or will be posted to Prod.
+- **Did Robbie's network testing happen before or after the `TrafficTurn` fix?** The live network was fixed in
+  Properties sometime between 12:29 and 14:34, and his test was around 13:18. Before the fix no route could turn a
+  corner with `TrafficTurn` ticked, so his result may not be trustworthy if he ticked it. Ask him which restrictions
+  he used, and tell him about the defect when telling him QA is ready.
+- Ask Robbie for the FDMIDs of the 4 segments (or inspect the shapefile) so they can be checked against Prod's
+  `TRNLRS_TRN_STREET_VW` after the next refresh, and added to the list of things that confirm the fixes flow through.
+- Which topology rules caught the 3 topology ones is not recorded. If they were dangles or intersections, they would
+  have been in the 4,089 and 241 counts.
+
 ## QA refresh checklist (distance network, written 2026-10-09)
 
 `qa_refresh` reads the edge source straight from **Prod's** `TRNLRS_TRN_STREET_VW`, so QA's own copy of the
-view needs no refresh first. Prod's view is refreshed daily, so Melanie's 2026-10-08 fixes are in it. Still
+view needs no refresh first. Prod's view is rebuilt by `scripts/LRS_updates.py` on the server, scheduled for about 5:30 pm daily (run it by hand to pick up same-day LRS edits, as on 2026-10-09), so Melanie's 2026-10-08 fixes are in it. Still
 spot-check a few FDMIDs she changed. Leave `HRM_NETWORK` unset. Run every step from an ArcGIS Pro Python prompt
 in `qa_refresh`, and stop on any failure.
 
@@ -316,15 +354,25 @@ steps below still work and say what each phase does.
 - [x] Directions checked on the live network on 2026-10-09: Support Directions ticked, Base Name `STR_NAME`,
   Suffix Type `STR_TYPE`, Full Name `FULL_NAME`, Default Length Attribute `Length`. The Directions create from
   the committed template is now proven in SDE. A route solve that returns directions is still to be tried.
-- [ ] Tell Robbie QA is ready, and ask Melanie whether her fixes covered the 57 untraceable issues.
+- [x] QA announced as ready in Teams on 2026-10-09 at 10:46 (Robbie has tested it, see the Teams chat section). [ ] Still
+  to tell Robbie about the `TrafficTurn` defect, and ask Melanie whether her fixes covered the 57 untraceable issues.
 - [ ] Update this file and `network_dataset/docs/network_build_status.md` with the real counts.
 
 ## Next steps, in order
 
-1. **Finish the 2026-10-09 rebuild** (the network is built and step 07 passed): SQL grants first, then smoke tests,
-   Robbie's exceptions and telling him. The rest of this item is the original plan, kept for the next refresh.
+0. **Melanie said Alex can refresh QA (2026-10-09, evening).** That clears the rerun decision below: run
+   `run_qa_refresh.py` per the QA refresh checklist, then tell Robbie. Heads up for the run: Erin's QA route
+   extension (if not posted to Prod) will be lost, and the topology exceptions need reapplying afterward.
+   Original note, from earlier the same day:
+   **Tuesday 2026-10-13 (after the long weekend):** the 2026-10-09 rebuild is finished, grants and smoke tests are
+   done, and Alex told the team QA was updated. Robbie then found 4 segments that Ryan and Melanie fixed the same
+   day (see the Teams chat section), so QA is behind Prod. Decide whether to rerun `run_qa_refresh.py` before
+   Robbie's retest, reapply his topology exceptions after it, and ask him whether he had `TrafficTurn` ticked
+   before the template fix. Also ask Ryan whether Erin's QA route extension reaches Prod.
+1. **Finish the 2026-10-09 rebuild** (done apart from Robbie's exceptions): the rest of this item is the original
+   plan, kept for the next refresh.
    Follow the QA refresh checklist above. Melanie's fixes are in Prod's view
-   (it is refreshed daily). Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
+   (rebuilt by the scheduled 5:30 pm `LRS_updates.py` run). Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
    afterward and reapply its exceptions. Check the step 03 log: WA 61 plus the island FDMID rows come off
    18,644, so expect 18,583 minus those rows. Transit roads now stay in this network. Then tell Robbie QA is ready.
 2. **Follow up with people.**
