@@ -7,7 +7,6 @@ Run from network_dataset/scripts:
 
 import datetime
 import sys
-import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -21,23 +20,29 @@ BUILT = datetime.datetime(2026, 10, 9, 16, 35, 26)
 COPIED = datetime.datetime(2026, 10, 9, 16, 32, 54)
 
 
-class FakeMetadata:
+class FakeGispy:
+    """Stands in for gispy.metadata.metadata: one description per dataset, as the real functions read it."""
 
-    def __init__(self, description="", read_only=False, fail_on_save=False):
+    def __init__(self, description="", read_only=False, fail_on_update=False):
         self.description = description
-        self.isReadOnly = read_only
-        self.saved = 0
-        self.fail_on_save = fail_on_save
+        self.read_only = read_only
+        self.fail_on_update = fail_on_update
+        self.updates = []
 
-    def save(self):
-        if self.fail_on_save:
+    def get_sde_metadata(self, db, feature):
+        return {"DESCRIPTION": self.description}
+
+    def update_metadata(self, db, feature, options):
+        self.updates.append((db, feature, dict(options)))
+
+        if self.fail_on_update:
             raise RuntimeError("item is locked")
 
-        self.saved += 1
+        if not self.read_only and options.get("description"):
+            self.description = options["description"]
 
 
-def fake_arcpy(metadata):
-    return types.SimpleNamespace(metadata=types.SimpleNamespace(Metadata=lambda path: metadata))
+PATH = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde\SDEADM.TRNLRS_network\TRNLRS_street_network"
 
 
 class MergeBlockTests(unittest.TestCase):
@@ -101,32 +106,63 @@ class MergeBlockTests(unittest.TestCase):
 
 class StampTests(unittest.TestCase):
 
-    def stamp(self, metadata, **kwargs):
-        with mock.patch.dict(sys.modules, {"arcpy": fake_arcpy(metadata)}):
-            return network_metadata.stamp("nd", logger=mock.Mock(), **kwargs)
+    def stamp(self, fake, path=PATH, **kwargs):
+        with mock.patch.object(network_metadata, "load_gispy_metadata", lambda: fake):
+            return network_metadata.stamp(path, logger=mock.Mock(), **kwargs)
 
-    def test_it_writes_the_description_and_saves(self):
-        metadata = FakeMetadata("Intro.")
+    def test_it_writes_the_description_through_gispy(self):
+        fake = FakeGispy("Intro.")
 
-        self.assertTrue(self.stamp(metadata, rebuilt=BUILT, refreshed=COPIED))
-        self.assertEqual(metadata.saved, 1)
-        self.assertIn("Last rebuilt: 2026-10-09 16:35", metadata.description)
-        self.assertTrue(metadata.description.startswith("Intro."))
+        self.assertTrue(self.stamp(fake, rebuilt=BUILT, refreshed=COPIED))
+        db, feature, options = fake.updates[0]
+        self.assertEqual(db, r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde")
+        self.assertEqual(feature, r"SDEADM.TRNLRS_network\TRNLRS_street_network")
+        self.assertIn("Last rebuilt: 2026-10-09 16:35", options["description"])
+        self.assertTrue(options["description"].startswith("Intro."))
 
-    def test_a_read_only_item_is_reported_not_raised(self):
-        metadata = FakeMetadata(read_only=True)
+    def test_a_rebuild_moves_the_revised_date_and_a_refresh_alone_does_not(self):
+        rebuilt = FakeGispy()
+        refreshed = FakeGispy()
 
-        self.assertFalse(self.stamp(metadata, rebuilt=BUILT))
-        self.assertEqual(metadata.saved, 0)
+        self.stamp(rebuilt, rebuilt=BUILT)
+        self.stamp(refreshed, refreshed=COPIED)
 
-    def test_a_failed_save_is_reported_not_raised(self):
-        metadata = FakeMetadata(fail_on_save=True)
+        self.assertEqual(rebuilt.updates[0][2]["revised_date"], "2026-10-09T00:00:00")
+        self.assertNotIn("revised_date", refreshed.updates[0][2])
 
-        self.assertFalse(self.stamp(metadata, rebuilt=BUILT))
+    def test_a_read_only_item_is_reported_because_the_description_is_read_back(self):
+        fake = FakeGispy(read_only=True)
 
-    def test_a_missing_arcpy_is_reported_not_raised(self):
-        with mock.patch.dict(sys.modules, {"arcpy": None}):
-            self.assertFalse(network_metadata.stamp("nd", logger=mock.Mock(), rebuilt=BUILT))
+        self.assertFalse(self.stamp(fake, rebuilt=BUILT))
+
+    def test_a_failed_update_is_reported_not_raised(self):
+        fake = FakeGispy(fail_on_update=True)
+
+        self.assertFalse(self.stamp(fake, rebuilt=BUILT))
+
+    def test_a_path_outside_an_sde_file_is_reported_not_raised(self):
+        self.assertFalse(self.stamp(FakeGispy(), path=r"C:\data\test.gdb\net", rebuilt=BUILT))
+
+    def test_a_missing_gispy_is_reported_not_raised(self):
+        def missing():
+            raise ImportError("No module named 'gispy'")
+
+        with mock.patch.object(network_metadata, "load_gispy_metadata", missing):
+            self.assertFalse(network_metadata.stamp(PATH, logger=mock.Mock(), rebuilt=BUILT))
+
+
+class SplitPathTests(unittest.TestCase):
+
+    def test_it_splits_at_the_connection_file(self):
+        db, feature = network_metadata.split_sde_path(PATH)
+
+        self.assertTrue(db.endswith("qa_RW_sdeadm.sde"))
+        self.assertEqual(feature, r"SDEADM.TRNLRS_network\TRNLRS_street_network")
+
+    def test_forward_slashes_and_capitals_work(self):
+        db, feature = network_metadata.split_sde_path("E:/x/QA.SDE/FD/Net")
+
+        self.assertEqual((db, feature), ("E:/x/QA.SDE", "FD/Net"))
 
 
 if __name__ == "__main__":

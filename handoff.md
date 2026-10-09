@@ -455,12 +455,12 @@ steps below still work and say what each phase does.
   the final newline, but the manifest and `deploy_check.py` must both be the current ones. Run `scripts\deploy_check.py`
   on its own first: it lists every stale file without starting a refresh. The smoke test now uses the owner's
   `E:\...\qa_RW_sdeadm.sde` connection by default (faster, on the server).
-- **Network metadata (written 2026-10-09, not run on live QA).** `network_metadata.py` writes a marked block at the
+- **Network metadata (written 2026-10-09, not run on live QA).** Through the gispy repo's `gispy.metadata.metadata` (`get_sde_metadata` and `update_metadata`, also moves the item's Revised date on a rebuild), which must be importable on the server: `GISPY_MODULES_DIR` in the module is `E:\HRM\Scripts\Python\Modules`, inferred from a path in gispy's parcelload script, so check it. `network_metadata.py` writes a marked block at the
   end of the network dataset's description: `Last rebuilt` (script 03 writes it after every build) and `Last
   refreshed from Prod's TRNLRS_TRN_STREET_VW` (the QA refresh runner writes it in a new `metadata` phase, from the
   time its copy phase finished). It never fails a build. Check in Pro (Catalog, the network dataset, Metadata) that
-  the block appears; `arcpy.metadata.Metadata` on a network dataset in SQL Server is unproven, and a failure only
-  logs a warning.
+  the block appears; gispy's metadata calls on a network dataset in SQL Server are unproven, and a failure only
+  logs a warning (the stamp reads the description back, so a read only item is reported).
 - **BuildErrors files:** `Build Network` writes `BuildErrors_<guid>.txt` to the client's temp folder, in a numbered
   subfolder, for example `C:\Users\ALEX~1.GAL\AppData\Local\Temp\3\`, not the top level of `%TEMP%`. Windows
   cleans these up, so copy the file out the same day. The exact path is in the DEBUG log line `WARNING 030116: The

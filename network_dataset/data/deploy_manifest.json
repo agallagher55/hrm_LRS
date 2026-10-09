@@ -16,7 +16,7 @@
     "scripts/make_deploy_manifest.py": "8ba6f6cf0f208f03cd5b9734545ef02755006d7da03e02a1abe74097f3f13bb4",
     "scripts/network_definitions.py": "a60021b7410eab16e5c135c5159b34423aecf195c3418e47bb402ad4dc69bfbf",
     "scripts/network_exclusions.py": "d577db7dd21c756f75c0811d09713ab8400d877f000f4893280bbb19579c880a",
-    "scripts/network_metadata.py": "216f9251904a0352ef72e44d5d4cd4e7672d3ad90a65439f8260dea552c4cbaf",
+    "scripts/network_metadata.py": "6dc4f0fb329adfdec982c213fb74064dd1c50323bf22441145d2dc84e4ad3c17",
     "scripts/qa_refresh/00_confirm_sources.py": "96d6bc205723015e1e07424e85cc1b84abd683180fd272ec96fb32a5c8fb1621",
     "scripts/qa_refresh/01_backup_and_baseline.py": "788c140109b276e8945ff97ba3f3e69e5c85975e0ec7961da305329b6663a730",
     "scripts/qa_refresh/02_delete_network_sources.py": "9ee7aa244bb8e25c8405233be37399992d5778c5e039e476273abf6245ab0fc1",
