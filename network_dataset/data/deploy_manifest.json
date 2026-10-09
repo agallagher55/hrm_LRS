@@ -29,7 +29,8 @@
     "scripts/qa_refresh/collect_build_errors.py": "1120a038a3a13a25236fad616385f77ebab7b2cfa7da1653700e2dad6d9eac21",
     "scripts/qa_refresh/config.py": "bbf4e407c63c491c0352385aef7d30bc021ee85cdb06a5c2e8af52c93d886d19",
     "scripts/qa_refresh/grant_network_access.py": "2eb474b99b2459dabcb9742b467bd38e4df325a17b82b8ad1b16029a70c8e64c",
-    "scripts/qa_refresh/run_qa_refresh.py": "edfa8a77053da8e640abd76457233f25e0652909932828266ab6ffc4199c83bf",
+    "scripts/qa_refresh/run_qa_refresh.py": "d7bb444a2f41bd07c9f9b408738061177005a2b51435f760964963fb005afe64",
+    "scripts/qa_refresh/smoke_test_network.py": "3622d4ab08c96f17c508e0996b04001cee5c6c459ab2c13a7e7048545246df9c",
     "scripts/run_full_network_rebuild.py": "a4b0a061326ea071d589e394f2de317708c71ef293373b515d78c9092f2cfd4c",
     "scripts/verify_turn_rebuild.py": "b057363e58b2fba2cb5f74791677a7f4904e715bb5720578ba81118ee047fc1c"
   },
