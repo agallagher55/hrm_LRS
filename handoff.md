@@ -47,9 +47,14 @@ Done:
   network and solved routes). 26 prohibited turns (including `QUINPOOL RD -> ROBIE ST`) and 18 one way edges
   (8 `FOTD`, 2 `FDTO` including `BISHOP ST`, 8 `BOTH`). **Caveat:** in all 36 cases where a route was
   blocked the solver found no route at all, not a detour, and `CLAUDE.md` records a detour for `QUINPOOL RD ->
-  ROBIE ST` on 2026-09-01. Check that one case by hand in Pro (route from the middle of edge 9146 to the middle
-  of edge 9748 with `OneWay` and `TrafficTurn` ticked). A detour there means the script mishandles something;
-  no route there too would mean the mid edge stops have no way round.
+  ROBIE ST` on 2026-09-01. A rerun at 12:02 with the no-detour report confirmed it: 0 of 36 found a detour, and
+  all 36 said `ERROR 030212: Solve did not find a solution`, so the solver is not failing for another reason.
+  **Suspect, unconfirmed:** `network_template.xml` has the `TrafficTurn` default turn evaluator set to
+  restricted (true) with no turn source override. If that restricts every turn, not just the ones in
+  `TRNLRS_traffic_turn`, no route can turn a corner with `TrafficTurn` ticked, which fits every result (the
+  allowed one way and two way routes all ran on a single edge). The smoke test now has a positive control (ordinary
+  junction moves that must still work) to settle it. Until it is run, check by hand in Pro: any route that needs a
+  turn, with `TrafficTurn` ticked. Robbie's routes would show it too if he ticked `TrafficTurn`.
 - **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2) and the smoke
   tests passed. Left: a route solve with directions on (the smoke test does not cover Directions), the QUINPOOL
   check above, Robbie's topology exceptions, and telling Robbie QA is ready.
