@@ -9,7 +9,8 @@ committed with the repo (data/deploy_manifest.json).
 Regenerate the manifest with make_deploy_manifest.py after any change to a tracked file, and copy
 it to the T: drive with the files. A test fails when the committed manifest is out of date.
 
-Line endings are normalised before hashing, so a copy with Windows line endings still matches.
+Line endings and the final newline are normalised before hashing, so a copy with Windows line endings
+still matches, and so does one that an editor (PyCharm on save) gave a different final newline.
 The root is taken from this file's own location, without resolve(), so a mapped T: drive stays T:.
 Only the standard library is used, so it still runs when other deployed files are stale.
 """
@@ -41,8 +42,8 @@ IGNORED_EXTRA_ENDINGS = ("test_template_create.py",)
 
 
 def file_hash(path):
-    """SHA-256 of the file with line endings normalised to LF."""
-    data = Path(path).read_bytes().replace(b"\r\n", b"\n")
+    """SHA-256 of the file with line endings normalised to LF and no final newline."""
+    data = Path(path).read_bytes().replace(b"\r\n", b"\n").rstrip(b"\n")
 
     return hashlib.sha256(data).hexdigest()
 
