@@ -199,7 +199,26 @@ in `qa_refresh`, and stop on any failure.
     from the repo rather than file by file, then compare sizes in bytes (`dir` in a command prompt), not Explorer's KB.
   - `qa_refresh` was not in the screenshots, so check it too.
 - [ ] Close Pro map layers, attribute tables and Properties dialogs that hold the QA network.
-- [ ] Optional: `python test_template_create.py` (never run, reads QA only).
+- [x] **Before-state recorded 2026-10-09** (steps 00 and 01 done, step 02 not yet run). SQL audit on QA: `N_1`
+  10 of 10, `N_2` 6 of 6, `N_3` 6 of 6 (the network), `ND_40986` 2 of 2 (the network's dirty area pair) and
+  `ND_7293` 2 of 2 (legacy), `ND_12010` and `ND_21268` 1 of 1, and three single table groups with no grant that
+  belong to other networks or leftovers (`ND_38752`, `ND_39207`, `ND_396`). Network properties: built
+  2026-09-29 08:55:04, Edges 37,674, Junctions 16,187, Turns 1,184, class IDs edge 40578, junction 40579, turn
+  40984, system junctions 40985. **Support Directions was unchecked on the live network**, because it was built
+  from the pre-Directions template, so Directions is a real change to look for after step 06.
+  `qa_refresh\audit_grants.py` now does the SQL part (below).
+- [x] `test_template_create.py` was run on 2026-10-09 (Pro 3.5.8, same machine since July). It reads QA only and
+  **cannot prove the template**: `CreateNetworkDatasetFromTemplate` failed with `ERROR 030168` (the `Length`
+  evaluator, `Shape.STLength()`, "field that cannot be found") in its scratch file geodatabase, with the new
+  committed template and also with the 9/18 `network_template_3_5_8_Sep2026.xml`. The `Length` block is
+  identical in both and in the template that created fine in SDE on 2026-09-29, so the likely cause is the file
+  geodatabase (that expression may only resolve against SQL Server), not the template. Unconfirmed.
+  What it did show: the template has Directions and no VBScript, and the sources copied (18,583 edges,
+  15,424 junctions, 1,189 turns).
+- [ ] If step 06's create fails the same way in SDE, the sources and swapped turns are already in place. Fix the
+  template, then run `03_create_network_dataset.py` directly (it creates and builds), then step 07. Do not
+  rerun step 06: its staging class was renamed by the swap. Fallback template: the 9/18 Sep2026 file, then
+  set Directions by hand.
 
 **The steps, with what to check at each**
 
@@ -215,9 +234,13 @@ in `qa_refresh`, and stop on any failure.
 | 07 | `python 07_verify_live_turns.py` | Same verifier, against the live turn class after the swap. It should agree with step 05. |
 
 **After step 07**
-- [ ] **Re-apply the SQL grants** under the new registration IDs (`network_dataset_sql_permissions.md`, audit
-  query in its section 2b). The IDs come from step 06's build, so grant only now. Without them nobody can
-  open the network.
+- [ ] **Re-apply the SQL grants** under the new registration IDs. The IDs come from step 06's build, so grant only
+  now. Without them nobody can open the network. Run `qa_refresh\audit_grants.py` with `LABEL = "after"`: it
+  runs the section 2b audit of `network_dataset_sql_permissions.md` through the QA connection and writes
+  `grants_audit_after_<time>.csv` and `network_ids_after_<time>.csv` to `qa_refresh\output`. Expect `N_3` 6 of 6
+  and a new `ND_<id>` pair (2 tables) with no grant yet, which is the one to grant (the new class IDs in the
+  second file sit just below it). Grant per `network_dataset_sql_permissions.md`, then run the script again to
+  confirm. It is read only and untested on live QA (written 2026-10-09).
 - [ ] Rerun `python ..\07_create_topology.py` and reapply Robbie's exceptions (step 02 deleted the topology).
   Expect errors near the 2026-10-08 numbers (dangles 4,101, multipart 253), a little lower with Melanie's fixes
   and the islands gone.
@@ -226,7 +249,9 @@ in `qa_refresh`, and stop on any failure.
 - [ ] Smoke tests with the travel mode restrictions ticked: a one-way solve in both directions and the
   prohibited turn `QUINPOOL RD -> ROBIE ST` (it should detour).
 - [ ] Check the Directions settings survived on the live network (Base Name `STR_NAME`, Suffix Type
-  `STR_TYPE`, Full Name `FULL_NAME`). The Directions create from the committed template is not yet proven.
+  `STR_TYPE`, Full Name `FULL_NAME`). The live network had Directions off before this refresh, so
+  "Support Directions" should now be ticked in Properties. If it is off, the template did not carry Directions.
+  The Directions create from the committed template is not yet proven.
 - [ ] Tell Robbie QA is ready, and ask Melanie whether her fixes covered the 57 untraceable issues.
 - [ ] Update this file and `network_dataset/docs/network_build_status.md` with the real counts.
 
