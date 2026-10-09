@@ -1,6 +1,6 @@
 # Handoff: current status
 
-**Last updated 2026-10-08 (after the Road Network meeting).** Read this first, then follow the links for detail. Update it whenever
+**Last updated 2026-10-09 (QA refresh checklist added; before that, the 2026-10-08 Road Network meeting).** Read this first, then follow the links for detail. Update it whenever
 status changes (what is done, what is waiting, what to do next). The detailed history lives in
 `network_dataset/docs/network_build_status.md`; this file is the short version of where things are.
 
@@ -179,11 +179,61 @@ words are garbled in it, so check anything that matters.
 - **Next meeting** in two weeks, set by Jillian (no calendar time next week). Melanie will email when her
   fixes are done.
 
+## QA refresh checklist (distance network, written 2026-10-09)
+
+`qa_refresh` reads the edge source straight from **Prod's** `TRNLRS_TRN_STREET_VW`, so QA's own copy of the
+view needs no refresh first. Prod's view is refreshed daily, so Melanie's 2026-10-08 fixes are in it. Still
+spot-check a few FDMIDs she changed. Leave `HRM_NETWORK` unset. Run every step from an ArcGIS Pro Python prompt
+in `qa_refresh`, and stop on any failure.
+
+**Before the run**
+- [ ] **Redeploy the T: drive files.** A check of the screenshots against the repo on 2026-10-09 found:
+  - `data\network_template.xml` on T: is dated 9/29/2026 8:17 AM and 20 KB. The repo's is 21 KB, committed
+    2026-09-29 after the Directions block was merged back in (commit `162aa76`). The T: copy is the version
+    from before that merge, so **it has no Directions. Replace it.**
+  - `scripts\network_exclusions.py` on T: is dated 10/1/2026. The island FDMIDs and the transit change
+    landed 2026-10-08 (commits `42cfca5` and `261ecd2`). Explorer rounds sizes up to the KB, so the size
+    looks right whichever version it is. **Replace it.**
+  - `03_create_network_dataset.py`, `edge_fields.py` and `07_create_topology.py` on T: are dated 10/8, but
+    the island commit came after. Replace the whole `scripts` folder, `qa_refresh` and `data\network_template.xml`
+    from the repo rather than file by file, then compare sizes in bytes (`dir` in a command prompt), not Explorer's KB.
+  - `qa_refresh` was not in the screenshots, so check it too.
+- [ ] Close Pro map layers, attribute tables and Properties dialogs that hold the QA network.
+- [ ] Optional: `python test_template_create.py` (never run, reads QA only).
+
+**The steps, with what to check at each**
+
+| Step | Command | What to check |
+|---|---|---|
+| 00 | `python 00_confirm_sources.py` | Read-only. Prints Prod and QA counts and `MODDATE` ranges. The Prod count should be about 18,644 (it moves daily). Read any stale-copy warning about the deployed scripts or template and fix it before going on. |
+| 01 | `python 01_backup_and_baseline.py` | Mandatory in practice. Check it reports the turn backup, the baseline JSON and the file geodatabase export under `output/` (all three sources). Step 02 refuses to run without a backup under 24 hours old. |
+| 02 | `python 02_delete_network_sources.py` | First destructive step. Set `CONFIRM_DELETE_QA_NETWORK = True` first and reset it to `False` afterward. It deletes the topology, then the network, then the edge, junction and turn classes. Nothing should be open in Pro. |
+| 03 | `python 03_copy_sources.py` | Find the "Edge exclusions applied" line in the log. Expect **18,583 minus the island FDMID rows** (Prod 18,644 less WA 61, and transit stays in). Check the per-rule counts: WA 61 and a count for the islands (Robbie's 14 McNabs and George's FDMIDs), with no transit rule. Check the junction and turn copies match QA's legacy classes (turns were 1,189 last time). Check `SPEED` and `TRAVEL_TIME` were added. It creates and builds nothing. |
+| 04 | `python 04_remap_turns.py` | Creates `TRNLRS_traffic_turn_staging`. The skip rate was about 4% last time. **If it jumps well above that, read the skip categories before going on**: Melanie's fixes may have moved geometry more than expected. Skip reasons refer to the legacy `TRN_traffic_turn`, not `TRNLRS_traffic_turn`. |
+| 05 | `python 05_verify_staging_turns.py` | The verifier needs 95% agreement or more. Check that the edge source FCID in the staging turns equals `Describe(edge).DSID` (a new number, since step 02 and 03 recreated the edge class). Then do the spatial review of the skipped turns. This is the gate for step 06. |
+| 06 | `python 06_swap_and_final_build.py` | Set `CONFIRM_REVIEWED_STAGING = True` only after the step 05 review, and reset it afterward. It stops before changing anything if `run_full_network_rebuild.py` on T: is stale. The only network build, and it should take **under two minutes**. If it runs for hours, check Task Manager CPU (near idle means stuck) and ask the DBA for a blocking SQL session. Check the log for edges, junctions and turns (2026-09-29: Edges 37,674, Junctions 16,187, Turns 1,184, 5 turns rejected). Expect slightly fewer edges now (the island rows are gone). Find the `WARNING 030116` line for the BuildErrors path and **copy that file out the same day**. |
+| 07 | `python 07_verify_live_turns.py` | Same verifier, against the live turn class after the swap. It should agree with step 05. |
+
+**After step 07**
+- [ ] **Re-apply the SQL grants** under the new registration IDs (`network_dataset_sql_permissions.md`, audit
+  query in its section 2b). The IDs come from step 06's build, so grant only now. Without them nobody can
+  open the network.
+- [ ] Rerun `python ..\07_create_topology.py` and reapply Robbie's exceptions (step 02 deleted the topology).
+  Expect errors near the 2026-10-08 numbers (dangles 4,101, multipart 253), a little lower with Melanie's fixes
+  and the islands gone.
+- [ ] Open the saved BuildErrors file. Last time it had 5 `Cannot find at junction` turn errors and 1,133
+  `Standalone user-defined junction` warnings, nothing else. Fewer is the hoped-for result.
+- [ ] Smoke tests with the travel mode restrictions ticked: a one-way solve in both directions and the
+  prohibited turn `QUINPOOL RD -> ROBIE ST` (it should detour).
+- [ ] Check the Directions settings survived on the live network (Base Name `STR_NAME`, Suffix Type
+  `STR_TYPE`, Full Name `FULL_NAME`). The Directions create from the committed template is not yet proven.
+- [ ] Tell Robbie QA is ready, and ask Melanie whether her fixes covered the 57 untraceable issues.
+- [ ] Update this file and `network_dataset/docs/network_build_status.md` with the real counts.
+
 ## Next steps, in order
 
-1. **Rebuild the distance network.** Melanie's fixes are posted in Prod's LRS (2026-10-08). First confirm
-   `TRNLRS_TRN_STREET_VW` in Prod has been refreshed from them (`LRS_updates.py`), then run `qa_refresh` so
-   Robbie can retest against them. Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
+1. **Rebuild the distance network.** Follow the QA refresh checklist above. Melanie's fixes are in Prod's view
+   (it is refreshed daily). Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
    afterward and reapply its exceptions. Check the step 03 log: WA 61 plus the island FDMID rows come off
    18,644, so expect 18,583 minus those rows. Transit roads now stay in this network. Then tell Robbie QA is ready.
 2. **Follow up with people.**
