@@ -360,7 +360,11 @@ steps below still work and say what each phase does.
 
 ## Next steps, in order
 
-0. **Tuesday 2026-10-13 (after the long weekend):** the 2026-10-09 rebuild is finished, grants and smoke tests are
+0. **Melanie said Alex can refresh QA (2026-10-09, evening).** That clears the rerun decision below: run
+   `run_qa_refresh.py` per the QA refresh checklist, then tell Robbie. Heads up for the run: Erin's QA route
+   extension (if not posted to Prod) will be lost, and the topology exceptions need reapplying afterward.
+   Original note, from earlier the same day:
+   **Tuesday 2026-10-13 (after the long weekend):** the 2026-10-09 rebuild is finished, grants and smoke tests are
    done, and Alex told the team QA was updated. Robbie then found 4 segments that Ryan and Melanie fixed the same
    day (see the Teams chat section), so QA is behind Prod. Decide whether to rerun `run_qa_refresh.py` before
    Robbie's retest, reapply his topology exceptions after it, and ask him whether he had `TrafficTurn` ticked
