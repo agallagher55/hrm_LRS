@@ -365,6 +365,10 @@ steps below still work and say what each phase does.
    extension (if not posted to Prod) will be lost, and the topology exceptions need reapplying afterward.
    **Alex ran `LRS_updates.py` on the server the same evening and confirmed Prod's view has the 4 fixes**, so the
    refresh can start from step 00.
+   **Smoke test connection (2026-10-09):** `RO_SDE` is now `None`, so the smoke test uses `config.QA_SDE`
+   (`E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde`, on the server, faster). It is the owner's login, so this run
+   does not prove the grants for a normal user (the 10-09 pass of 52 of 52 did, through GISRW01). Set `RO_SDE` for a
+   one off grants check, or open the network from a normal login in Pro.
    Original note, from earlier the same day:
    **Tuesday 2026-10-13 (after the long weekend):** the 2026-10-09 rebuild is finished, grants and smoke tests are
    done, and Alex told the team QA was updated. Robbie then found 4 segments that Ryan and Melanie fixed the same

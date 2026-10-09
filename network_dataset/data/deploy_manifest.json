@@ -30,7 +30,7 @@
     "scripts/qa_refresh/config.py": "bbf4e407c63c491c0352385aef7d30bc021ee85cdb06a5c2e8af52c93d886d19",
     "scripts/qa_refresh/grant_network_access.py": "2eb474b99b2459dabcb9742b467bd38e4df325a17b82b8ad1b16029a70c8e64c",
     "scripts/qa_refresh/run_qa_refresh.py": "8ce93d15c315dc6b2f0e7f3383b2598f3d716a9bb976196c07e4ae56af376352",
-    "scripts/qa_refresh/smoke_test_network.py": "6c57f96193d84ab59246841057b19135d5b26e26272708240290b0f0c71e40d8",
+    "scripts/qa_refresh/smoke_test_network.py": "a72d118f3c06ffa9ab1f2cf5a35caa61912cfd914be50a0c239b14a02938edcc",
     "scripts/run_full_network_rebuild.py": "a4b0a061326ea071d589e394f2de317708c71ef293373b515d78c9092f2cfd4c",
     "scripts/verify_turn_rebuild.py": "b057363e58b2fba2cb5f74791677a7f4904e715bb5720578ba81118ee047fc1c"
   },
