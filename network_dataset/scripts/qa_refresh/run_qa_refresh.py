@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import deploy_check  # noqa: E402
 import config  # noqa: E402
+import network_metadata  # noqa: E402
 
 
 # The network this run refreshes. It must match HRM_NETWORK (unset means DISTANCE).
@@ -51,6 +52,10 @@ LIST_ONLY = False
 
 # Replaced in the tests.
 ask = input
+
+# When this run finished copying the sources from Prod. Set by the copy phase, so a run that resumes
+# after it has no value and leaves the 'last refreshed' line in the metadata as it was.
+COPY_FINISHED = None
 
 Phase = namedtuple("Phase", "key title run gate on_failure")
 Gate = namedtuple("Gate", "phrase message")
@@ -114,7 +119,10 @@ def run_delete():
 
 
 def run_copy():
+    global COPY_FINISHED
+
     load_step("03_copy_sources.py").main()
+    COPY_FINISHED = datetime.datetime.now()
 
 
 def run_remap():
@@ -138,6 +146,17 @@ def run_verify_live():
 
 def run_build_errors():
     load_step("collect_build_errors.py").main()
+
+
+def run_metadata():
+    """Record the refresh time in the network dataset's metadata (the build wrote the rebuild time)."""
+    if COPY_FINISHED is None:
+        print("This run did not copy the sources, so the 'last refreshed' line is left as it was.")
+
+        return
+
+    if not network_metadata.stamp(config.NETWORK, refreshed=COPY_FINISHED):
+        print("The metadata was not updated (see the line above). The network itself is fine.")
 
 
 def run_grants():
@@ -194,6 +213,8 @@ PHASES = [
           "Read the failed check."),
     Phase("build_errors", "Save and summarise the BuildErrors file", run_build_errors, None,
           "Copy the file out of the temp folder by hand if it is still there. Then start at 'grants'."),
+    Phase("metadata", "Record the refresh time in the network metadata", run_metadata, None,
+          "Cosmetic only. The network is built. Rerun from this phase, or skip it by starting at 'grants'."),
     Phase("grants", "Grant PUBLIC SELECT on the new network", run_grants, None,
           "Rerun from this phase. It only grants what is missing."),
     Phase("audit_after", "Audit the registration tables (after)", run_audit_after, None,
@@ -219,6 +240,7 @@ FACT_PATTERNS = {
               r"(Edges|Junctions|Turns) \((source|user-defined)\)"],
     "verify_live": [r"VERIFICATION (PASSED|FAILED)", r"FAIL"],
     "build_errors": [r"errors and warnings", r"^\s+[\d,]+\s", r"Turns with errors", r"Compared with", r"->"],
+    "metadata": [r"Metadata (not )?updated", r"left as it was"],
     "grants": [r"Tables checked", r"^\s+GRANT SELECT", r"Verified", r"Nothing to grant"],
     "audit_after": [r"^\s+(N|ND)_\d+\s", r"pair:", r"missing a grant"],
     "topology": [r"errors_(point|line|poly)", r"Must (Not|Be) "],

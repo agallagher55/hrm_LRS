@@ -1,6 +1,6 @@
 # Handoff: current status
 
-**Last updated 2026-10-09 (evening: Teams chat with Robbie, Melanie and Ryan added; before that, the QA refresh checklist and the 2026-10-08 Road Network meeting).** Read this first, then follow the links for detail. Update it whenever
+**Last updated 2026-10-09 (late evening: third QA build and the network metadata stamp; earlier: Teams chat with Robbie, Melanie and Ryan, the QA refresh checklist and the 2026-10-08 Road Network meeting).** Read this first, then follow the links for detail. Update it whenever
 status changes (what is done, what is waiting, what to do next). The detailed history lives in
 `network_dataset/docs/network_build_status.md`; this file is the short version of where things are.
 
@@ -25,6 +25,35 @@ withdrawn on 2026-09-29, and a test guards against them being excluded.
 ## Distance network (QA)
 
 Done:
+- **Third build, the evening of 2026-10-09: the first full run of `run_qa_refresh.py` on live QA** (Alex, 16:30 to
+  16:40, figures from his output). It started after Melanie approved a refresh and after `LRS_updates.py` was run
+  by hand on the server, so Prod's view (18,670 rows, newest `MODDATE` 2026-10-09 17:29) has the 4 fixes Robbie
+  found. The previous QA edge source stopped at 2026-10-08 16:38. Results:
+  - Edge copy 18,595 of 18,670 (WA 61, islands 14, no transit rule), junctions 15,424, turns 1,238 raw remapped to
+    1,189 (49 skipped, 4.0%: 33 missing old geometry, 11 no shared endpoint, 5 unresolved edge). Staging and live
+    turn verification passed 10 of 10 checks both times. New class IDs: network 41039, edge 41034, junction 41035,
+    turn 41037, system junctions 41038. The build took 12 s and the create 10 s.
+  - **BuildErrors: 2 `Cannot find at junction` turns (was 5) and 1,156 standalone junction warnings** (1,153
+    before), 1,158 lines. File saved as `intermediate_results\BuildErrors_a0825b96-f4a9-4e2c-9e46-88f2f5ed671f.txt`.
+    Which 2 turns were rejected is not recorded (the old five were 686, 746, 747, 829 and 830). Read the file.
+    The built Edges, Junctions and Turns counts were not printed; read them from Network Dataset Properties.
+  - **Topology: points 4,081 (dangles 3,838, Must Not Intersect 241, Self-Intersect 2), lines 0, polygons 0.**
+    The 255 line errors from the morning (253 multipart, 1 overlap, 1 intersect) are gone, and dangles fell by 251
+    (3,838 against 4,089). The 4 segments from Robbie cannot explain that, so **ask Melanie and Ryan what changed in
+    the LRS** (a bulk fix to the multipart edges would, and so would a change in `LRS_updates.py`) and check the
+    topology errors in Pro before telling Robbie the multipart problem is solved.
+  - Grants applied to 7 tables (`N_3` and `ND_41039`), audit after: `N_3` 6 of 6 and `ND_41039` 2 of 2.
+  - **Smoke tests passed 52 of 52** (26 turns, 8 controls, 18 one way edges), through the owner's connection, so
+    the grants are not proven for a normal user this time. 34 blocked cases found a detour and 2 found no route
+    (`KAYE ST -> AGRICOLA ST` again, and the blocked direction of `SUNNYLEA RD`, which has no other way). Saved as
+    `scripts\qa_refresh\output\smoke_test_20261009_164008.csv`. The run report is `refresh_report_20261009_163046.md`
+    in the same folder. The committed template (with Directions in kilometres) created and built the network in
+    SDE, and the `TrafficTurn` setting from it passes the controls, so **the create from the committed template is
+    now proven**.
+  - The run printed everything and finished, then PyCharm showed exit code `0xC000013A` (Ctrl+C), which is the
+    console being stopped after the last phase and not a failure.
+  - Still to do: a route solve with directions on (check kilometres), an add-to-map test from a normal login,
+    reapplying Robbie's topology exceptions and telling him. QA now has all the fixes up to Prod's view at 17:29.
 - **Rebuilt again by script on 2026-10-09** through `qa_refresh` steps 00 to 07, from Prod's view with
   Melanie's 2026-10-08 fixes (Alex ran it, the figures are from his output). Edge copy 18,595 of Prod's 18,670
   (WA 61, islands 14, no transit rule), junctions 15,424, raw turns 1,238 remapped to 1,189 (49 skipped, 4.0%,
@@ -360,21 +389,13 @@ steps below still work and say what each phase does.
 
 ## Next steps, in order
 
-0. **Melanie said Alex can refresh QA (2026-10-09, evening).** That clears the rerun decision below: run
-   `run_qa_refresh.py` per the QA refresh checklist, then tell Robbie. Heads up for the run: Erin's QA route
-   extension (if not posted to Prod) will be lost, and the topology exceptions need reapplying afterward.
-   **Alex ran `LRS_updates.py` on the server the same evening and confirmed Prod's view has the 4 fixes**, so the
-   refresh can start from step 00.
-   **Smoke test connection (2026-10-09):** `RO_SDE` is now `None`, so the smoke test uses `config.QA_SDE`
-   (`E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde`, on the server, faster). It is the owner's login, so this run
-   does not prove the grants for a normal user (the 10-09 pass of 52 of 52 did, through GISRW01). Set `RO_SDE` for a
-   one off grants check, or open the network from a normal login in Pro.
-   Original note, from earlier the same day:
-   **Tuesday 2026-10-13 (after the long weekend):** the 2026-10-09 rebuild is finished, grants and smoke tests are
-   done, and Alex told the team QA was updated. Robbie then found 4 segments that Ryan and Melanie fixed the same
-   day (see the Teams chat section), so QA is behind Prod. Decide whether to rerun `run_qa_refresh.py` before
-   Robbie's retest, reapply his topology exceptions after it, and ask him whether he had `TrafficTurn` ticked
-   before the template fix. Also ask Ryan whether Erin's QA route extension reaches Prod.
+0. **QA was refreshed the evening of 2026-10-09 and has the 4 fixes** (see the third build above). Left from that:
+   tell Robbie QA is ready for his retest next week (and about the `TrafficTurn` defect, which was fixed on the
+   live network mid-afternoon, so ask which restrictions he had ticked when he tested); ask Melanie and Ryan why
+   the multipart and overlap errors dropped to zero; reapply Robbie's exceptions; confirm with Ryan that Erin's
+   QA route extension was posted to Prod (this refresh would have dropped it if not). Resolved: Melanie approved
+   the refresh, Ryan's and Melanie's fixes are all in Prod, and Prod's view was rebuilt by hand with
+   `LRS_updates.py`.
 1. **Finish the 2026-10-09 rebuild** (done apart from Robbie's exceptions): the rest of this item is the original
    plan, kept for the next refresh.
    Follow the QA refresh checklist above. Melanie's fixes are in Prod's view
@@ -428,6 +449,18 @@ steps below still work and say what each phase does.
   `claude/setup-lrs-repo-0S4rJ` (the repo's default branch). PRs #70, #71 and #72 are merged (#72 on
   2026-10-01, the HRFE scaffolding and Robbie's replies), so start the branch afresh from the base before
   new work.
+- **Running the refresh from the T: drive (learned 2026-10-09).** The preflight compares every deployed script
+  with `data\deploy_manifest.json`. Copy files with Explorer or `robocopy`, never by pasting through PyCharm: the
+  editor strips the final newline on save, and a pasted file once landed under the wrong name. The hash now ignores
+  the final newline, but the manifest and `deploy_check.py` must both be the current ones. Run `scripts\deploy_check.py`
+  on its own first: it lists every stale file without starting a refresh. The smoke test now uses the owner's
+  `E:\...\qa_RW_sdeadm.sde` connection by default (faster, on the server).
+- **Network metadata (written 2026-10-09, not run on live QA).** `network_metadata.py` writes a marked block at the
+  end of the network dataset's description: `Last rebuilt` (script 03 writes it after every build) and `Last
+  refreshed from Prod's TRNLRS_TRN_STREET_VW` (the QA refresh runner writes it in a new `metadata` phase, from the
+  time its copy phase finished). It never fails a build. Check in Pro (Catalog, the network dataset, Metadata) that
+  the block appears; `arcpy.metadata.Metadata` on a network dataset in SQL Server is unproven, and a failure only
+  logs a warning.
 - **BuildErrors files:** `Build Network` writes `BuildErrors_<guid>.txt` to the client's temp folder, in a numbered
   subfolder, for example `C:\Users\ALEX~1.GAL\AppData\Local\Temp\3\`, not the top level of `%TEMP%`. Windows
   cleans these up, so copy the file out the same day. The exact path is in the DEBUG log line `WARNING 030116: The

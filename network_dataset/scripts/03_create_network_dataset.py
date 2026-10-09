@@ -65,6 +65,7 @@ Run from ArcGIS Pro Python environment:
   > python network_dataset/scripts/03_create_network_dataset.py
 """
 
+import datetime
 import os
 import sys
 from pathlib import Path
@@ -73,6 +74,7 @@ import arcpy
 
 import edge_fields
 import network_definitions
+import network_metadata
 import network_exclusions
 from log_utils import setup_logger
 
@@ -174,7 +176,9 @@ def build_network(nd_path):
     """Build the network dataset after creation, and log the geoprocessing messages."""
     logger.info(f"Building network dataset: {nd_path}")
     arcpy.na.BuildNetwork(nd_path)
+    built_at = datetime.datetime.now()
     logger.info("Build complete.")
+    network_metadata.stamp(nd_path, logger, rebuilt=built_at)
 
     message_count = arcpy.GetMessageCount()
     severity_counts = {0: 0, 1: 0, 2: 0}  # 0=info, 1=warning, 2=error
