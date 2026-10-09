@@ -434,9 +434,32 @@ Nothing was changed; this is the state from the 2026-09-18 rebuild, confirmed by
   `qa_source_table_grants_20260929.csv` (no header rows; columns are `reg_group, table_count,
   example_table, tables_with_public_select` and `table_name, principal, permission_name`).
 
+## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-10-09)
+
+**Supersedes the 2026-09-29 entry below.** The network was deleted and recreated by script
+(`qa_refresh` steps 02, 03 and 06) with Melanie's 2026-10-08 LRS fixes. Granted with
+`qa_refresh\grant_network_access.py` (first run, `APPLY = True`, 2026-10-09 10:42) and checked with
+`audit_grants.py` (`grants_audit_after_20261009_104252.csv`).
+
+| Table set | Status |
+|---|---|
+| `N_1_*`, `N_2_*`, `ND_7293_*` | Unchanged and untouched (10/10, 6/6 and 2/2). |
+| `N_3_*` | `TRNLRS_street_network`. **Same ID reused again.** The audit showed 6 tables with 0 granted; **granted** `PUBLIC SELECT` on all 6. Now 6/6. |
+| `ND_41025_*` | `TRNLRS_street_network`'s new dirty-area pair, replacing `ND_40986`. Identified by the network dataset's own object class ID (`Describe(network).DSID` is 41025), not by elimination. The audit showed 2 tables with 1 granted (`DIRTYAREAS` already granted, the same unexplained pattern as before); **granted** `DIRTYOBJECTS`. Now 2/2. |
+| `ND_12010`, `ND_21268` (1/1), `ND_38752`, `ND_39207`, `ND_396` (1, 0 granted) | Known single-table orphans. Not touched. |
+
+**Source tables: nothing to grant, again.** The four checked (`TRNLRS_TRN_STREET`, `TRNLRS_street_junction`,
+`TRNLRS_traffic_turn` and the system junction class) already had `PUBLIC SELECT` after the recreation, as on
+2026-09-29. Object class IDs for this build: edge 41020, junction 41021, turn 41023, system junctions 41024.
+
+**Still open:** an OS-auth add-to-map and a Route solve to confirm the grants end to end (the
+script verifies them in SQL only). Dev and Prod, once built there.
+
+---
+
 ## Current status (QA, `ms-gis-sql-q21` / `GISRW01`, as of 2026-09-29)
 
-**Supersedes the 2026-09-18 entry and the pre-refresh snapshot above.** The network was deleted
+**Superseded by the 2026-10-09 entry above. Supersedes the 2026-09-18 entry and the pre-refresh snapshot.** The network was deleted
 and recreated by script (`qa_refresh` steps 02, 03 and 06) after the Prod 11.5 upgrade, so its
 registration tables were reassigned.
 

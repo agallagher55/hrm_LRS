@@ -42,9 +42,8 @@ Done:
   geometry (event behaviours alone would not close gaps), and whether Prod's view was refreshed after she posted.
 - Rebuilt by script on 2026-09-29 through `qa_refresh`: Edges 37,674, Junctions 16,187, Turns 1,184,
   five turns rejected at build. SQL grants applied (`N_3`, `ND_40986`).
-- **Still to do after the 2026-10-09 rebuild:** the SQL grants on the new registration IDs (the new `ND_` id is
-  probably `ND_41025`, one above the last class ID, as `ND_40986` was one above 40985; confirm with
-  `audit_grants.py`), the smoke tests, Robbie's topology exceptions, and telling Robbie QA is ready.
+- **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2). Left: an
+  OS-auth add-to-map and route solve, the smoke tests, Robbie's topology exceptions, and telling Robbie QA is ready.
 
 Open:
 - Smoke tests, a check that the LRS gap corrections really are in Prod's `TRNLRS_TRN_STREET_VW`, and
@@ -251,7 +250,9 @@ in `qa_refresh`, and stop on any failure.
 | 07 | `python 07_verify_live_turns.py` | Same verifier, against the live turn class after the swap. It should agree with step 05. |
 
 **After step 07**
-- [ ] **Re-apply the SQL grants** under the new registration IDs. The IDs come from step 06's build, so grant only
+- [x] **Done 2026-10-09 10:42:** `grant_network_access.py` granted 7 tables (`N_3` all 6 and `ND_41025_DIRTYOBJECTS`);
+  the four source tables already had the grant; `audit_grants.py` shows `N_3` 6/6 and `ND_41025` 2/2. Not yet
+  tested from an OS-auth account. Original step: **Re-apply the SQL grants** under the new registration IDs. The IDs come from step 06's build, so grant only
   now. Without them nobody can open the network. Run `qa_refresh\audit_grants.py` with `LABEL = "after"`: it
   runs the section 2b audit of `network_dataset_sql_permissions.md` through the QA connection and writes
   `grants_audit_after_<time>.csv` and `network_ids_after_<time>.csv` to `qa_refresh\output`. Expect `N_3` 6 of 6
