@@ -236,8 +236,8 @@ three hours ahead).
 - **Robbie tested and found 4 segments to fix** (13:18): 1 from network testing and 3 from the topology. So the
   topology is already catching real LRS problems. He put a shapefile at the root of his monthly folder (not
   inspected by Claude). Ryan looked at them the same day instead of waiting for Tuesday.
-- **All 4 are fixed (14:38):** Ryan fixed 2 and Melanie fixed 2, reconciled and posted. Melanie's are in Prod. Ryan's
-  "rec'd and posted" but Melanie could not say where he was editing, so whether they reached Prod is unconfirmed.
+- **All 4 are fixed (14:38):** Ryan fixed 2 and Melanie fixed 2, reconciled and posted. All 4 are in Prod (Melanie's
+  directly, and Alex confirmed Ryan's were in Prod too).
   Ryan also said one intersection needs to be redrawn or realigned so two intersections become one (two images, not
   seen). **These fixes landed after the 10:14 rebuild, so the QA network does not have them.**
 - Melanie wants to know **why these 4 were not found in the previous batch**. Likely answer to offer: the topology was
