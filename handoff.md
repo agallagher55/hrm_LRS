@@ -256,8 +256,11 @@ in `qa_refresh`, and stop on any failure.
   runs the section 2b audit of `network_dataset_sql_permissions.md` through the QA connection and writes
   `grants_audit_after_<time>.csv` and `network_ids_after_<time>.csv` to `qa_refresh\output`. Expect `N_3` 6 of 6
   and a new `ND_<id>` pair (2 tables) with no grant yet, which is the one to grant (the new class IDs in the
-  second file sit just below it). Grant per `network_dataset_sql_permissions.md`, then run the script again to
-  confirm. It is read only and untested on live QA (written 2026-10-09).
+  second file sit just below it). Grant per `network_dataset_sql_permissions.md`, or run
+  `qa_refresh\grant_network_access.py` (a dry run until `APPLY = True`; it grants only what is missing and
+  re-checks), then run `audit_grants.py` again to confirm. Both are untested on live QA (written 2026-10-09).
+  Result on 2026-10-09: the audit showed `N_3` 0 of 6 and `ND_41025` 1 of 2, and the network dataset's DSID is
+  41025, so `ND_41025` is the network's pair.
 - [x] Ran `python ..\07_create_topology.py` on 2026-10-09 (numbers above). [ ] Still to do: reapply Robbie's
   exceptions (step 02 deleted the topology).
 - [x] BuildErrors file saved and read on 2026-10-09: 5 `Cannot find at junction` (the same 5 turns) and 1,153
