@@ -42,30 +42,39 @@ Done:
   geometry (event behaviours alone would not close gaps), and whether Prod's view was refreshed after she posted.
 - Rebuilt by script on 2026-09-29 through `qa_refresh`: Edges 37,674, Junctions 16,187, Turns 1,184,
   five turns rejected at build. SQL grants applied (`N_3`, `ND_40986`).
-- **Smoke test ran 2026-10-09 11:39 and all 44 cases passed** (`smoke_test_network.py`, through an OS
-  authentication login to `ms-gis-sql-q21` / `GISRW01`, so the grants are proven for a non-owner: it opened the
-  network and solved routes). 26 prohibited turns (including `QUINPOOL RD -> ROBIE ST`) and 18 one way edges
-  (8 `FOTD`, 2 `FDTO` including `BISHOP ST`, 8 `BOTH`). **Caveat:** in all 36 cases where a route was
-  blocked the solver found no route at all, not a detour, and `CLAUDE.md` records a detour for `QUINPOOL RD ->
-  ROBIE ST` on 2026-09-01. A rerun at 12:02 with the no-detour report confirmed it: 0 of 36 found a detour, and
-  all 36 said `ERROR 030212: Solve did not find a solution`, so the solver is not failing for another reason.
-  **Confirmed by the control check (12:29): the template's `TrafficTurn` evaluators are wrong.** All 8
-  ordinary T junction moves failed with the restrictions on (0 of 8), so with `TrafficTurn` ticked no route
-  can turn a corner. Cause: the template re-exported on 2026-09-18 has the Turn default restricted (true) and no
-  evaluator for the `TRNLRS_traffic_turn` source, while the original design (`network_build_status.md`) and the
-  July template were Constant True on the turn source and False on every default. The 36 "no route" results are
-  that, not working restrictions, and the QA network built on 2026-10-09 (and the 09-29 one) carries the defect.
-  Anyone who ticked `TrafficTurn` got no turning routes, and anyone who did not got no turn restrictions.
-  **Fix written 2026-10-09, not yet applied to the live network:** the template now restores the original
-  evaluators (a test guards them). To fix QA without a full rebuild: Network Dataset Properties, Travel
-  Attributes, Restrictions, `TrafficTurn`, Evaluators, Turns: set `TRNLRS_traffic_turn` to Constant Restricted
-  and `<Default>` to Constant Not restricted, apply, then Build Network with Force Full Build (about 15 s). Then
-  rerun `smoke_test_network.py`: the controls should pass and the prohibited turns should show detours. Then
-  export the live network's template and check its `TrafficTurn` assignments match the committed template
-  (the XML edit has not been proven by a create from template).
-- **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2) and the smoke
-  tests passed. Left: a route solve with directions on (the smoke test does not cover Directions), the QUINPOOL
-  check above, Robbie's topology exceptions, and telling Robbie QA is ready.
+- **Smoke test passed 52 of 52 on 2026-10-09 at 14:34, after fixing a template defect it found**
+  (`smoke_test_network.py`, through an OS authentication login to `ms-gis-sql-q21` / `GISRW01`, so the grants are
+  proven for a non-owner too). Saved as `intermediate_results\smoke_test_20261009_143441.csv`. The story:
+  - 11:39 first run: 44 of 44 passed, but all 36 blocked cases ended in "no route" and none in a detour.
+  - 12:02 rerun with the no-detour report: the same, all `ERROR 030212`.
+  - 12:29 rerun with the positive control: 0 of 8 ordinary T junction moves worked with the restrictions on.
+    The `TrafficTurn` Turn default evaluator was restricted (true) with no turn source evaluator, from the
+    template re-exported on 2026-09-18, so no route could turn a corner. The original design (and the July
+    template) was Constant True on `TRNLRS_traffic_turn` and Constant False on every default. Both the 09-29 and
+    10-09 networks had the defect.
+  - Fix: the template was corrected and guarded by `tests/test_network_template.py` (PR #99), and the live QA
+    network was fixed in Properties (turn source True, default False) with a Force Full Build.
+  - 14:34 rerun: 8 of 8 controls work, 35 of 36 blocked cases found a detour (for example `QUINPOOL RD ->
+    ROBIE ST`, 799 m against 194 m direct) and 1 found no route (`KAYE ST -> AGRICOLA ST`, edges 9839 -> 9983,
+    plausibly a spur or dead end, not looked at), and all 18 one way edges behave (`BISHOP ST` included).
+  - The rebuild's BuildErrors file is `intermediate_results\BuildErrors_9bf10ace-c5e5-488f-85b1-15af29dd41fc.txt`:
+    the same 5 turns rejected and 1,155 standalone junction warnings (two more than the earlier build: junction
+    OIDs 14552 and 14973; cause unknown).
+- **Template round trip checked 2026-10-09:** an export of the live network (fixed in Properties, then exported
+  with `CreateTemplateFromNetworkDataset`) is character for character the same as the committed
+  `network_template.xml` (22,303 characters each) apart from the run specific values: `DSID`, the four `ClassID`s,
+  the extent `YMin` and `BuildTime`. So the committed `TrafficTurn` edit is exactly what Pro writes for those
+  settings, and Directions, the Python evaluators and the network name all survive. Not done: an actual create from
+  the committed template (the only part still unproven, and it is the same form Pro wrote). The export had
+  Directions in miles (`DefaultOutputLengthUnits esriNAUMiles`). Alex wants kilometres (2026-10-09), so the
+  committed template now says `esriNAUKilometers` (a test guards it). That is the only difference from the live
+  network's export now. The live network still has miles until it is rebuilt from the template, and Pro's Directions
+  tab does not show this setting, so for now set the distance units on the route layer (Properties, Directions)
+  when solving. Check what a solve reports before relying on either.
+- **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2), the smoke
+  tests pass and the template matches the live network. Left: a route solve with directions on (check the
+  units come out in kilometres), Robbie's topology exceptions, and telling Robbie QA is ready (and that `TrafficTurn` was broken before
+  today).
 
 Open:
 - Smoke tests, a check that the LRS gap corrections really are in Prod's `TRNLRS_TRN_STREET_VW`, and
@@ -300,10 +309,10 @@ steps below still work and say what each phase does.
   exceptions (step 02 deleted the topology).
 - [x] BuildErrors file saved and read on 2026-10-09: 5 `Cannot find at junction` (the same 5 turns) and 1,153
   `Standalone user-defined junction` warnings (up from 1,133), nothing else. Fewer was the hoped-for result.
-- [x] Smoke tests: `qa_refresh\smoke_test_network.py` ran on 2026-10-09 (after two fixes: a connection to the wrong
-  server, `ms-gis-sql-q22` / `GISRO01`, and a route layer name clash) and passed 44 of 44, all as "no route" for the
-  blocked cases (see the caveat at the top). It is the last phase of `run_qa_refresh.py`. Still by hand: a route
-  solve with directions on, and an add-to-map in Pro.
+- [x] Smoke tests: `qa_refresh\smoke_test_network.py` passed 52 of 52 on 2026-10-09 at 14:34 (after fixes to a wrong
+  server connection, a route layer name clash and the `TrafficTurn` template defect it found; see the top of this
+  file). It is the last phase of `run_qa_refresh.py`. Still by hand: a route solve with directions on, and an
+  add-to-map in Pro.
 - [x] Directions checked on the live network on 2026-10-09: Support Directions ticked, Base Name `STR_NAME`,
   Suffix Type `STR_TYPE`, Full Name `FULL_NAME`, Default Length Attribute `Length`. The Directions create from
   the committed template is now proven in SDE. A route solve that returns directions is still to be tried.

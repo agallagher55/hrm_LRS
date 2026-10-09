@@ -1,5 +1,5 @@
 """
-Guards for the TrafficTurn evaluators in the committed network template. They need no ArcGIS.
+Guards for the TrafficTurn evaluators and the Directions units in the committed network template. They need no ArcGIS.
 
 A template re-exported on 2026-09-18 had the Turn default evaluator set to restricted and no
 evaluator for the turn source. With TrafficTurn ticked in a travel mode that restricts every turn,
@@ -75,6 +75,12 @@ class TrafficTurnTemplateTests(unittest.TestCase):
         restricted = [item for item in traffic_turn_assignments(rendered) if item[3] == "true"]
 
         self.assertEqual([item[1] for item in restricted], ["TRNLRS_traffic_turn_HRFE"])
+
+    def test_directions_report_in_kilometres(self):
+        root = ElementTree.fromstring(self.text.encode("utf-8"))
+
+        self.assertEqual(root.findtext("./NetworkDirections/DefaultOutputLengthUnits"), "esriNAUKilometers")
+        self.assertEqual(root.findtext("./NetworkDirections/LengthAttributeName"), "Length")
 
     def test_the_template_is_still_well_formed_and_python(self):
         ElementTree.fromstring(self.text.encode("utf-8"))
