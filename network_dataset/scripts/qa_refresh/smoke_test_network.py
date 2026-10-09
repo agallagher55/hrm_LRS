@@ -15,9 +15,11 @@ Because the stops come from the network's edges there are no coordinates to main
 SKIPPED, not passed, when the unrestricted route is not the direct one (a short edge, a snapping
 oddity), so a pass always means the restriction made the difference.
 
-Set RO_SDE to the connection file of a login that is not SDEADM. Then the run also proves that
-the grants let a normal user open the network and solve, which a SQL check cannot. With RO_SDE
-unset it uses the SDEADM connection and says so, since an owner can open anything.
+Set RO_SDE to the connection file of a login that is not SDEADM, pointing at the QA database
+(ms-gis-sql-q21, GISRW01). Then the run also proves that the grants let a normal user open the
+network and solve, which a SQL check cannot. With RO_SDE unset it uses the SDEADM connection and
+says so, since an owner can open anything. If the network cannot be opened it says what the
+connection can see, so a file for another server or database is easy to spot.
 
 It reads QA and creates only temporary layers. The stops are written to the memory workspace.
 Written 2026-10-09 and not yet run on live QA: the arcpy.na calls are the likeliest place for a
@@ -73,6 +75,50 @@ def network_paths(sde):
         "edge": os.path.join(folder, "SDEADM." + definition.edge_name),
         "turn": os.path.join(folder, "SDEADM." + definition.turn_name),
     }
+
+
+def connection_summary(connection):
+    """What the connection file says about itself: instance, database and login."""
+    properties = getattr(arcpy.Describe(connection), "connectionProperties", None)
+    parts = []
+
+    for name in ("instance", "database", "authentication_mode", "user"):
+        value = getattr(properties, name, None)
+
+        if value:
+            parts.append(f"{name}: {value}")
+
+    return ", ".join(parts) or "the connection file does not say (operating system login?)"
+
+
+def explain_missing_network(connection, paths):
+    """Say why the network cannot be opened, from what the connection can see."""
+    arcpy.env.workspace = connection
+    datasets = arcpy.ListDatasets() or []
+    feature_dataset = config.NETWORK_DEF.feature_dataset
+    message = [
+        f"Cannot open the network dataset through this connection: {paths['network']}",
+        f"The connection is: {connection_summary(connection)}",
+        f"QA is {config.QA_SDE}. If the instance or database above is not the QA one, the file points somewhere else.",
+    ]
+
+    if not datasets:
+        message.append(
+            "This login sees no feature datasets at all: the wrong database, or no SELECT permission on them."
+        )
+    elif feature_dataset.upper() not in [name.upper() for name in datasets]:
+        message.append(
+            f"It sees {len(datasets)} feature datasets but not {feature_dataset}: probably a different or "
+            "older copy of the database that does not have the rebuilt network (for example a read only copy). "
+            f"Seen: {', '.join(datasets[:10])}"
+        )
+    else:
+        message.append(
+            f"It sees {feature_dataset} but cannot open the network inside it: the grants are the likely cause. "
+            "Run audit_grants.py and grant_network_access.py against QA."
+        )
+
+    return "\n".join(message)
 
 
 def load_edges(edge_fc):
@@ -321,15 +367,16 @@ def write_csv(path, results):
 def main():
     connection = RO_SDE or config.QA_SDE
     paths = network_paths(connection)
-    user = getattr(getattr(arcpy.Describe(connection), "connectionProperties", None), "user", "unknown")
-    print(f"Network: {NETWORK_KEY}; connection: {connection}; user: {user}")
+    user = getattr(getattr(arcpy.Describe(connection), "connectionProperties", None), "user", "")
+    print(f"Network: {NETWORK_KEY}; connection: {connection}")
+    print(f"Connection details: {connection_summary(connection)}")
 
     if not RO_SDE or str(user).upper() == "SDEADM":
         print("WARNING: this is the owner's connection, so it does not prove the grants work for other users. "
               "Set RO_SDE to a connection file for a normal login.")
 
     if not arcpy.Exists(paths["network"]):
-        raise RuntimeError(f"Cannot open the network dataset through this connection: {paths['network']}")
+        raise RuntimeError(explain_missing_network(connection, paths))
 
     arcpy.CheckOutExtension("Network")
     edges = load_edges(paths["edge"])
