@@ -42,8 +42,17 @@ Done:
   geometry (event behaviours alone would not close gaps), and whether Prod's view was refreshed after she posted.
 - Rebuilt by script on 2026-09-29 through `qa_refresh`: Edges 37,674, Junctions 16,187, Turns 1,184,
   five turns rejected at build. SQL grants applied (`N_3`, `ND_40986`).
-- **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2). Left: an
-  OS-auth add-to-map and route solve, the smoke tests, Robbie's topology exceptions, and telling Robbie QA is ready.
+- **Smoke test ran 2026-10-09 11:39 and all 44 cases passed** (`smoke_test_network.py`, through an OS
+  authentication login to `ms-gis-sql-q21` / `GISRW01`, so the grants are proven for a non-owner: it opened the
+  network and solved routes). 26 prohibited turns (including `QUINPOOL RD -> ROBIE ST`) and 18 one way edges
+  (8 `FOTD`, 2 `FDTO` including `BISHOP ST`, 8 `BOTH`). **Caveat:** in all 36 cases where a route was
+  blocked the solver found no route at all, not a detour, and `CLAUDE.md` records a detour for `QUINPOOL RD ->
+  ROBIE ST` on 2026-09-01. Check that one case by hand in Pro (route from the middle of edge 9146 to the middle
+  of edge 9748 with `OneWay` and `TrafficTurn` ticked). A detour there means the script mishandles something;
+  no route there too would mean the mid edge stops have no way round.
+- **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2) and the smoke
+  tests passed. Left: a route solve with directions on (the smoke test does not cover Directions), the QUINPOOL
+  check above, Robbie's topology exceptions, and telling Robbie QA is ready.
 
 Open:
 - Smoke tests, a check that the LRS gap corrections really are in Prod's `TRNLRS_TRN_STREET_VW`, and
@@ -263,8 +272,8 @@ steps below still work and say what each phase does.
 
 **After step 07**
 - [x] **Done 2026-10-09 10:42:** `grant_network_access.py` granted 7 tables (`N_3` all 6 and `ND_41025_DIRTYOBJECTS`);
-  the four source tables already had the grant; `audit_grants.py` shows `N_3` 6/6 and `ND_41025` 2/2. Not yet
-  tested from an OS-auth account. Original step: **Re-apply the SQL grants** under the new registration IDs. The IDs come from step 06's build, so grant only
+  the four source tables already had the grant; `audit_grants.py` shows `N_3` 6/6 and `ND_41025` 2/2. Tested
+  from an OS-auth account on 2026-10-09 by the smoke test (opened the network and solved). Original step: **Re-apply the SQL grants** under the new registration IDs. The IDs come from step 06's build, so grant only
   now. Without them nobody can open the network. Run `qa_refresh\audit_grants.py` with `LABEL = "after"`: it
   runs the section 2b audit of `network_dataset_sql_permissions.md` through the QA connection and writes
   `grants_audit_after_<time>.csv` and `network_ids_after_<time>.csv` to `qa_refresh\output`. Expect `N_3` 6 of 6
@@ -278,10 +287,10 @@ steps below still work and say what each phase does.
   exceptions (step 02 deleted the topology).
 - [x] BuildErrors file saved and read on 2026-10-09: 5 `Cannot find at junction` (the same 5 turns) and 1,153
   `Standalone user-defined junction` warnings (up from 1,133), nothing else. Fewer was the hoped-for result.
-- [ ] Smoke tests: run `qa_refresh\smoke_test_network.py` (set `RO_SDE` to a normal login's connection file; it
-  tests the one way codes and a sample of prohibited turns, including `QUINPOOL RD -> ROBIE ST`, and is the last
-  phase of `run_qa_refresh.py`). Written 2026-10-09, not yet run, so expect a small fix. Still by hand: an
-  OS-auth add-to-map and a route solve with directions on.
+- [x] Smoke tests: `qa_refresh\smoke_test_network.py` ran on 2026-10-09 (after two fixes: a connection to the wrong
+  server, `ms-gis-sql-q22` / `GISRO01`, and a route layer name clash) and passed 44 of 44, all as "no route" for the
+  blocked cases (see the caveat at the top). It is the last phase of `run_qa_refresh.py`. Still by hand: a route
+  solve with directions on, and an add-to-map in Pro.
 - [x] Directions checked on the live network on 2026-10-09: Support Directions ticked, Base Name `STR_NAME`,
   Suffix Type `STR_TYPE`, Full Name `FULL_NAME`, Default Length Attribute `Length`. The Directions create from
   the committed template is now proven in SDE. A route solve that returns directions is still to be tried.
