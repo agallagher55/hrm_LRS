@@ -65,11 +65,15 @@ Done:
   `network_template.xml` (22,303 characters each) apart from the run specific values: `DSID`, the four `ClassID`s,
   the extent `YMin` and `BuildTime`. So the committed `TrafficTurn` edit is exactly what Pro writes for those
   settings, and Directions, the Python evaluators and the network name all survive. Not done: an actual create from
-  the committed template (the only part still unproven, and it is the same form Pro wrote). Directions default
-  to miles (`DefaultOutputLengthUnits esriNAUMiles`), which may not be wanted.
+  the committed template (the only part still unproven, and it is the same form Pro wrote). The export had
+  Directions in miles (`DefaultOutputLengthUnits esriNAUMiles`). Alex wants kilometres (2026-10-09), so the
+  committed template now says `esriNAUKilometers` (a test guards it). That is the only difference from the live
+  network's export now. The live network still has miles until it is rebuilt from the template, and Pro's Directions
+  tab does not show this setting, so for now set the distance units on the route layer (Properties, Directions)
+  when solving. Check what a solve reports before relying on either.
 - **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2), the smoke
-  tests pass and the template matches the live network. Left: a route solve with directions on (and the miles
-  default), Robbie's topology exceptions, and telling Robbie QA is ready (and that `TrafficTurn` was broken before
+  tests pass and the template matches the live network. Left: a route solve with directions on (check the
+  units come out in kilometres), Robbie's topology exceptions, and telling Robbie QA is ready (and that `TrafficTurn` was broken before
   today).
 
 Open:
