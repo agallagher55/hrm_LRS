@@ -21,7 +21,7 @@ sys.path.insert(0, str(SCRIPTS / "tests"))
 from test_network_definitions import load_script  # noqa: E402
 
 KEYS = ["preflight", "backup", "audit_before", "delete", "copy", "remap", "verify_staging",
-        "build", "verify_live", "build_errors", "grants", "audit_after", "topology", "smoke"]
+        "build", "verify_live", "build_errors", "metadata", "grants", "audit_after", "topology", "smoke"]
 
 STEP_FILES = {
     "00_confirm_sources.py": "preflight",
@@ -83,6 +83,8 @@ class RunnerTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.output = Path(self.folder.name)
         self.printed = []
+        self.stamped = []
+        self.fake_metadata = types.SimpleNamespace(stamp=self.fake_stamp)
         self.answers = []
         self.asked = []
 
@@ -94,9 +96,16 @@ class RunnerTests(unittest.TestCase):
             mock.patch.object(self.module, "START_AT", None),
             mock.patch.object(self.module, "STOP_AFTER", None),
             mock.patch.object(self.module, "NETWORK", "DISTANCE"),
+            mock.patch.object(self.module, "network_metadata", self.fake_metadata),
+            mock.patch.object(self.module, "COPY_FINISHED", None),
         ):
             patcher.start()
             self.addCleanup(patcher.stop)
+
+    def fake_stamp(self, path, logger=None, rebuilt=None, refreshed=None):
+        self.stamped.append((path, rebuilt, refreshed))
+
+        return True
 
     def fake_ask(self, prompt):
         self.asked.append(prompt)
@@ -125,6 +134,20 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(len(files), 1)
 
         return files[0].read_text(encoding="utf-8")
+
+    def test_the_metadata_phase_records_the_copy_time_after_a_full_run(self):
+        self.run_main(FakeSteps())
+
+        self.assertEqual(len(self.stamped), 1)
+        path, rebuilt, refreshed = self.stamped[0]
+        self.assertEqual(path, self.module.config.NETWORK)
+        self.assertIsNone(rebuilt)
+        self.assertIsNotNone(refreshed)
+
+    def test_a_run_that_resumes_after_the_copy_leaves_the_refresh_time_alone(self):
+        self.run_main(FakeSteps(), START_AT="verify_live")
+
+        self.assertEqual(self.stamped, [])
 
     def test_the_phase_keys_are_what_the_tests_expect(self):
         self.assertEqual([phase.key for phase in self.module.PHASES], KEYS)
