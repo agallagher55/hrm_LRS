@@ -222,7 +222,7 @@ FACT_PATTERNS = {
     "grants": [r"Tables checked", r"^\s+GRANT SELECT", r"Verified", r"Nothing to grant"],
     "audit_after": [r"^\s+(N|ND)_\d+\s", r"pair:", r"missing a grant"],
     "topology": [r"errors_(point|line|poly)", r"Must (Not|Be) "],
-    "smoke": [r"^\s+(turn|oneway)\s+(PASS|FAIL|SKIP|ERROR)", r"^\s+(FAIL|ERROR)\s", r"testable cases passed", r"WARNING: this is the owner"],
+    "smoke": [r"^\s+(turn|oneway)\s+(PASS|FAIL|SKIP|ERROR)", r"^\s+(FAIL|ERROR)\s", r"testable cases passed", r"WARNING: this is the owner", r"Blocked cases:", r"WARNING: no case found a detour"],
 }
 
 TIMESTAMP_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \| \w+ \| ")

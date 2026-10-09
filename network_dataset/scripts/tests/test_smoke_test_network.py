@@ -53,8 +53,11 @@ class FakeSolver:
     def close(self):
         self.closed = True
 
+    NO_SOLUTION = "ERROR 030212: Solve did not find a solution."
+
     def length(self, points, restricted):
         self.calls.append((points, restricted))
+        self.last_message = ""
         a, b = points
 
         if a[0] == b[0]:
@@ -64,12 +67,16 @@ class FakeSolver:
             blocked = (code == "FOTD" and going_back) or (code == "FDTO" and not going_back)
 
             if restricted and blocked and not self.one_way_leaks:
+                self.last_message = self.NO_SOLUTION if self.none_when_blocked else ""
+
                 return None if self.none_when_blocked else 400.0
 
             return 50.0
 
         # Two stops on different edges: the direct route through the junction is 100 m here.
         if restricted and not self.drives_through:
+            self.last_message = self.NO_SOLUTION if self.none_when_blocked else ""
+
             return None if self.none_when_blocked else self.detour
 
         return 100.0
@@ -310,6 +317,93 @@ class ExplainTests(unittest.TestCase):
         self.assertIn("sees no feature datasets", str(error.exception))
 
 
+class OutcomeTests(unittest.TestCase):
+
+    def setUp(self):
+        self.module = load_script("qa_refresh/smoke_test_network.py", None)
+        self.edges = make_edges(self.module, [
+            (1, "BOTH", "QUINPOOL RD", 100.0, 1), (2, "BOTH", "ROBIE ST", 100.0, 1),
+            (5, "FOTD", "ONE WAY ST", 100.0, 1), (7, "FDTO", "FDTO ST", 100.0, 1), (8, "BOTH", "TWO WAY ST", 100.0, 1),
+        ])
+
+    def turn(self, solver):
+        return self.module.run_turn_checks(solver, [("t", 1, 2)], self.edges, [])[0]
+
+    def oneway(self, solver, code="FOTD", edge=5):
+        return self.module.run_oneway_checks(solver, {code: [self.edges[edge]]})[0]
+
+    def test_a_detour_is_labelled_a_detour(self):
+        result = self.turn(FakeSolver())
+
+        self.assertEqual((result.verdict, result.outcome, result.message), ("PASS", "detour", ""))
+
+    def test_no_route_is_labelled_with_the_solvers_message(self):
+        result = self.turn(FakeSolver(none_when_blocked=True))
+
+        self.assertEqual((result.verdict, result.outcome), ("PASS", "no route"))
+        self.assertIn("030212", result.message)
+
+    def test_a_failed_case_has_no_outcome(self):
+        result = self.turn(FakeSolver(drives_through=True))
+
+        self.assertEqual((result.verdict, result.outcome), ("FAIL", ""))
+
+    def test_one_way_outcomes(self):
+        self.assertEqual(self.oneway(FakeSolver(codes=codes_of(self.edges))).outcome, "detour")
+        self.assertEqual(self.oneway(FakeSolver(codes=codes_of(self.edges), none_when_blocked=True)).outcome, "no route")
+        self.assertEqual(self.oneway(FakeSolver(codes=codes_of(self.edges)), "BOTH", 8).outcome, "straight")
+
+    def test_the_message_for_a_one_way_is_the_blocked_directions(self):
+        solver = FakeSolver(codes=codes_of(self.edges), none_when_blocked=True)
+
+        result = self.oneway(solver, "FDTO", 7)
+
+        self.assertEqual(result.outcome, "no route")
+        self.assertIn("030212", result.message)
+
+    def test_no_blocked_cases_gives_no_report(self):
+        self.assertEqual(self.module.detour_report([]), [])
+        self.assertEqual(self.module.detour_report([self.module.Result("oneway", "x", "PASS", "d", "straight")]), [])
+
+    def test_the_report_counts_detours_and_no_routes(self):
+        Result = self.module.Result
+        results = [
+            Result("turn", "a", "PASS", "", "detour"),
+            Result("turn", "b", "PASS", "", "no route", "ERROR 030212: x"),
+            Result("turn", "c", "PASS", "", "no route", "ERROR 030212: x"),
+        ]
+
+        text = "\n".join(self.module.detour_report(results))
+
+        self.assertIn("1 found a detour, 2 found no route at all", text)
+        self.assertIn("2 x solver said: ERROR 030212: x", text)
+        self.assertNotIn("WARNING", text)
+
+    def test_the_report_warns_when_no_case_found_a_detour(self):
+        Result = self.module.Result
+        results = [Result("turn", str(n), "PASS", "", "no route", "ERROR 030212: x") for n in range(3)]
+
+        text = "\n".join(self.module.detour_report(results))
+
+        self.assertIn("WARNING: no case found a detour", text)
+        self.assertIn("QUINPOOL RD -> ROBIE ST", text)
+
+    def test_a_missing_solver_message_is_said_so(self):
+        Result = self.module.Result
+
+        text = "\n".join(self.module.detour_report([Result("turn", "a", "PASS", "", "no route")]))
+
+        self.assertIn("the solver gave no message", text)
+
+    def test_condense_keeps_only_error_and_warning_lines(self):
+        messages = "Start Time: Friday\nERROR 030212: Solve did not find a solution.\nWARNING 030158: x\nSucceeded"
+
+        self.assertEqual(
+            self.module.condense_messages(messages),
+            "ERROR 030212: Solve did not find a solution. | WARNING 030158: x",
+        )
+
+
 class FakeNetworkAnalyst:
     """A stand-in for arcpy that behaves like the real one about layer names and route layers."""
 
@@ -429,6 +523,7 @@ class RouteSolverTests(unittest.TestCase):
         module, fake, solver = self.make(no_route=True)
 
         self.assertIsNone(solver.length(["a", "b"], True))
+        self.assertIn("030212", solver.last_message)
 
         fake.messages = "ERROR 000000: something else"
         fake.no_route = False
@@ -441,6 +536,14 @@ class RouteSolverTests(unittest.TestCase):
 
         with self.assertRaises(module.arcpy.ExecuteError):
             solver.length(["a", "b"], True)
+
+    def test_the_message_is_cleared_by_the_next_solve(self):
+        module, fake, solver = self.make(no_route=True)
+        solver.length(["a", "b"], True)
+        fake.no_route = False
+
+        self.assertEqual(solver.length(["a", "b"], True), 50.0)
+        self.assertEqual(solver.last_message, "")
 
     def test_close_removes_the_layers(self):
         module, fake, solver = self.make()
@@ -503,9 +606,28 @@ class MainTests(unittest.TestCase):
         with open(files[0], newline="", encoding="utf-8") as csv_file:
             rows = list(csv.reader(csv_file))
 
-        self.assertEqual(rows[0], ["check", "case", "verdict", "detail"])
+        self.assertEqual(rows[0], ["check", "case", "verdict", "detail", "outcome", "message"])
         self.assertTrue(all(row[2] in ("PASS", "SKIP") for row in rows[1:]))
         self.assertEqual(sum(row[2] == "PASS" for row in rows[1:]), 6)
+
+    def test_the_summary_warns_when_every_blocked_case_had_no_route(self):
+        error, text, directory = self.run_main(FakeSolver(none_when_blocked=True))
+
+        self.assertIsNone(error)
+        self.assertIn("Blocked cases: 0 found a detour", text)
+        self.assertIn("WARNING: no case found a detour", text)
+
+        with open(next(directory.glob("smoke_test_*.csv")), newline="", encoding="utf-8") as csv_file:
+            rows = list(csv.reader(csv_file))
+
+        self.assertIn("no route", [row[4] for row in rows[1:]])
+        self.assertTrue(any("030212" in row[5] for row in rows[1:]))
+
+    def test_the_summary_does_not_warn_when_detours_are_found(self):
+        _, text, _ = self.run_main(FakeSolver())
+
+        self.assertIn("found a detour", text)
+        self.assertNotIn("WARNING: no case found a detour", text)
 
     def test_a_failure_raises_after_listing_the_cases(self):
         error, text, _ = self.run_main(FakeSolver(drives_through=True))

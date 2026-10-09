@@ -31,7 +31,7 @@ import csv
 import datetime
 import os
 import random
-from collections import namedtuple
+from collections import Counter, namedtuple
 
 import arcpy
 
@@ -63,7 +63,9 @@ TOLERANCE = 3.0
 SEARCH_TOLERANCE = "20 Meters"
 
 Edge = namedtuple("Edge", "oid str_dir name length parts shape")
-Result = namedtuple("Result", "check case verdict detail")
+# outcome says how a blocked case ended: "detour", "no route" or, for a two way edge, "straight".
+# message is what the solver said when it found no route.
+Result = namedtuple("Result", "check case verdict detail outcome message", defaults=("", ""))
 
 
 def network_paths(sde):
@@ -253,6 +255,7 @@ class RouteSolver:
         self.spatial_reference = spatial_reference
         self.stops = None
         self.layers = {}
+        self.last_message = ""
 
     def make_stops(self, points):
         if self.stops is None:
@@ -283,7 +286,11 @@ class RouteSolver:
         return self.layers[restricted]
 
     def length(self, points, restricted):
-        """Route length in metres between the points in order, or None when there is no route."""
+        """Route length in metres between the points in order, or None when there is no route.
+
+        When there is none, last_message holds what the solver said.
+        """
+        self.last_message = ""
         self.make_stops(points)
         layer = self.layer_for(restricted)
         names = arcpy.na.GetNAClassNames(layer)
@@ -298,6 +305,8 @@ class RouteSolver:
             messages = arcpy.GetMessages()
 
             if "030212" in messages or "no solution" in messages.lower():
+                self.last_message = condense_messages(messages)
+
                 return None
 
             raise
@@ -317,11 +326,31 @@ class RouteSolver:
                 pass
 
 
+def condense_messages(messages):
+    """Only the ERROR and WARNING lines of a geoprocessing message, on one line."""
+    lines = [line.strip() for line in str(messages).splitlines() if line.strip().upper().startswith(("ERROR", "WARNING"))]
+
+    return " | ".join(lines) or str(messages).strip().replace("\n", " | ")
+
+
+def solver_message(solver):
+    """What the solver said about its last solve. Fakes in the tests may not have it."""
+    return getattr(solver, "last_message", "") or ""
+
+
 def one_line(error):
     """An exception as one line, so a multi line arcpy message does not swamp the output."""
     lines = [line.strip() for line in str(error).splitlines() if line.strip()]
 
     return f"{type(error).__name__}: " + " | ".join(lines)
+
+
+def blocked_outcome(verdict, restricted_length):
+    """How a passing blocked case ended: a detour was found, or there was no route at all."""
+    if verdict != "PASS":
+        return ""
+
+    return "no route" if restricted_length is None else "detour"
 
 
 def run_turn_checks(solver, chosen, edges, not_found):
@@ -334,11 +363,13 @@ def run_turn_checks(solver, chosen, edges, not_found):
             direct = a.length / 2 + b.length / 2
             unrestricted = solver.length(points, False)
             restricted = solver.length(points, True) if same(unrestricted, direct) else None
+            message = solver_message(solver) if restricted is None else ""
             verdict, detail = judge_turn(direct, unrestricted, restricted)
+            outcome = blocked_outcome(verdict, restricted)
         except Exception as error:  # noqa: BLE001 one odd case must not stop the others
-            verdict, detail = "ERROR", one_line(error)
+            verdict, detail, outcome, message = "ERROR", one_line(error), "", ""
 
-        results.append(Result("turn", label, verdict, detail))
+        results.append(Result("turn", label, verdict, detail, outcome, message))
 
     return results
 
@@ -355,21 +386,25 @@ def run_oneway_checks(solver, by_code):
                 b = edge.shape.positionAlongLine(0.75, True)
                 half = edge.length / 2
                 forward = solver.length([a, b], True)
+                forward_message = solver_message(solver)
                 backward = solver.length([b, a], True)
+                backward_message = solver_message(solver)
 
                 if code == "FOTD":
-                    allowed, blocked, blocked_points = forward, backward, [b, a]
+                    allowed, blocked, blocked_points, message = forward, backward, [b, a], backward_message
                 elif code == "FDTO":
-                    allowed, blocked, blocked_points = backward, forward, [a, b]
+                    allowed, blocked, blocked_points, message = backward, forward, [a, b], forward_message
                 else:
-                    allowed, blocked, blocked_points = forward, backward, None
+                    allowed, blocked, blocked_points, message = forward, backward, None, ""
 
                 unrestricted = solver.length(blocked_points, False) if blocked_points else None
                 verdict, detail = judge_oneway(code, half, allowed, blocked, unrestricted)
+                outcome = "straight" if code == "BOTH" and verdict == "PASS" else blocked_outcome(verdict, blocked)
+                message = message if blocked is None else ""
             except Exception as error:  # noqa: BLE001
-                verdict, detail = "ERROR", one_line(error)
+                verdict, detail, outcome, message = "ERROR", one_line(error), "", ""
 
-            results.append(Result("oneway", label, verdict, detail))
+            results.append(Result("oneway", label, verdict, detail, outcome, message))
 
         if not edges:
             results.append(Result("oneway", code, "ERROR", f"no usable {code} edge to test"))
@@ -387,10 +422,39 @@ def summarise(results):
     return counts
 
 
+def detour_report(results):
+    """Lines about how the blocked cases ended, with a warning when no case found a detour.
+
+    A prohibited turn or one way edge normally has a way round, so a route that was never found in
+    any case may mean the solver is failing for another reason, not that the restriction works.
+    """
+    blocked = [result for result in results if result.outcome in ("detour", "no route")]
+
+    if not blocked:
+        return []
+
+    detours = [result for result in blocked if result.outcome == "detour"]
+    none = [result for result in blocked if result.outcome == "no route"]
+    lines = [f"\nBlocked cases: {len(detours)} found a detour, {len(none)} found no route at all."]
+    messages = Counter(result.message or "(the solver gave no message)" for result in none)
+
+    for message, number in messages.most_common():
+        lines.append(f"  {number:>3} x solver said: {message}")
+
+    if none and not detours:
+        lines.append(
+            "WARNING: no case found a detour. Every blocked case ended with no route, so these results cannot tell "
+            "a working restriction from a solver that fails for another reason. Solve one case by hand in Pro with "
+            "OneWay and TrafficTurn ticked, for example the QUINPOOL RD -> ROBIE ST turn, and compare."
+        )
+
+    return lines
+
+
 def write_csv(path, results):
     with open(path, "w", newline="", encoding="utf-8") as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(["check", "case", "verdict", "detail"])
+        writer.writerow(["check", "case", "verdict", "detail", "outcome", "message"])
 
         for result in results:
             writer.writerow(list(result))
@@ -436,6 +500,9 @@ def main():
 
     for (check, verdict), number in sorted(counts.items()):
         print(f"  {check:<7} {verdict:<5} {number}")
+
+    for line in detour_report(results):
+        print(line)
 
     print(f"\nWrote {path}")
     bad = [result for result in results if result.verdict in ("FAIL", "ERROR")]
