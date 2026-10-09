@@ -15,8 +15,9 @@ Settings are the globals below. Set NETWORK to match the HRM_NETWORK environment
 means DISTANCE); the run stops if they disagree. The step scripts keep their own checks: step 02
 still needs a recent step 01 backup and step 06 still stops on a stale orchestrator.
 
-Not automated, and printed at the end: the OS-auth add-to-map test, the route smoke tests,
-reapplying Robbie's topology exceptions and telling him QA is ready.
+Not automated, and printed at the end: the OS-auth add-to-map test, a route solve with directions,
+reapplying Robbie's topology exceptions and telling him QA is ready. The route smoke tests run
+last, through smoke_test_network.py.
 
 Written 2026-10-09 and not yet run on live QA. Run it from PyCharm or an ArcGIS Pro Python prompt
 (it needs to read what you type).
@@ -162,6 +163,10 @@ def run_topology():
     load_step("07_create_topology.py", config.CORE_SCRIPTS_DIR).main()
 
 
+def run_smoke():
+    load_step("smoke_test_network.py").main()
+
+
 PHASES = [
     Phase("preflight", "Step 00: confirm sources and deployed files", run_preflight, None,
           "Fix what it reports and run again. Nothing has been changed."),
@@ -195,6 +200,9 @@ PHASES = [
           "Read only. Rerun from this phase."),
     Phase("topology", "Rebuild the topology and export its errors", run_topology, None,
           "The network is already built. Rerun from this phase."),
+    Phase("smoke", "Route smoke tests (turns and one way streets)", run_smoke, None,
+          "Read the failing cases above. The network is built and granted, so nothing needs undoing. "
+          "Set RO_SDE in smoke_test_network.py to test as a normal user."),
 ]
 
 # Lines worth keeping in the run report, by phase key. Each pattern is searched in a printed or
@@ -214,6 +222,7 @@ FACT_PATTERNS = {
     "grants": [r"Tables checked", r"^\s+GRANT SELECT", r"Verified", r"Nothing to grant"],
     "audit_after": [r"^\s+(N|ND)_\d+\s", r"pair:", r"missing a grant"],
     "topology": [r"errors_(point|line|poly)", r"Must (Not|Be) "],
+    "smoke": [r"^\s+(turn|oneway)\s+(PASS|FAIL|SKIP|ERROR)", r"^\s+(FAIL|ERROR)\s", r"testable cases passed", r"WARNING: this is the owner"],
 }
 
 TIMESTAMP_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \| \w+ \| ")
@@ -343,8 +352,7 @@ def build_report(network, started, results, transcript_path, outcome):
         "",
         "## Still manual",
         "",
-        "- An OS-auth add-to-map test and a route solve with directions on.",
-        "- Smoke tests with the travel mode restrictions ticked: one way in both directions and a prohibited turn.",
+        "- An OS-auth add-to-map test and a route solve with directions on (the smoke tests do not cover directions).",
         "- Reapply Robbie's topology exceptions, then tell him QA is ready.",
     ]
 
@@ -438,7 +446,7 @@ def main():
 
         return
 
-    print("\nStill manual: the OS-auth add-to-map test, the route smoke tests, Robbie's topology exceptions and telling him.")
+    print("\nStill manual: the OS-auth add-to-map test, a route solve with directions, Robbie's topology exceptions and telling him.")
 
 
 if __name__ == "__main__":

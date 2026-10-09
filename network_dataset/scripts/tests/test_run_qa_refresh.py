@@ -21,7 +21,7 @@ sys.path.insert(0, str(SCRIPTS / "tests"))
 from test_network_definitions import load_script  # noqa: E402
 
 KEYS = ["preflight", "backup", "audit_before", "delete", "copy", "remap", "verify_staging",
-        "build", "verify_live", "build_errors", "grants", "audit_after", "topology"]
+        "build", "verify_live", "build_errors", "grants", "audit_after", "topology", "smoke"]
 
 STEP_FILES = {
     "00_confirm_sources.py": "preflight",
@@ -35,6 +35,7 @@ STEP_FILES = {
     "collect_build_errors.py": "build_errors",
     "grant_network_access.py": "grants",
     "07_create_topology.py": "topology",
+    "smoke_test_network.py": "smoke",
 }
 
 
@@ -145,7 +146,7 @@ class RunnerTests(unittest.TestCase):
 
         self.assertEqual(steps.keys(), [
             "preflight", "backup", "audit_grants.py", "delete", "copy", "remap", "verify_staging", "build",
-            "verify_live", "build_errors", "grants", "grants", "audit_grants.py", "topology",
+            "verify_live", "build_errors", "grants", "grants", "audit_grants.py", "topology", "smoke",
         ])
         flags = {key: flags for key, flags in steps.calls}
         self.assertTrue(flags["delete"]["CONFIRM_DELETE_QA_NETWORK"])
@@ -206,7 +207,7 @@ class RunnerTests(unittest.TestCase):
 
         self.assertEqual(len(self.asked), 2)
         self.assertEqual([k for k in steps.keys() if k == "grants"], ["grants"])
-        self.assertEqual(steps.keys()[-1], "topology")
+        self.assertEqual(steps.keys()[-1], "smoke")
 
     def test_a_failing_step_stops_the_run_and_says_where_to_resume(self):
         def fail():

@@ -278,8 +278,10 @@ steps below still work and say what each phase does.
   exceptions (step 02 deleted the topology).
 - [x] BuildErrors file saved and read on 2026-10-09: 5 `Cannot find at junction` (the same 5 turns) and 1,153
   `Standalone user-defined junction` warnings (up from 1,133), nothing else. Fewer was the hoped-for result.
-- [ ] Smoke tests with the travel mode restrictions ticked: a one-way solve in both directions and the
-  prohibited turn `QUINPOOL RD -> ROBIE ST` (it should detour).
+- [ ] Smoke tests: run `qa_refresh\smoke_test_network.py` (set `RO_SDE` to a normal login's connection file; it
+  tests the one way codes and a sample of prohibited turns, including `QUINPOOL RD -> ROBIE ST`, and is the last
+  phase of `run_qa_refresh.py`). Written 2026-10-09, not yet run, so expect a small fix. Still by hand: an
+  OS-auth add-to-map and a route solve with directions on.
 - [x] Directions checked on the live network on 2026-10-09: Support Directions ticked, Base Name `STR_NAME`,
   Suffix Type `STR_TYPE`, Full Name `FULL_NAME`, Default Length Attribute `Length`. The Directions create from
   the committed template is now proven in SDE. A route solve that returns directions is still to be tried.
