@@ -383,19 +383,25 @@ steps below still work and say what each phase does.
 - [x] Directions checked on the live network on 2026-10-09: Support Directions ticked, Base Name `STR_NAME`,
   Suffix Type `STR_TYPE`, Full Name `FULL_NAME`, Default Length Attribute `Length`. The Directions create from
   the committed template is now proven in SDE. A route solve that returns directions is still to be tried.
-- [x] QA announced as ready in Teams on 2026-10-09 at 10:46 (Robbie has tested it, see the Teams chat section). [ ] Still
-  to tell Robbie about the `TrafficTurn` defect, and ask Melanie whether her fixes covered the 57 untraceable issues.
+- [x] QA announced as ready in Teams on 2026-10-09 at 10:46 (Robbie has tested it, see the Teams chat section), and by
+  email to Robbie, Melanie and Ryan after the evening rebuild (it asked Melanie about the 57 untraceable issues). [ ] Still
+  to tell Robbie about the `TrafficTurn` defect.
 - [ ] Update this file and `network_dataset/docs/network_build_status.md` with the real counts.
 
 ## Next steps, in order
 
-0. **QA was refreshed the evening of 2026-10-09 and has the 4 fixes** (see the third build above). Left from that:
-   tell Robbie QA is ready for his retest next week (and about the `TrafficTurn` defect, which was fixed on the
-   live network mid-afternoon, so ask which restrictions he had ticked when he tested); ask Melanie and Ryan why
-   the multipart and overlap errors dropped to zero; reapply Robbie's exceptions; confirm with Ryan that Erin's
-   QA route extension was posted to Prod (this refresh would have dropped it if not). Resolved: Melanie approved
-   the refresh, Ryan's and Melanie's fixes are all in Prod, and Prod's view was rebuilt by hand with
-   `LRS_updates.py`.
+0. **QA was refreshed the evening of 2026-10-09 and has the 4 fixes** (see the third build above). **Alex emailed
+   Robbie, Melanie and Ryan that QA is ready** (subject "QA network refreshed with today's LRS fixes", saved as an
+   upload, not committed). It gave the counts, said Robbie's topology exceptions need reapplying, asked him to
+   check the Directions units in kilometres and said Robbie's 4 fixes would not explain the multipart and overlap
+   errors dropping to zero, and asked Melanie whether her fixes covered the 57 untraceable issues. **Not in the sent
+   email, so still to do:** (a) tell Robbie about the `TrafficTurn` defect (fixed on the live network mid-afternoon
+   on 2026-10-09) and ask which restrictions he had ticked when he tested; (b) ask Ryan whether Erin's QA route
+   extension was posted to Prod (this refresh would have dropped it if not); (c) get an answer on why the
+   multipart and overlap errors vanished (the email states it but does not ask a question), and look at the
+   topology errors in Pro before calling that solved. Waiting on: Robbie's retest next week and his speeds
+   discussion; Melanie's reply on the 57 issues. Resolved: Melanie approved the refresh, Ryan's and Melanie's fixes
+   are in Prod, and Prod's view was rebuilt by hand with `LRS_updates.py`.
 1. **Finish the 2026-10-09 rebuild** (done apart from Robbie's exceptions): the rest of this item is the original
    plan, kept for the next refresh.
    Follow the QA refresh checklist above. Melanie's fixes are in Prod's view
