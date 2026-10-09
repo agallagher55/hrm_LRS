@@ -267,7 +267,7 @@ Implications and open questions:
 ## QA refresh checklist (distance network, written 2026-10-09)
 
 `qa_refresh` reads the edge source straight from **Prod's** `TRNLRS_TRN_STREET_VW`, so QA's own copy of the
-view needs no refresh first. Prod's view is refreshed daily, so Melanie's 2026-10-08 fixes are in it. Still
+view needs no refresh first. Prod's view is rebuilt by `scripts/LRS_updates.py` on the server, scheduled for about 5:30 pm daily (run it by hand to pick up same-day LRS edits, as on 2026-10-09), so Melanie's 2026-10-08 fixes are in it. Still
 spot-check a few FDMIDs she changed. Leave `HRM_NETWORK` unset. Run every step from an ArcGIS Pro Python prompt
 in `qa_refresh`, and stop on any failure.
 
@@ -372,7 +372,7 @@ steps below still work and say what each phase does.
 1. **Finish the 2026-10-09 rebuild** (done apart from Robbie's exceptions): the rest of this item is the original
    plan, kept for the next refresh.
    Follow the QA refresh checklist above. Melanie's fixes are in Prod's view
-   (it is refreshed daily). Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
+   (rebuilt by the scheduled 5:30 pm `LRS_updates.py` run). Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
    afterward and reapply its exceptions. Check the step 03 log: WA 61 plus the island FDMID rows come off
    18,644, so expect 18,583 minus those rows. Transit roads now stay in this network. Then tell Robbie QA is ready.
 2. **Follow up with people.**
