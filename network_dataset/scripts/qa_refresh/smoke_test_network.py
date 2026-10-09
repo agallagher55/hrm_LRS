@@ -43,8 +43,10 @@ import config
 
 
 # Connection file of a login that is not SDEADM, for example one with Windows authentication.
-# None uses the SDEADM connection.
-RO_SDE = r"C:\Users\gallaga\AppData\Roaming\Esri\ArcGISPro\Favorites\SQLServer-ms-gis-sql-q21-GISRW01.sde"
+# None uses the SDEADM connection (config.QA_SDE, E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde on the server,
+# which is faster than a connection file under a user profile). That connection is the owner's, so the
+# run does not prove the grants for a normal user and says so. Set a path here for a one off grants check.
+RO_SDE = None
 
 NETWORK_KEY = config.NETWORK_DEF.key
 IMPEDANCE = "Length"
