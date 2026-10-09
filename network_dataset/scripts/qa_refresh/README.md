@@ -13,17 +13,32 @@ Do not continue when a step fails.
 cd /d T:\work\giss\monthly\202607jul\gallaga\network_dataset\scripts\qa_refresh
 ```
 
+**One command instead of ten.** `python run_qa_refresh.py` runs the whole refresh below (00 to 07, the
+audits, the grants and the topology) in order. It checks the deployed files against the repo first, asks you to
+type a phrase at three points (before the delete, before the swap and build after your spatial review, and
+before the grants) instead of you editing the `CONFIRM_*` flags, saves a transcript and a run report to
+`output/`, and stops at the first failure with the phase to resume at (`START_AT`). Set `NETWORK` at the top of
+it to match `HRM_NETWORK`. The step scripts still work on their own. Written 2026-10-09, not yet run on live QA.
+
+**Check the deployed files.** `deploy_check.py` compares a hash of every script and the template on the T: drive
+with `data/deploy_manifest.json`, and step 00 and the runner stop when a file is stale or missing (extra files in
+`qa_refresh` only warn). After changing any script in `scripts` or `qa_refresh`, or the template, run
+`make_deploy_manifest.py` and commit the manifest; a test fails if you forget. Copy the manifest to the T: drive
+with the files.
+
 | Order | Command | Purpose |
 |---|---|---|
 | 00 | `python 00_confirm_sources.py` | Read-only confirmation of the configured Prod input, QA target, live counts, and `MODDATE` ranges. Also prints the size and date of the deployed scripts and template and warns about stale copies. |
 | 01 | `python 01_backup_and_baseline.py` | Save a timestamped QA turn backup and a JSON baseline report, and export the edge, junction and turn sources to a file geodatabase under `output/` that survives a database-level QA refresh (`OFFLINE_BACKUP` in `config.py`). |
 | 02 | `python 02_delete_network_sources.py` | Delete the network dataset first, then its three source classes. This is the first destructive step. Refuses to run without a recent (24 hour) step 01 backup, and its export outside SDE, that still exist. Set `CONFIRM_DELETE_QA_NETWORK = True` in the script immediately before running it. |
-| 03 | `python 03_copy_sources.py` | Copy the edge source from Prod (minus the WA and island exclusions, plus transit access roads, emergency access roads and ETAs for HRFE) and the junction and raw turn classes from QA's legacy classes into `SDEADM.TRNLRS_network`. **Creates and builds nothing**: the network is created and built once, in step 06, after the turn remap. |
+| 03 | `python 03_copy_sources.py` | Copy the edge source from Prod (minus the WA and island exclusions, plus transit access roads, emergency access roads and ETAs for HRFE) and the junction and raw turn classes from QA's legacy classes into `SDEADM.TRNLRS_network`. **Creates and builds nothing**: the network is created and built once, in step 06, after the turn remap. It ends by printing the edge, junction and turn counts next to Prod's edge count and the last step 01 baseline, and stops if a class is empty or the edge copy is larger than Prod's. |
 | 04 | `python 04_remap_turns.py` | Create `TRNLRS_traffic_turn_staging` against the fresh edge copy. Needs no network dataset. |
 | 05 | `python 05_verify_staging_turns.py` | Run the independent staging-turn verifier. Also complete the spatial review checklist before continuing. |
 | 06 | `python 06_swap_and_final_build.py` | Swap the exact reviewed staging class, then create the network from the template and build it once. Set `CONFIRM_REVIEWED_STAGING = True` in the script only after completing the review. Stops before changing anything if the deployed `run_full_network_rebuild.py` is a stale copy. |
 | 07 | `python 07_verify_live_turns.py` | Re-run the independent verifier against the live turn class after the swap. |
 | before 02 and after 06 | `python audit_grants.py` | Read only. Runs the registration table audit from `network_dataset_sql_permissions.md` (section 2b) through the QA connection and writes `grants_audit_<LABEL>_<time>.csv` and `network_ids_<LABEL>_<time>.csv` to `output/`. Set `LABEL` to `"before"` ahead of step 02 and `"after"` once step 06 has built the network, then use the after files to find the new registration IDs that need a grant. Written 2026-10-09, not yet run on live QA. |
+| after 06 | `python collect_build_errors.py` | Copies the BuildErrors file named in the script 03 log to `intermediate_results` before Windows cleans the temp folder, counts the errors by kind and compares them with the previous file, including whether the same turns were rejected. Read only. Written 2026-10-09, not yet run on live QA. |
+| after 06 | `python grant_network_access.py` | Grants `PUBLIC SELECT` on the new network's `N_<id>` and `ND_<id>` tables and its four source tables, only where missing. **A dry run unless `APPLY = True`** in the script. It takes the `ND_` group from the network's DSID and the `N_` group as the only 6 table group with no grants (set `N_GROUP` if there are two), and re-checks every table after granting. Written 2026-10-09, not yet run on live QA. |
 | after 07 | `python ..\07_create_topology.py` | Recreate the topology on the edge source, validate it and export the errors. Step 02 deletes the topology (it blocks deleting the edge source), so this is needed after every refresh. Written 2026-10-08, not yet run. |
 | (inside 03) | | Step 03 also adds the empty `SPEED` and `TRAVEL_TIME` fields to the new edge copy (`edge_fields.py`). To add them to the existing edge class without a refresh, run `..\08_add_edge_fields.py`. |
 

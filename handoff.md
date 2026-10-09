@@ -25,9 +25,25 @@ withdrawn on 2026-09-29, and a test guards against them being excluded.
 ## Distance network (QA)
 
 Done:
+- **Rebuilt again by script on 2026-10-09** through `qa_refresh` steps 00 to 07, from Prod's view with
+  Melanie's 2026-10-08 fixes (Alex ran it, the figures are from his output). Edge copy 18,595 of Prod's 18,670
+  (WA 61, islands 14, no transit rule), junctions 15,424, raw turns 1,238 remapped to 1,189 (49 skipped, 4.0%,
+  the same as 2026-09-18 and 09-29). New class IDs: edge 41020, junction 41021, turn 41023, system junctions
+  41024. Created in 13 s and built in 13 s from the committed template, **so the template with Directions now
+  creates and builds in SDE** (the scratch file geodatabase test cannot prove that). Built 2026-10-09 10:14:24:
+  Edges 37,698, Junctions 16,190, Turns 1,184 (the same 5 turns rejected: 686, 746, 747, 829 and 830).
+  Directions is now on (Base Name `STR_NAME`, Suffix Type `STR_TYPE`, Full Name `FULL_NAME`); it was off on the
+  2026-09-29 network. Step 07 passed all 10 checks. BuildErrors saved as
+  `intermediate_results\BuildErrors_203adcb2-cc6f-40b3-9e26-72b6f7f029ca.txt`: 1,158 lines, 5 `Cannot find at
+  junction` (the same turns) and 1,153 `Standalone user-defined junction` warnings (1,133 on 2026-09-29), nothing
+  else. Topology rebuilt: points 4,332 (dangles 4,089, Must Not Intersect 241, Self-Intersect 2), lines 255
+  (single part 253, overlap 1, intersect 1). **Melanie's fixes moved the dangles only from 4,101 to 4,089 and left
+  the 5 rejected turns and the multipart count unchanged**, so ask her whether her fixes should have changed
+  geometry (event behaviours alone would not close gaps), and whether Prod's view was refreshed after she posted.
 - Rebuilt by script on 2026-09-29 through `qa_refresh`: Edges 37,674, Junctions 16,187, Turns 1,184,
   five turns rejected at build. SQL grants applied (`N_3`, `ND_40986`).
-- Handed to Robbie to retest.
+- **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2). Left: an
+  OS-auth add-to-map and route solve, the smoke tests, Robbie's topology exceptions, and telling Robbie QA is ready.
 
 Open:
 - Smoke tests, a check that the LRS gap corrections really are in Prod's `TRNLRS_TRN_STREET_VW`, and
@@ -186,6 +202,18 @@ view needs no refresh first. Prod's view is refreshed daily, so Melanie's 2026-1
 spot-check a few FDMIDs she changed. Leave `HRM_NETWORK` unset. Run every step from an ArcGIS Pro Python prompt
 in `qa_refresh`, and stop on any failure.
 
+**New 2026-10-09, not yet run on live QA:** `qa_refresh\run_qa_refresh.py` runs this whole checklist in order
+(preflight, backup, audit, delete, copy, remap, verify, build, verify, BuildErrors, grants, audit, topology). It
+asks you to type a phrase at three gates (before the delete, before the swap and build after your spatial review,
+before the grants) instead of editing `CONFIRM_*` flags, writes a transcript and a run report to
+`qa_refresh\output`, and stops at the first failure with the phase to resume at. `collect_build_errors.py`
+copies the BuildErrors file out of the temp folder and compares it with the last one. Step 00 and the runner now
+check every deployed script and the template against `data\deploy_manifest.json` (hashes, so line endings do not
+matter). **Copy `data\deploy_manifest.json` and the whole `scripts` and `qa_refresh` folders to T: first**, and
+delete `_test_template_create.py` and any `03_initial_build.py` from `qa_refresh` there. After editing any script
+or the template, run `make_deploy_manifest.py` and commit the manifest (a test fails if it is stale). The manual
+steps below still work and say what each phase does.
+
 **Before the run**
 - [ ] **Redeploy the T: drive files.** A check of the screenshots against the repo on 2026-10-09 found:
   - `data\network_template.xml` on T: is dated 9/29/2026 8:17 AM and 20 KB. The repo's is 21 KB, committed
@@ -234,30 +262,35 @@ in `qa_refresh`, and stop on any failure.
 | 07 | `python 07_verify_live_turns.py` | Same verifier, against the live turn class after the swap. It should agree with step 05. |
 
 **After step 07**
-- [ ] **Re-apply the SQL grants** under the new registration IDs. The IDs come from step 06's build, so grant only
+- [x] **Done 2026-10-09 10:42:** `grant_network_access.py` granted 7 tables (`N_3` all 6 and `ND_41025_DIRTYOBJECTS`);
+  the four source tables already had the grant; `audit_grants.py` shows `N_3` 6/6 and `ND_41025` 2/2. Not yet
+  tested from an OS-auth account. Original step: **Re-apply the SQL grants** under the new registration IDs. The IDs come from step 06's build, so grant only
   now. Without them nobody can open the network. Run `qa_refresh\audit_grants.py` with `LABEL = "after"`: it
   runs the section 2b audit of `network_dataset_sql_permissions.md` through the QA connection and writes
   `grants_audit_after_<time>.csv` and `network_ids_after_<time>.csv` to `qa_refresh\output`. Expect `N_3` 6 of 6
   and a new `ND_<id>` pair (2 tables) with no grant yet, which is the one to grant (the new class IDs in the
-  second file sit just below it). Grant per `network_dataset_sql_permissions.md`, then run the script again to
-  confirm. It is read only and untested on live QA (written 2026-10-09).
-- [ ] Rerun `python ..\07_create_topology.py` and reapply Robbie's exceptions (step 02 deleted the topology).
-  Expect errors near the 2026-10-08 numbers (dangles 4,101, multipart 253), a little lower with Melanie's fixes
-  and the islands gone.
-- [ ] Open the saved BuildErrors file. Last time it had 5 `Cannot find at junction` turn errors and 1,133
-  `Standalone user-defined junction` warnings, nothing else. Fewer is the hoped-for result.
+  second file sit just below it). Grant per `network_dataset_sql_permissions.md`, or run
+  `qa_refresh\grant_network_access.py` (a dry run until `APPLY = True`; it grants only what is missing and
+  re-checks), then run `audit_grants.py` again to confirm. Both are untested on live QA (written 2026-10-09).
+  Result on 2026-10-09: the audit showed `N_3` 0 of 6 and `ND_41025` 1 of 2, and the network dataset's DSID is
+  41025, so `ND_41025` is the network's pair.
+- [x] Ran `python ..\07_create_topology.py` on 2026-10-09 (numbers above). [ ] Still to do: reapply Robbie's
+  exceptions (step 02 deleted the topology).
+- [x] BuildErrors file saved and read on 2026-10-09: 5 `Cannot find at junction` (the same 5 turns) and 1,153
+  `Standalone user-defined junction` warnings (up from 1,133), nothing else. Fewer was the hoped-for result.
 - [ ] Smoke tests with the travel mode restrictions ticked: a one-way solve in both directions and the
   prohibited turn `QUINPOOL RD -> ROBIE ST` (it should detour).
-- [ ] Check the Directions settings survived on the live network (Base Name `STR_NAME`, Suffix Type
-  `STR_TYPE`, Full Name `FULL_NAME`). The live network had Directions off before this refresh, so
-  "Support Directions" should now be ticked in Properties. If it is off, the template did not carry Directions.
-  The Directions create from the committed template is not yet proven.
+- [x] Directions checked on the live network on 2026-10-09: Support Directions ticked, Base Name `STR_NAME`,
+  Suffix Type `STR_TYPE`, Full Name `FULL_NAME`, Default Length Attribute `Length`. The Directions create from
+  the committed template is now proven in SDE. A route solve that returns directions is still to be tried.
 - [ ] Tell Robbie QA is ready, and ask Melanie whether her fixes covered the 57 untraceable issues.
 - [ ] Update this file and `network_dataset/docs/network_build_status.md` with the real counts.
 
 ## Next steps, in order
 
-1. **Rebuild the distance network.** Follow the QA refresh checklist above. Melanie's fixes are in Prod's view
+1. **Finish the 2026-10-09 rebuild** (the network is built and step 07 passed): SQL grants first, then smoke tests,
+   Robbie's exceptions and telling him. The rest of this item is the original plan, kept for the next refresh.
+   Follow the QA refresh checklist above. Melanie's fixes are in Prod's view
    (it is refreshed daily). Expect the topology to be deleted by step 02, so rerun `07_create_topology.py`
    afterward and reapply its exceptions. Check the step 03 log: WA 61 plus the island FDMID rows come off
    18,644, so expect 18,583 minus those rows. Transit roads now stay in this network. Then tell Robbie QA is ready.

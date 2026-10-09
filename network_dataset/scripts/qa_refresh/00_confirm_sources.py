@@ -5,6 +5,7 @@ import datetime
 import arcpy
 
 import config
+import deploy_check
 from _shared import load_and_validate_core_scripts
 
 
@@ -71,6 +72,7 @@ def check_deployment():
 
 
 def main():
+    deploy_check.require_current()
     check_deployment()
     build, _, _ = load_and_validate_core_scripts()
     print("Current tracked configuration")
