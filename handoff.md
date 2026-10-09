@@ -60,11 +60,17 @@ Done:
   - The rebuild's BuildErrors file is `intermediate_results\BuildErrors_9bf10ace-c5e5-488f-85b1-15af29dd41fc.txt`:
     the same 5 turns rejected and 1,155 standalone junction warnings (two more than the earlier build: junction
     OIDs 14552 and 14973; cause unknown).
-- **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2) and the smoke
-  tests pass. Left: export the live network's template and check its `TrafficTurn` assignments match the committed
-  one (the committed edit has not been proven by a create from the template, and do not commit the export, since
-  exports lose Directions and can carry the wrong name), a route solve with directions on, Robbie's topology
-  exceptions, and telling Robbie QA is ready (and that `TrafficTurn` was broken before today).
+- **Template round trip checked 2026-10-09:** an export of the live network (fixed in Properties, then exported
+  with `CreateTemplateFromNetworkDataset`) is character for character the same as the committed
+  `network_template.xml` (22,303 characters each) apart from the run specific values: `DSID`, the four `ClassID`s,
+  the extent `YMin` and `BuildTime`. So the committed `TrafficTurn` edit is exactly what Pro writes for those
+  settings, and Directions, the Python evaluators and the network name all survive. Not done: an actual create from
+  the committed template (the only part still unproven, and it is the same form Pro wrote). Directions default
+  to miles (`DefaultOutputLengthUnits esriNAUMiles`), which may not be wanted.
+- **Still to do after the 2026-10-09 rebuild:** the SQL grants are done (`N_3` 6/6, `ND_41025` 2/2), the smoke
+  tests pass and the template matches the live network. Left: a route solve with directions on (and the miles
+  default), Robbie's topology exceptions, and telling Robbie QA is ready (and that `TrafficTurn` was broken before
+  today).
 
 Open:
 - Smoke tests, a check that the LRS gap corrections really are in Prod's `TRNLRS_TRN_STREET_VW`, and
