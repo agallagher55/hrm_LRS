@@ -253,6 +253,60 @@ class RunTests(unittest.TestCase):
         self.assertEqual(self.verdicts(results), ["ERROR", "ERROR", "ERROR"])
 
 
+class ExplainTests(unittest.TestCase):
+
+    def explain(self, datasets, properties=None):
+        module = load_script("qa_refresh/smoke_test_network.py", None)
+        properties = properties or types.SimpleNamespace(instance="ms-gis-sql-q22", database="GISRO01")
+        module.arcpy = types.SimpleNamespace(
+            Describe=lambda path: types.SimpleNamespace(connectionProperties=properties),
+            ListDatasets=lambda: datasets,
+            env=types.SimpleNamespace(workspace=None),
+        )
+
+        return module.explain_missing_network("RO.sde", {"network": "RO.sde\\net"})
+
+    def test_a_login_that_sees_nothing_is_the_wrong_database_or_no_permission(self):
+        text = self.explain([])
+
+        self.assertIn("instance: ms-gis-sql-q22", text)
+        self.assertIn("database: GISRO01", text)
+        self.assertIn("sees no feature datasets", text)
+
+    def test_a_database_without_the_feature_dataset_is_a_different_copy(self):
+        text = self.explain(["SDEADM.TRNLRS", "SDEADM.TRN_streets_routes"])
+
+        self.assertIn("not SDEADM.TRNLRS_network", text)
+        self.assertIn("different or older copy", text)
+        self.assertIn("SDEADM.TRN_streets_routes", text)
+
+    def test_the_feature_dataset_without_the_network_points_at_the_grants(self):
+        text = self.explain(["sdeadm.trnlrs_network"])
+
+        self.assertIn("grants are the likely cause", text)
+
+    def test_a_connection_with_no_properties_still_explains(self):
+        text = self.explain([], properties=types.SimpleNamespace())
+
+        self.assertIn("operating system login", text)
+
+    def test_main_stops_with_that_explanation_when_the_network_is_missing(self):
+        module = load_script("qa_refresh/smoke_test_network.py", None)
+        module.arcpy = types.SimpleNamespace(
+            Describe=lambda path: types.SimpleNamespace(
+                connectionProperties=types.SimpleNamespace(instance="q22", database="GISRO01")),
+            Exists=lambda path: False,
+            ListDatasets=lambda: [],
+            env=types.SimpleNamespace(workspace=None),
+        )
+
+        with mock.patch.object(module, "RO_SDE", "RO.sde"), mock.patch("builtins.print"):
+            with self.assertRaises(RuntimeError) as error:
+                module.main()
+
+        self.assertIn("sees no feature datasets", str(error.exception))
+
+
 class MainTests(unittest.TestCase):
 
     def run_main(self, solver, ro_sde="RO.sde", user="gisuser"):
