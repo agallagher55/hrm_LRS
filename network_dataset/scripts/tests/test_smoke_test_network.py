@@ -7,6 +7,7 @@ Run from network_dataset/scripts:
 """
 
 import csv
+import itertools
 import sys
 import tempfile
 import types
@@ -22,6 +23,17 @@ from test_network_definitions import load_script  # noqa: E402
 
 class FakeShape:
 
+    counter = itertools.count(1)
+
+    def __init__(self, first=None, last=None):
+        if first is None:
+            # Far from every other edge, so an edge with no points given never meets another.
+            n = next(FakeShape.counter)
+            first, last = (-10000.0 * n, 0.0), (-10000.0 * n, 5000.0)
+
+        self.firstPoint = types.SimpleNamespace(X=first[0], Y=first[1])
+        self.lastPoint = types.SimpleNamespace(X=last[0], Y=last[1])
+
     def positionAlongLine(self, fraction, as_fraction):
         return (id(self), fraction)
 
@@ -32,18 +44,24 @@ def codes_of(edges):
 
 
 def make_edges(module, rows):
-    """rows: (oid, str_dir, name, length, parts)."""
-    return {
-        oid: module.Edge(oid, str_dir, name, length, parts, FakeShape())
-        for oid, str_dir, name, length, parts in rows
-    }
+    """rows: (oid, str_dir, name, length, parts) or the same with the first and last point as (x, y) pairs."""
+    edges = {}
+
+    for oid, str_dir, name, length, parts, *ends in rows:
+        shape = FakeShape(*ends) if ends else FakeShape()
+        edges[oid] = module.Edge(oid, str_dir, name, length, parts, shape)
+
+    return edges
 
 
 class FakeSolver:
     """Routes from a model. turn_restricted and blocked_direction set what the network does."""
 
-    def __init__(self, detour=300.0, drives_through=False, one_way_leaks=False, none_when_blocked=False, codes=None):
+    def __init__(self, detour=300.0, drives_through=False, one_way_leaks=False, none_when_blocked=False, codes=None,
+                 ordinary=None, blocks_ordinary=False):
         self.codes = codes or {}
+        self.ordinary = ordinary or set()
+        self.blocks_ordinary = blocks_ordinary
         self.detour = detour
         self.drives_through = drives_through
         self.one_way_leaks = one_way_leaks
@@ -74,6 +92,14 @@ class FakeSolver:
             return 50.0
 
         # Two stops on different edges: the direct route through the junction is 100 m here.
+        if a[0] in self.ordinary and b[0] in self.ordinary:
+            if restricted and self.blocks_ordinary:
+                self.last_message = self.NO_SOLUTION
+
+                return None
+
+            return 100.0
+
         if restricted and not self.drives_through:
             self.last_message = self.NO_SOLUTION if self.none_when_blocked else ""
 
@@ -315,6 +341,126 @@ class ExplainTests(unittest.TestCase):
                 module.main()
 
         self.assertIn("sees no feature datasets", str(error.exception))
+
+
+class ControlTests(unittest.TestCase):
+
+    def setUp(self):
+        self.module = load_script("qa_refresh/smoke_test_network.py", None)
+        # 1 and 2 meet at (100, 0) and nothing else does: a straight through junction.
+        # 3, 4 and 5 meet at (0, 100): a T junction. 6 is a one way edge that meets 7 at (500, 0).
+        rows = [
+            (1, "BOTH", "A ST", 100.0, 1, (0, 0), (100, 0)),
+            (2, "BOTH", "B ST", 100.0, 1, (100, 0), (200, 0)),
+            (3, "BOTH", "C ST", 100.0, 1, (0, 100), (0, 200)),
+            (4, "BOTH", "D ST", 100.0, 1, (0, 100), (100, 100)),
+            (5, "BOTH", "E ST", 100.0, 1, (0, 0.001 + 100), (-100, 100)),
+            (6, "FOTD", "ONE WAY", 100.0, 1, (400, 0), (500, 0)),
+            (7, "BOTH", "F ST", 100.0, 1, (500, 0), (600, 0)),
+        ]
+        self.edges = make_edges(self.module, rows)
+
+    def pairs(self, turns=(), sample=50):
+        return self.module.choose_control_pairs(self.edges, list(turns), sample, 1)
+
+    def test_it_finds_straight_through_and_t_junction_pairs(self):
+        found = {(first, second) for _, first, second in self.pairs()}
+
+        self.assertIn((1, 2), found)
+        self.assertEqual({pair for pair in found if pair != (1, 2)}, {(3, 4), (3, 5), (4, 5)})
+
+    def test_a_pair_with_a_one_way_edge_is_not_used(self):
+        found = {(first, second) for _, first, second in self.pairs()}
+
+        self.assertNotIn((6, 7), found)
+
+    def test_an_edge_in_a_turn_record_is_not_used(self):
+        found = {(first, second) for _, first, second in self.pairs(turns=[(1, 99)])}
+
+        self.assertNotIn((1, 2), found)
+
+    def test_a_short_edge_or_a_multipart_edge_rules_out_its_junction(self):
+        edges = make_edges(self.module, [
+            (1, "BOTH", "A ST", 100.0, 1, (0, 0), (100, 0)),
+            (2, "BOTH", "B ST", 10.0, 1, (100, 0), (110, 0)),
+            (3, "BOTH", "C ST", 100.0, 1, (500, 0), (600, 0)),
+            (4, "BOTH", "D ST", 100.0, 2, (600, 0), (700, 0)),
+        ])
+
+        self.assertEqual(self.module.choose_control_pairs(edges, [], 50, 1), [])
+
+    def test_a_junction_with_four_edges_is_not_used(self):
+        edges = make_edges(self.module, [
+            (n, "BOTH", f"S{n}", 100.0, 1, (0, 0), (100 * n, 5)) for n in range(1, 5)
+        ])
+
+        self.assertEqual(self.module.choose_control_pairs(edges, [], 50, 1), [])
+
+    def test_the_sample_size_and_seed_are_respected(self):
+        first = self.pairs(sample=2)
+        second = self.pairs(sample=2)
+
+        self.assertEqual(len(first), 2)
+        self.assertEqual(first, second)
+
+    def test_judging_a_control(self):
+        judge = self.module.judge_control
+
+        self.assertEqual(judge(100, 100, 100)[0], "PASS")
+        self.assertEqual(judge(100, 100, None)[0], "FAIL")
+        self.assertIn("block turns", judge(100, 100, None)[1])
+        self.assertEqual(judge(100, 100, 400)[0], "FAIL")
+        self.assertEqual(judge(100, 250, 400)[0], "SKIP")
+
+    def run_controls(self, solver):
+        pairs = [("t", 1, 2)]
+
+        return self.module.run_control_checks(solver, pairs, self.edges)
+
+    def test_a_working_network_passes_the_control(self):
+        ordinary = {id(self.edges[1].shape), id(self.edges[2].shape)}
+
+        result = self.run_controls(FakeSolver(ordinary=ordinary))[0]
+
+        self.assertEqual((result.verdict, result.outcome), ("PASS", "allowed"))
+
+    def test_a_network_that_blocks_every_turn_fails_the_control(self):
+        ordinary = {id(self.edges[1].shape), id(self.edges[2].shape)}
+
+        result = self.run_controls(FakeSolver(ordinary=ordinary, blocks_ordinary=True))[0]
+
+        self.assertEqual(result.verdict, "FAIL")
+        self.assertIn("030212", result.message)
+
+    def test_no_pairs_is_an_error(self):
+        results = self.module.run_control_checks(FakeSolver(), [], self.edges)
+
+        self.assertEqual([r.verdict for r in results], ["ERROR"])
+
+    def test_the_report_names_blocked_turns_as_the_cause_when_no_control_works(self):
+        Result = self.module.Result
+        results = [
+            Result("turn", "a", "PASS", "", "no route", "ERROR 030212"),
+            Result("control", "c", "FAIL", "", "", "ERROR 030212"),
+        ]
+
+        text = "\n".join(self.module.detour_report(results))
+
+        self.assertIn("Controls: 0 of 1", text)
+        self.assertIn("turns in general are blocked", text)
+        self.assertNotIn("Solve one case by hand", text)
+
+    def test_the_report_keeps_the_hand_check_advice_when_the_controls_work(self):
+        Result = self.module.Result
+        results = [
+            Result("turn", "a", "PASS", "", "no route", "ERROR 030212"),
+            Result("control", "c", "PASS", "", "allowed"),
+        ]
+
+        text = "\n".join(self.module.detour_report(results))
+
+        self.assertIn("Controls: 1 of 1", text)
+        self.assertIn("Solve one case by hand", text)
 
 
 class OutcomeTests(unittest.TestCase):
@@ -568,8 +714,10 @@ class MainTests(unittest.TestCase):
         edges = make_edges(module, [
             (1, "BOTH", "QUINPOOL RD", 100.0, 1), (2, "BOTH", "ROBIE ST", 100.0, 1),
             (5, "FOTD", "ONE WAY ST", 100.0, 1), (7, "FDTO", "FDTO ST", 100.0, 1), (8, "BOTH", "TWO WAY ST", 100.0, 1),
+            (10, "BOTH", "A ST", 100.0, 1, (0, 0), (100, 0)), (11, "BOTH", "B ST", 100.0, 1, (100, 0), (200, 0)),
         ])
         solver.codes = codes_of(edges)
+        solver.ordinary = {id(edges[10].shape), id(edges[11].shape)}
         module.arcpy = types.SimpleNamespace(
             Describe=lambda path: types.SimpleNamespace(
                 connectionProperties=types.SimpleNamespace(user=user), spatialReference="sr"),
@@ -608,7 +756,9 @@ class MainTests(unittest.TestCase):
 
         self.assertEqual(rows[0], ["check", "case", "verdict", "detail", "outcome", "message"])
         self.assertTrue(all(row[2] in ("PASS", "SKIP") for row in rows[1:]))
-        self.assertEqual(sum(row[2] == "PASS" for row in rows[1:]), 6)
+        # One turn, one control junction, one FOTD, one FDTO and five BOTH edges.
+        self.assertEqual(sum(row[2] == "PASS" for row in rows[1:]), 9)
+        self.assertIn("control", [row[0] for row in rows[1:]])
 
     def test_the_summary_warns_when_every_blocked_case_had_no_route(self):
         error, text, directory = self.run_main(FakeSolver(none_when_blocked=True))
@@ -622,6 +772,14 @@ class MainTests(unittest.TestCase):
 
         self.assertIn("no route", [row[4] for row in rows[1:]])
         self.assertTrue(any("030212" in row[5] for row in rows[1:]))
+
+    def test_a_network_that_blocks_every_turn_fails_and_says_so(self):
+        error, text, _ = self.run_main(FakeSolver(none_when_blocked=True, blocks_ordinary=True))
+
+        self.assertIsNotNone(error)
+        self.assertIn("Controls: 0 of 1", text)
+        self.assertIn("turns in general are blocked", text)
+        self.assertIn("FAIL  control", text)
 
     def test_the_summary_does_not_warn_when_detours_are_found(self):
         _, text, _ = self.run_main(FakeSolver())

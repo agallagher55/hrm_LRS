@@ -1,11 +1,15 @@
 """
 Smoke test the QA network with real route solves, using the network's own data for the stops.
 
-It checks the two restrictions that matter after a rebuild:
+It checks the two restrictions that matter after a rebuild, and that ordinary turns still work:
   - TrafficTurn: for a sample of two edge turns (and the named ones below), it routes from the
     middle of the first edge to the middle of the second. Without restrictions the route goes
     straight through the junction. With TrafficTurn on it must not: it has to detour or find no
     route. A route as short as the direct one means the prohibited turn was driven.
+  - Control: for a sample of pairs of ordinary two way edges that meet at a junction and have no
+    turn record, it checks that the route through the junction still works with the restrictions
+    on. Without this the other checks cannot tell a restriction that works from one that blocks
+    every turn, because both end in "no route".
   - OneWay: for a sample of edges, it routes between the quarter and three quarter points of the
     edge in both directions. The direction the STR_DIR code blocks must detour or fail, and the
     other direction must run straight along the edge. BOTH edges must run in both directions.
@@ -31,7 +35,7 @@ import csv
 import datetime
 import os
 import random
-from collections import Counter, namedtuple
+from collections import Counter, defaultdict, namedtuple
 
 import arcpy
 
@@ -54,6 +58,11 @@ SEED = 20261009
 # Turns to test by name: the first street is the one the turn starts on. Each pair has to be found
 # in the data, or the run reports it.
 NAMED_TURNS = [("QUINPOOL RD", "ROBIE ST")]
+
+# How many ordinary junction pairs to use as controls, and how exactly two edge ends must meet
+# (decimal places of a metre) to count as the same junction.
+SAMPLE_CONTROLS = 8
+ENDPOINT_PRECISION = 2
 
 # Edges shorter than this are not used. Stops near an end could snap to the next street.
 MIN_EDGE_LENGTH = 40.0
@@ -181,6 +190,51 @@ def choose_turns(turns, edges, named, sample_size, seed):
     return chosen, not_found
 
 
+def endpoint_key(point):
+    return (round(point.X, ENDPOINT_PRECISION), round(point.Y, ENDPOINT_PRECISION))
+
+
+def choose_control_pairs(edges, turns, sample_size, seed):
+    """Pick pairs of ordinary edges that meet at a junction, as (label, first oid, second oid).
+
+    Both edges must be two way, long enough, one part and in no turn record, and every edge at the
+    junction must be like that, so nothing in the data prohibits the move between them. A junction
+    of two edges is a straight through move and one of three is a T junction.
+    """
+    in_a_turn = {oid for turn in turns for oid in turn}
+    at_node = defaultdict(list)
+
+    for edge in edges.values():
+        if edge.shape is None:
+            continue
+
+        for point in (edge.shape.firstPoint, edge.shape.lastPoint):
+            at_node[endpoint_key(point)].append(edge)
+
+    pairs = []
+
+    for node in sorted(at_node):
+        meeting = {edge.oid: edge for edge in at_node[node]}
+
+        if len(meeting) not in (2, 3) or len(at_node[node]) != len(meeting):
+            continue
+
+        if any(
+            edge.str_dir != "BOTH" or edge.length < MIN_EDGE_LENGTH or edge.parts != 1 or edge.oid in in_a_turn
+            for edge in meeting.values()
+        ):
+            continue
+
+        kind = "straight through" if len(meeting) == 2 else "T junction"
+        ordered = sorted(meeting)
+
+        for index, first in enumerate(ordered):
+            for second in ordered[index + 1:]:
+                pairs.append((f"{kind}: {meeting[first].name} -> {meeting[second].name} (edges {first} -> {second})", first, second))
+
+    return random.Random(seed).sample(pairs, min(sample_size, len(pairs)))
+
+
 def choose_oneway(edges, per_code, seed):
     """Pick edges by one way code: {code: [edges]}. Multipart and short edges are left out."""
     chosen = {}
@@ -212,6 +266,20 @@ def judge_turn(direct, unrestricted, restricted):
         return "PASS", f"detour of {restricted:.0f} m against {direct:.0f} m direct"
 
     return "FAIL", f"the route went straight through the prohibited turn ({restricted:.0f} m)"
+
+
+def judge_control(direct, unrestricted, restricted):
+    """The verdict for an ordinary junction move, which has to stay possible with the restrictions on."""
+    if not same(unrestricted, direct):
+        return "SKIP", f"the unrestricted route ({unrestricted}) is not the direct one ({direct:.0f} m)"
+
+    if same(restricted, direct):
+        return "PASS", f"the move through the junction still works ({direct:.0f} m)"
+
+    if restricted is None:
+        return "FAIL", "an ordinary move through a junction was blocked, so the restrictions block turns that have no turn record"
+
+    return "FAIL", f"an ordinary move took {restricted:.0f} m instead of {direct:.0f} m"
 
 
 def judge_oneway(code, half, allowed, blocked, blocked_unrestricted):
@@ -374,6 +442,30 @@ def run_turn_checks(solver, chosen, edges, not_found):
     return results
 
 
+def run_control_checks(solver, pairs, edges):
+    if not pairs:
+        return [Result("control", "none", "ERROR", "no pair of ordinary edges was found to use as a control")]
+
+    results = []
+
+    for label, first, second in pairs:
+        try:
+            a, b = edges[first], edges[second]
+            points = [a.shape.positionAlongLine(0.5, True), b.shape.positionAlongLine(0.5, True)]
+            direct = a.length / 2 + b.length / 2
+            unrestricted = solver.length(points, False)
+            restricted = solver.length(points, True) if same(unrestricted, direct) else None
+            message = solver_message(solver) if restricted is None else ""
+            verdict, detail = judge_control(direct, unrestricted, restricted)
+            outcome = "allowed" if verdict == "PASS" else ""
+        except Exception as error:  # noqa: BLE001
+            verdict, detail, outcome, message = "ERROR", one_line(error), "", ""
+
+        results.append(Result("control", label, verdict, detail, outcome, message))
+
+    return results
+
+
 def run_oneway_checks(solver, by_code):
     results = []
 
@@ -429,6 +521,7 @@ def detour_report(results):
     any case may mean the solver is failing for another reason, not that the restriction works.
     """
     blocked = [result for result in results if result.outcome in ("detour", "no route")]
+    controls = [result for result in results if result.check == "control" and result.verdict in ("PASS", "FAIL")]
 
     if not blocked:
         return []
@@ -441,12 +534,23 @@ def detour_report(results):
     for message, number in messages.most_common():
         lines.append(f"  {number:>3} x solver said: {message}")
 
+    if controls:
+        allowed = [result for result in controls if result.verdict == "PASS"]
+        lines.append(f"Controls: {len(allowed)} of {len(controls)} ordinary junction moves still worked with the restrictions on.")
+
     if none and not detours:
-        lines.append(
-            "WARNING: no case found a detour. Every blocked case ended with no route, so these results cannot tell "
-            "a working restriction from a solver that fails for another reason. Solve one case by hand in Pro with "
-            "OneWay and TrafficTurn ticked, for example the QUINPOOL RD -> ROBIE ST turn, and compare."
-        )
+        if controls and not [result for result in controls if result.verdict == "PASS"]:
+            lines.append(
+                "WARNING: no ordinary turn works with the restrictions on, so every blocked case ended with no route "
+                "because turns in general are blocked, not because of the prohibited turn. Look at the TrafficTurn "
+                "evaluators (the default turn evaluator is restricted in the template)."
+            )
+        else:
+            lines.append(
+                "WARNING: no case found a detour. Every blocked case ended with no route, so these results cannot tell "
+                "a working restriction from a solver that fails for another reason. Solve one case by hand in Pro with "
+                "OneWay and TrafficTurn ticked, for example the QUINPOOL RD -> ROBIE ST turn, and compare."
+            )
 
     return lines
 
@@ -476,15 +580,21 @@ def main():
 
     arcpy.CheckOutExtension("Network")
     edges = load_edges(paths["edge"])
-    chosen, not_found = choose_turns(load_turns(paths["turn"]), edges, NAMED_TURNS, SAMPLE_TURNS, SEED)
+    turns = load_turns(paths["turn"])
+    chosen, not_found = choose_turns(turns, edges, NAMED_TURNS, SAMPLE_TURNS, SEED)
     by_code = choose_oneway(edges, SAMPLE_ONEWAY_PER_CODE, SEED)
+    controls = choose_control_pairs(edges, turns, SAMPLE_CONTROLS, SEED)
     spatial_reference = arcpy.Describe(paths["edge"]).spatialReference
     solver = RouteSolver(paths["network"], spatial_reference)
-    print(f"{len(edges):,} edges; testing {len(chosen)} turns and "
+    print(f"{len(edges):,} edges; testing {len(chosen)} turns, {len(controls)} control junctions and "
           f"{sum(len(items) for items in by_code.values())} one way edges.")
 
     try:
-        results = run_turn_checks(solver, chosen, edges, not_found) + run_oneway_checks(solver, by_code)
+        results = (
+            run_turn_checks(solver, chosen, edges, not_found)
+            + run_control_checks(solver, controls, edges)
+            + run_oneway_checks(solver, by_code)
+        )
     finally:
         solver.close()
 
